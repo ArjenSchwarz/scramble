@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scramble — Direction Prototypes</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #08090F;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+      color: #E8ECF4;
+    }
+    .intro-card {
+      width: 460px; padding: 28px 30px;
+      background: linear-gradient(160deg, #141B2D 0%, #0F1422 100%);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px; color: #E8ECF4;
+      font-family: -apple-system, system-ui, sans-serif;
+    }
+    .intro-card h2 { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+    .intro-card .sub { color: #7A8299; font-size: 12px; }
+    .intro-card .sect { margin-top: 18px; }
+    .intro-card .label {
+      font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+      color: #64D2FF; margin-bottom: 6px;
+    }
+    .intro-card p { margin: 0 0 6px; font-size: 13px; line-height: 1.5; color: #C8CDD8; }
+    .intro-card .pros { margin: 6px 0 0; padding: 0; list-style: none; }
+    .intro-card .pros li {
+      font-size: 12px; line-height: 1.45; color: #9BA3B3;
+      padding-left: 16px; position: relative; margin-bottom: 3px;
+    }
+    .intro-card .pros li::before {
+      content: "+"; position: absolute; left: 0; color: #30D158; font-weight: 800;
+    }
+    .intro-card .cons li::before { content: "−"; color: #FF9F0A; }
+  </style>
+</head>
+<body>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="direction-a.jsx"></script>
+
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="env,react">
+    const { DesignCanvas, DCSection, DCArtboard } = window;
+
+    function IntroCard() {
+      return (
+        <div className="intro-card">
+          <h2>Timeline-spine — packing drill-in</h2>
+          <div className="sub">Showing how packing fits inside the timeline metaphor.</div>
+
+          <div className="sect">
+            <div className="label">The pattern</div>
+            <p>Packing lives on two timeline nodes: <strong>Departure</strong> (pack) and <strong>Day before return</strong> (repack). Both expand to show a per-person summary.</p>
+            <p>Tapping a person opens a <strong>bottom sheet</strong> with their full item list — not a separate screen, not a tab. You stay anchored to the timeline; closing returns you to the exact same scroll position.</p>
+          </div>
+
+          <div className="sect">
+            <div className="label">Why a sheet, not a screen</div>
+            <ul className="pros">
+              <li>Keeps the timeline as your spatial home</li>
+              <li>No navigation stack to back out of</li>
+              <li>Switching between people = close + tap next</li>
+              <li>Same UI handles pack mode and repack mode — only the groupings change</li>
+            </ul>
+          </div>
+
+          <div className="sect">
+            <div className="label">Inside the sheet</div>
+            <p>All four packing states are visible: <em>still need to pack</em>, <em>packed</em>, and <em>not bringing</em>. Each item has a "?" affordance — tap to see exactly which rule put it there. Items can be skipped (excluded) or restored without leaving the sheet.</p>
+          </div>
+
+          <div className="sect">
+            <div className="label">Repack mode (Day before return)</div>
+            <p>Same sheet, regrouped: <em>still in suitcase</em> / <em>back in suitcase</em> / <em>left behind</em>. The check confirms repacked. The four-state model means we can show "left behind" items distinctly from items that were never coming home.</p>
+          </div>
+
+          <div className="sect">
+            <div className="label">What's on the canvas</div>
+            <p style={{ color: "#7A8299" }}>Three artboards: the timeline as you'd open it, then the same timeline with Arjen's packing sheet open, then the same UI in repack mode. Click any artboard label to focus fullscreen.</p>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      return (
+        <DesignCanvas title="Scramble — Timeline-spine" subtitle="Midnight Atlas, dark · 14 days before Barcelona · 'day before' phase">
+          <DCSection id="intro" title="Notes">
+            <DCArtboard id="intro-card" label="Read me first" width={520} height={620}>
+              <IntroCard />
+            </DCArtboard>
+          </DCSection>
+          <DCSection id="timeline" title="Timeline">
+            <DCArtboard id="timeline-base" label="1 · Timeline (Departure expanded)" width={420} height={820}>
+              <div style={{ display: "flex", justifyContent: "center", paddingTop: 30 }}>
+                <window.DirectionA initialPhase={2} initialSheet={null} />
+              </div>
+            </DCArtboard>
+            <DCArtboard id="timeline-sheet" label="2 · Tap Arjen → packing sheet" width={420} height={820}>
+              <div style={{ display: "flex", justifyContent: "center", paddingTop: 30 }}>
+                <window.DirectionA initialPhase={2} initialSheet={{ mode: "pack", person: 0 }} />
+              </div>
+            </DCArtboard>
+            <DCArtboard id="timeline-repack" label="3 · Day before return → repack sheet" width={420} height={820}>
+              <div style={{ display: "flex", justifyContent: "center", paddingTop: 30 }}>
+                <window.DirectionA initialPhase={4} initialSheet={{ mode: "repack", person: 0 }} />
+              </div>
+            </DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
