@@ -4,9 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Scramble is a native iOS app (macOS planned later) for trip planning, packing, and shared family coordination via CloudKit. The repository currently contains **only design documents** — no Swift code, Xcode project, or build tooling exists yet. Implementation has not started.
+Scramble is a native iOS app (macOS planned later) for trip planning, packing, and shared family coordination via CloudKit. The Xcode project exists but holds only template scaffolding (`Item`, `ContentView`); no real models, views, or rules engine have been written yet.
 
-When implementation begins: iOS 26+, Swift 6.2, SwiftUI, SwiftData, CloudKit (CKShare for per-trip sharing).
+Stack: iOS 26+, Swift 6.0 language mode (Xcode 26 toolchain), SwiftUI, SwiftData, CloudKit (CKShare for per-trip sharing). Bundle ID `me.nore.ig.Scramble`, CloudKit container `iCloud.me.nore.ig.scramble`. Project lives at `Scramble/Scramble.xcodeproj` (nested folder, standard Xcode layout).
+
+## Build, test, run
+
+Use the Makefile — do not invoke `xcodebuild` directly. Common targets:
+
+| Command | Purpose |
+|---|---|
+| `make` (or `make help`) | List all targets |
+| `make build` | Build Debug for iOS Simulator |
+| `make test-quick` | Unit tests only (`ScrambleTests`) — inner loop |
+| `make test` | Full suite incl. UI tests — run before pushing |
+| `make test-ui` | UI tests only (`ScrambleUITests`) |
+| `make install` / `make run` | Build + install + launch on connected device |
+| `make lint` / `make format` | swiftlint / swift-format (no-op if not installed) |
+| `make clean` | Remove `./DerivedData` |
+
+Overrides: `CONFIG=Release`, `SIMULATOR='iPhone 17'`, `DEVICE_MODEL='iPhone 16'`. Defaults are `iPhone 17 Pro` for both.
+
+The Makefile pipes through `xcbeautify` if installed and uses repo-local `./DerivedData/` (gitignored) so install/run paths are predictable. Simulator tests run **serially** (`-parallel-testing-worker-count 1`) — parallel simulator clones race on launch and produce flakes; don't change this without good reason.
 
 ## Source of truth
 
