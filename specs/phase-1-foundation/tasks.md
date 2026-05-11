@@ -119,7 +119,7 @@ references:
 
 ## UI components
 
-- [ ] 14. Implement PersonAvatar view <!-- id:1n8gand -->
+- [x] 14. Implement PersonAvatar view <!-- id:1n8gand -->
   - Add Components/PersonAvatar.swift. Reads theme from environment to resolve color from colorKey.
   - Three sizes (compact 14, standard 26, large 36). isActive flag affects border opacity.
   - Pure SwiftUI render component — visual contract validated via UI tests in later tasks.
@@ -129,7 +129,7 @@ references:
   - Stream: 1
   - Requirements: [10.1](requirements.md#10.1), [10.2](requirements.md#10.2), [10.3](requirements.md#10.3)
 
-- [ ] 15. Implement PhaseNodeMarker view <!-- id:1n8gane -->
+- [x] 15. Implement PhaseNodeMarker view <!-- id:1n8gane -->
   - Add Components/PhaseNodeMarker.swift with PhaseNodeState enum (past, current, future) and the marker view.
   - Past = filled circle in phaseColor with white SF Symbol checkmark; Current = filled circle in phaseColor (no glow ring per Decision 13); Future = clear circle with 1.5pt stroke in phaseColor.
   - Full PhaseNode visual treatment (glow ring, NOW pill) is out of scope per Non-Goals; ship only the three distinct states.
