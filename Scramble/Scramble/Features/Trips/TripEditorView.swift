@@ -260,7 +260,7 @@ import SwiftUI
         VStack(alignment: .leading, spacing: 2) {
           Text(person.name.isEmpty ? "Unnamed" : person.name)
             .foregroundStyle(.primary)
-          Text(person.colorKey)
+          Text(theme.personPalette.entry(forKey: person.colorKey)?.displayName ?? person.colorKey)
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
