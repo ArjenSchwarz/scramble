@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 1 app shell: `RootView` (`Scramble/Scramble/Features/Root/RootView.swift`) with a two-tab `TabView` (Trips / Master Lists) using `suitcase` and `list.bullet.rectangle` SF Symbols. Default selected tab is Trips. Liquid Glass treatment is system-applied to the root TabView on iOS 26.
+- `TripsTab` (`Scramble/Scramble/Features/Trips/TripsTab.swift`) and `MasterListsTab` (`Scramble/Scramble/Features/MasterLists/MasterListsTab.swift`) placeholder views, each wrapping a `NavigationStack` with `ContentUnavailableView` describing that real content arrives in later tasks.
+
+### Changed
+
+- `ScrambleApp` now references `RootView` directly, wires `.environment(\.theme, .midnightAtlas)`, and uses `ModelStore.shared` as the model container — replacing the Xcode template's inline schema, in-memory-on-test branching, and fallback container construction.
+
+### Removed
+
+- Template scaffolding files `Scramble/Scramble/Item.swift` and `Scramble/Scramble/ContentView.swift`. The model container schema now comes from `SchemaV1` and the root view from `RootView`.
+
 - Phase 1 UI components: `PersonAvatar` (`Scramble/Scramble/Components/PersonAvatar.swift`) — pure SwiftUI render component reading the active theme and `colorScheme` from the environment to resolve the person colour from `colorKey`. Three sizes via nested `PersonAvatar.Size` enum (compact 14pt, standard 26pt, large 36pt). Renders a circle with 16% colour fill, 1.5pt border at 33% opacity (inactive) or 100% (active, via `isActive` flag), and the name's first grapheme uppercased at full colour opacity in `.heavy` weight sized to ~42% of the diameter.
 - `PhaseNodeMarker` (`Scramble/Scramble/Components/PhaseNodeMarker.swift`) with top-level `PhaseNodeState` enum (`past`, `current`, `future`) — past renders a filled circle in the phase colour with a centred white SF Symbol checkmark; current renders a filled circle in the phase colour (no glow ring per Decision 13); future renders a clear circle with a 1.5pt stroke in the phase colour. Configurable `diameter` with a 20pt default.
 

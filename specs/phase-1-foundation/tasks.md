@@ -139,7 +139,7 @@ references:
 
 ## App shell
 
-- [ ] 16. Refactor app shell: replace template, wire RootView + ModelStore + theme env <!-- id:1n8ganf -->
+- [x] 16. Refactor app shell: replace template, wire RootView + ModelStore + theme env <!-- id:1n8ganf -->
   - Delete Models/Item.swift (template), replace ContentView.swift (or delete and reference RootView from ScrambleApp).
   - Update ScrambleApp.swift to use ModelStore.shared and inject .environment(\.theme, .midnightAtlas).
   - Add Features/Root/RootView.swift with TabView containing two tabs (Trips, Master Lists; Liquid Glass treatment is system-applied to root TabView in iOS 26).
