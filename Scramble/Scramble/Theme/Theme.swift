@@ -35,6 +35,16 @@ nonisolated struct ThemeVariant: Equatable, Sendable {
   let checkColour: Color
   let warnColour: Color
   let phaseColours: [Color]
+
+  /// Looks up the colour for a `Phase` by its position in `Phase.allCases`.
+  /// Falls back to `textSecondary` if a theme variant supplies fewer entries
+  /// than there are phases — avoids a crash if a future theme is misconfigured.
+  func phaseColour(for phase: Phase) -> Color {
+    guard let index = Phase.allCases.firstIndex(of: phase),
+          phaseColours.indices.contains(index)
+    else { return textSecondary }
+    return phaseColours[index]
+  }
 }
 
 struct ThemeKey: EnvironmentKey {

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 /// Helpers for applying a `TripDraft` to the model context.
 ///
@@ -26,7 +27,19 @@ import SwiftData
     let descriptor = FetchDescriptor<Person>(
       predicate: #Predicate<Person> { idSet.contains($0.id) }
     )
-    let fetched = (try? context.fetch(descriptor)) ?? []
+    let fetched: [Person]
+    do {
+      fetched = try context.fetch(descriptor)
+    } catch {
+      // A fetch failure here (corrupt store, mid-migration schema mismatch)
+      // would silently drop every participant from the trip on save. Surface
+      // it via the persistence logger and treat the trip as having no
+      // resolvable participants so the orphan path lights up downstream.
+      modelLogger.error(
+        "TripPersistence.resolveParticipants fetch failed: \(error.localizedDescription, privacy: .public)"
+      )
+      fetched = []
+    }
     let byID = Dictionary(uniqueKeysWithValues: fetched.map { ($0.id, $0) })
     let missing = ids.filter { byID[$0] == nil }
     // Preserve the user-chosen order from the draft when assigning.

@@ -182,7 +182,7 @@ import SwiftUI
                 end: trip.endDate,
                 calendar: calendar
               ),
-              phaseColor: variant.phaseColours[index],
+              phaseColor: variant.phaseColour(for: phase),
               diameter: 22
             )
             if index < Phase.allCases.count - 1 {

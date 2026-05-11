@@ -19,6 +19,7 @@ import SwiftUI
 
   @State private var name: String = ""
   @State private var selectedKey: String = ""
+  @State private var saveError: String?
 
   var body: some View {
     NavigationStack {
@@ -50,6 +51,18 @@ import SwiftUI
         }
       }
       .onAppear(perform: assignDefaultColour)
+      .alert(
+        "Couldn't save person",
+        isPresented: Binding(
+          get: { saveError != nil },
+          set: { if !$0 { saveError = nil } }
+        ),
+        presenting: saveError
+      ) { _ in
+        Button("OK", role: .cancel) { saveError = nil }
+      } message: { message in
+        Text(message)
+      }
     }
   }
 
@@ -121,8 +134,8 @@ import SwiftUI
       newlyCreated = person
       dismiss()
     } catch {
-      // Surface the failure but don't crash the editor; the user can retry or cancel.
       context.rollback()
+      saveError = error.localizedDescription
     }
   }
 }
