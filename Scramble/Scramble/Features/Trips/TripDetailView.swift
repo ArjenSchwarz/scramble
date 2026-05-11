@@ -63,8 +63,13 @@ import SwiftUI
     ) {
       Button("Delete \(trip.name.isEmpty ? "trip" : trip.name)", role: .destructive) {
         modelContext.delete(trip)
-        try? modelContext.save()
-        dismiss()
+        do {
+          try modelContext.save()
+          dismiss()
+        } catch {
+          modelContext.rollback()
+          toastMessage = "Delete failed — try again."
+        }
       }
       Button("Cancel", role: .cancel) {}
     } message: {
@@ -80,18 +85,12 @@ import SwiftUI
           return false
         }
         if !orphans.isEmpty {
-          toastMessage = orphanMessage(count: orphans.count)
+          toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
         }
         return true
       }
     }
     .transientToast(message: $toastMessage)
-  }
-
-  private func orphanMessage(count: Int) -> String {
-    count == 1
-      ? "1 participant was removed during save (already deleted on another device)"
-      : "\(count) participants were removed during save (already deleted on another device)"
   }
 
   private func header(variant: ThemeVariant) -> some View {
@@ -100,7 +99,7 @@ import SwiftUI
         .font(.title2.weight(.semibold))
         .foregroundStyle(variant.textPrimary)
 
-      Text(formatDateRange(start: trip.startDate, end: trip.endDate))
+      Text(formatTripDateRange(start: trip.startDate, end: trip.endDate))
         .font(.subheadline)
         .foregroundStyle(variant.textSecondary)
 
@@ -116,6 +115,15 @@ import SwiftUI
       )
       .font(.caption)
       .foregroundStyle(variant.textSecondary)
+
+      if !trip.participants.isEmpty {
+        HStack(spacing: -6) {
+          ForEach(trip.participants) { person in
+            PersonAvatar(name: person.name, colorKey: person.colorKey, size: .standard)
+          }
+        }
+        .padding(.top, 4)
+      }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal)
@@ -140,7 +148,7 @@ import SwiftUI
                 editAttributeFocus = attr
                 showEditor = true
               } label: {
-                Text(value)
+                Text(value.attributeValueDisplay)
                   .font(.subheadline)
                   .padding(.horizontal, 12)
                   .padding(.vertical, 6)
@@ -212,6 +220,7 @@ import SwiftUI
     }
   }
 
+  // swiftlint:disable:next cyclomatic_complexity
   static func state(
     for phase: Phase,
     today: Date,
@@ -252,9 +261,4 @@ import SwiftUI
       return today <= end ? .future : .current
     }
   }
-}
-
-private func formatDateRange(start: Date, end: Date) -> String {
-  let style = Date.FormatStyle.dateTime.day().month(.abbreviated).year(.defaultDigits)
-  return "\(start.formatted(style)) – \(end.formatted(style))"
 }

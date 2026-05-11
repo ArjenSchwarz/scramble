@@ -22,11 +22,15 @@ import SwiftUI
     var placeholderText: String {
       switch self {
       case .packing:
-        return
-          "Master packing items arrive in a later phase. You'll define reusable items here that automatically populate trips based on attribute rules."
+        return """
+          Master packing items arrive in a later phase. You'll define reusable items here \
+          that automatically populate trips based on attribute rules.
+          """
       case .tasks:
-        return
-          "Master tasks arrive in a later phase. You'll define reusable tasks here that automatically populate trips based on attribute rules."
+        return """
+          Master tasks arrive in a later phase. You'll define reusable tasks here that \
+          automatically populate trips based on attribute rules.
+          """
       }
     }
   }

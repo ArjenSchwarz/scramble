@@ -9,7 +9,7 @@
   /// Only compiled in DEBUG builds; production binaries cannot be seeded.
   @MainActor
   enum UITestSeed {
-    static let launchArgKey = "-seed-fixture"
+    static let launchArgKey = UITestArguments.seedFixtureKey
 
     enum Fixture: String {
       case oneQualifyingTrip = "one-qualifying-trip"

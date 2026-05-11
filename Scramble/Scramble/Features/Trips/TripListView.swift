@@ -14,10 +14,10 @@ import SwiftUI
   private var calendar: Calendar { Calendar.current }
   private var today: Date { calendar.startOfDay(for: .now) }
 
+  // @Query already sorts by startDate ascending, so the Active filter doesn't
+  // need a second sort. Previous is re-sorted by endDate descending per AC 5.2.
   private var activeTrips: [Trip] {
-    allTrips
-      .filter { calendar.startOfDay(for: $0.endDate) >= today }
-      .sorted { $0.startDate < $1.startDate }
+    allTrips.filter { calendar.startOfDay(for: $0.endDate) >= today }
   }
 
   private var previousTrips: [Trip] {
@@ -69,18 +69,12 @@ import SwiftUI
           return false
         }
         if !orphans.isEmpty {
-          toastMessage = orphanMessage(count: orphans.count)
+          toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
         }
         return true
       }
     }
     .transientToast(message: $toastMessage)
-  }
-
-  private func orphanMessage(count: Int) -> String {
-    count == 1
-      ? "1 participant was removed during save (already deleted on another device)"
-      : "\(count) participants were removed during save (already deleted on another device)"
   }
 
   private func newTripButton(accent: Color) -> some View {
@@ -117,7 +111,7 @@ private struct TripRow: View {
       Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
         .font(.headline)
 
-      Text(formatDateRange(start: trip.startDate, end: trip.endDate))
+      Text(formatTripDateRange(start: trip.startDate, end: trip.endDate))
         .font(.subheadline)
         .foregroundStyle(.secondary)
 
@@ -133,12 +127,16 @@ private struct TripRow: View {
       )
       .font(.caption)
       .foregroundStyle(.secondary)
+
+      if !trip.participants.isEmpty {
+        HStack(spacing: -4) {
+          ForEach(trip.participants) { person in
+            PersonAvatar(name: person.name, colorKey: person.colorKey, size: .compact)
+          }
+        }
+        .padding(.top, 2)
+      }
     }
     .padding(.vertical, 2)
   }
-}
-
-private func formatDateRange(start: Date, end: Date) -> String {
-  let style = Date.FormatStyle.dateTime.day().month(.abbreviated).year(.defaultDigits)
-  return "\(start.formatted(style)) – \(end.formatted(style))"
 }

@@ -8,7 +8,7 @@ nonisolated enum MidnightAtlas {
   /// Canonical order of person palette keys. Tests and `nextUnusedKey` both
   /// depend on this ordering.
   static let paletteKeys: [String] = [
-    "Cyan", "Pink", "Yellow", "Green", "Purple", "Orange", "Red", "Teal",
+    "Cyan", "Pink", "Yellow", "Green", "Purple", "Orange", "Red", "Teal"
   ]
 
   static let palette = PersonPalette(entries: [
@@ -22,7 +22,7 @@ nonisolated enum MidnightAtlas {
     PaletteEntry(
       key: "Orange", displayName: "Orange", dark: .hex6(0xFF9F0A), light: .hex6(0xE08600)),
     PaletteEntry(key: "Red", displayName: "Red", dark: .hex6(0xFF6961), light: .hex6(0xE04848)),
-    PaletteEntry(key: "Teal", displayName: "Teal", dark: .hex6(0x00C7BE), light: .hex6(0x00A0A0)),
+    PaletteEntry(key: "Teal", displayName: "Teal", dark: .hex6(0x00C7BE), light: .hex6(0x00A0A0))
   ])
 
   static let dark = ThemeVariant(
@@ -41,7 +41,7 @@ nonisolated enum MidnightAtlas {
       .hex6(0xFFD60A),  // duringTrip
       .hex6(0xFF9F0A),  // dayBeforeReturn
       .hex6(0xFF6961),  // returnDay
-      .hex6(0x7A8299),  // afterTrip
+      .hex6(0x7A8299)   // afterTrip
     ]
   )
 
@@ -61,7 +61,7 @@ nonisolated enum MidnightAtlas {
       .hex6(0xC09000),  // duringTrip   — matches Yellow light
       .hex6(0xE08600),  // dayBeforeReturn — matches warnColour light
       .hex6(0xE04848),  // returnDay    — matches Red light
-      .hex6(0x6B7A8D),  // afterTrip    — matches textSecondary light
+      .hex6(0x6B7A8D)   // afterTrip    — matches textSecondary light
     ]
   )
 }
@@ -84,9 +84,9 @@ extension Color {
     return Color(.sRGB, red: r, green: g, blue: b, opacity: 1.0)
   }
 
-  fileprivate nonisolated static func rgba(_ r: Double, _ g: Double, _ b: Double, _ a: Double)
-    -> Color
-  {
+  fileprivate nonisolated static func rgba(
+    _ r: Double, _ g: Double, _ b: Double, _ a: Double
+  ) -> Color {
     Color(.sRGB, red: r / 255.0, green: g / 255.0, blue: b / 255.0, opacity: a)
   }
 }

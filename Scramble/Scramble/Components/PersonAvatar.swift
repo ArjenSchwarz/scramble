@@ -34,15 +34,10 @@ struct PersonAvatar: View {
         Circle().strokeBorder(color.opacity(borderOpacity), lineWidth: 1.5)
       )
       .overlay(
-        Text(initial)
+        Text(name.firstGraphemeUppercased)
           .font(.system(size: diameter * 0.42, weight: .heavy))
           .foregroundStyle(color)
       )
       .frame(width: diameter, height: diameter)
-  }
-
-  private var initial: String {
-    guard let first = name.first else { return "?" }
-    return String(first).uppercased()
   }
 }

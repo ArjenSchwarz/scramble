@@ -14,7 +14,7 @@ nonisolated enum SchemaV1: VersionedSchema {
       MasterTaskItem.self,
       MasterPackingItem.self,
       TripTask.self,
-      TripPackingItem.self,
+      TripPackingItem.self
     ]
   }
 }

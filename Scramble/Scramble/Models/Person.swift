@@ -23,8 +23,16 @@ final class Person {
 }
 
 extension Person {
-  var initial: String {
-    guard let first = name.first else { return "?" }
+  var initial: String { name.firstGraphemeUppercased }
+}
+
+extension String {
+  /// First grapheme of the string, uppercased; falls back to "?" when empty.
+  /// Used by `Person.initial` and `PersonAvatar` to render the same letter
+  /// from a name. Returns the full grapheme cluster (e.g. ZWJ-joined emoji);
+  /// `.uppercased()` is a no-op for those.
+  var firstGraphemeUppercased: String {
+    guard let first = first else { return "?" }
     return String(first).uppercased()
   }
 }

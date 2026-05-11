@@ -27,10 +27,10 @@ import SwiftData
       predicate: #Predicate<Person> { idSet.contains($0.id) }
     )
     let fetched = (try? context.fetch(descriptor)) ?? []
-    let fetchedIDs = Set(fetched.map(\.id))
-    let missing = ids.filter { !fetchedIDs.contains($0) }
+    let byID = Dictionary(uniqueKeysWithValues: fetched.map { ($0.id, $0) })
+    let missing = ids.filter { byID[$0] == nil }
     // Preserve the user-chosen order from the draft when assigning.
-    let ordered = ids.compactMap { id in fetched.first(where: { $0.id == id }) }
+    let ordered = ids.compactMap { byID[$0] }
     return ResolvedParticipants(resolved: ordered, missingIDs: missing)
   }
 
@@ -60,4 +60,18 @@ import SwiftData
     trip.participants = resolved.resolved
     return resolved.missingIDs
   }
+
+  static func orphanedParticipantMessage(count: Int) -> String {
+    count == 1
+      ? "1 participant was removed during save (already deleted on another device)"
+      : "\(count) participants were removed during save (already deleted on another device)"
+  }
+}
+
+/// Trip-date range formatter shared by `TripListView` and `TripDetailView`.
+/// Kept as a free function (vs an extension on `Date`) because it operates on
+/// a pair of dates and only ever renders in one canonical style.
+nonisolated func formatTripDateRange(start: Date, end: Date) -> String {
+  let style = Date.FormatStyle.dateTime.day().month(.abbreviated).year(.defaultDigits)
+  return "\(start.formatted(style)) – \(end.formatted(style))"
 }

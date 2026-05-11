@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import os
 
 @Model
 final class Trip {
@@ -30,32 +29,22 @@ final class Trip {
     self.name = name
     self.startDate = startDate
     self.endDate = endDate
-    self.attributesData = (try? JSONEncoder().encode(attributes)) ?? Data()
+    self.attributesData = CodableBridge.encode(attributes, label: "Trip.attributes")
   }
 }
 
 extension Trip {
   var attributes: TripAttributes {
     get {
-      guard !attributesData.isEmpty else { return TripAttributes() }
-      do {
-        return try JSONDecoder().decode(TripAttributes.self, from: attributesData)
-      } catch {
-        modelLogger.error(
-          "Trip.attributes decode failed: \(error.localizedDescription, privacy: .public)"
-        )
-        return TripAttributes()
-      }
+      CodableBridge.decode(
+        attributesData,
+        as: TripAttributes.self,
+        default: TripAttributes(),
+        label: "Trip.attributes"
+      )
     }
     set {
-      do {
-        attributesData = try JSONEncoder().encode(newValue)
-      } catch {
-        modelLogger.error(
-          "Trip.attributes encode failed: \(error.localizedDescription, privacy: .public)"
-        )
-        attributesData = Data()
-      }
+      attributesData = CodableBridge.encode(newValue, label: "Trip.attributes")
     }
   }
 }

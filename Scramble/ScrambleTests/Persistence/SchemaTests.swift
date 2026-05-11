@@ -429,7 +429,7 @@ struct SchemaTests {
     let item = MasterTaskItem(name: "Test")
     item.conditions = .all([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .duration, anyOf: ["week"]),
+      .match(attribute: .duration, anyOf: ["week"])
     ])
     if case .all(let children) = item.conditions {
       #expect(children.count == 2)

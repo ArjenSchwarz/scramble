@@ -83,11 +83,11 @@ final class TripCRUDUITests: XCTestCase {
 
     app.buttons["Save"].tap()
 
-    // Back on Trip Detail — chips render as Buttons with the raw lowercase
-    // value as the label (see `TripDetailView.chipRow`).
+    // Back on Trip Detail — chips render the display form ("Rain") consistent
+    // with the editor's picker rows (see `TripDetailView.chipRow`).
     XCTAssertTrue(
-      app.buttons["rain"].waitForExistence(timeout: 3),
-      "After save, the Weather chip 'rain' should appear in the Trip Detail header"
+      app.buttons["Rain"].waitForExistence(timeout: 3),
+      "After save, the Weather chip 'Rain' should appear in the Trip Detail header"
     )
   }
 

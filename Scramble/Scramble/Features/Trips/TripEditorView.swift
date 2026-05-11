@@ -186,11 +186,10 @@ import SwiftUI
 
   private func singleSelectPicker(for attribute: TripAttribute) -> some View {
     let values = TripAttributeOptions.values(for: attribute)
-    let selected = draft.attributes.selected(attribute).first
     return Picker(
       attribute.displayName,
       selection: Binding<String?>(
-        get: { selected },
+        get: { draft.attributes.selected(attribute).first },
         set: { draft.attributes.setSingle(attribute, value: $0) }
       )
     ) {
@@ -341,10 +340,13 @@ import SwiftUI
 
   // MARK: - Derived people
 
+  private var peopleByID: [UUID: Person] {
+    Dictionary(uniqueKeysWithValues: allPeople.map { ($0.id, $0) })
+  }
+
   private var orderedSelectedPeople: [Person] {
-    draft.participantIDs.compactMap { id in
-      allPeople.first { $0.id == id }
-    }
+    let byID = peopleByID
+    return draft.participantIDs.compactMap { byID[$0] }
   }
 
   private var orderedUnselectedPeople: [Person] {

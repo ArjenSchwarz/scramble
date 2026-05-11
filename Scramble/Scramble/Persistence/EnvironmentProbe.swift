@@ -19,9 +19,9 @@ nonisolated struct EnvironmentProbe: Sendable {
   }
 
   var isUITestHost: Bool {
-    guard let idx = arguments.firstIndex(of: "-uitest") else { return false }
+    guard let idx = arguments.firstIndex(of: UITestArguments.uitestFlag) else { return false }
     let next = arguments.index(after: idx)
-    return next < arguments.endIndex && arguments[next] == "1"
+    return next < arguments.endIndex && arguments[next] == UITestArguments.uitestValue
   }
 
   var isPreview: Bool {

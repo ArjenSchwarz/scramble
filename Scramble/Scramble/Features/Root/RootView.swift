@@ -36,9 +36,9 @@ import SwiftUI
     static var modelStoreModeIdentifier: String {
       let probe = EnvironmentProbe.production
       if probe.isUITestHost || probe.isTest || probe.isPreview {
-        return "modelStore.in-memory"
+        return DebugAccessibilityID.modelStoreInMemory
       }
-      return "modelStore.cloud"
+      return DebugAccessibilityID.modelStoreCloud
     }
   #endif
 }

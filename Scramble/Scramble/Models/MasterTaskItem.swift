@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import os
 
 @Model
 final class MasterTaskItem {
@@ -18,7 +17,7 @@ final class MasterTaskItem {
     self.id = id
     self.name = name
     self.phaseRaw = phase.rawValue
-    self.conditionsData = (try? JSONEncoder().encode(conditions)) ?? Data()
+    self.conditionsData = CodableBridge.encode(conditions, label: "MasterTaskItem.conditions")
   }
 }
 
@@ -30,25 +29,15 @@ extension MasterTaskItem {
 
   var conditions: ItemConditions {
     get {
-      guard !conditionsData.isEmpty else { return .always }
-      do {
-        return try JSONDecoder().decode(ItemConditions.self, from: conditionsData)
-      } catch {
-        modelLogger.error(
-          "MasterTaskItem.conditions decode failed: \(error.localizedDescription, privacy: .public)"
-        )
-        return .always
-      }
+      CodableBridge.decode(
+        conditionsData,
+        as: ItemConditions.self,
+        default: .always,
+        label: "MasterTaskItem.conditions"
+      )
     }
     set {
-      do {
-        conditionsData = try JSONEncoder().encode(newValue)
-      } catch {
-        modelLogger.error(
-          "MasterTaskItem.conditions encode failed: \(error.localizedDescription, privacy: .public)"
-        )
-        conditionsData = Data()
-      }
+      conditionsData = CodableBridge.encode(newValue, label: "MasterTaskItem.conditions")
     }
   }
 }
