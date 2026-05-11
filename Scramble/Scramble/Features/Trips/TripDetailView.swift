@@ -12,6 +12,7 @@ import SwiftUI
   @State private var showEditor = false
   @State private var editAttributeFocus: TripAttribute?
   @State private var showDeleteConfirmation = false
+  @State private var toastMessage: String?
 
   private var calendar: Calendar { Calendar.current }
 
@@ -69,9 +70,27 @@ import SwiftUI
       Text("This will permanently remove the trip and all its data.")
     }
     .sheet(isPresented: $showEditor) {
-      Text("Trip editor placeholder")
-        .padding()
+      TripEditorView(mode: .edit(trip), focusAttribute: editAttributeFocus) { draft in
+        let orphans = TripPersistence.apply(draft, to: trip, in: modelContext)
+        do {
+          try modelContext.save()
+        } catch {
+          modelContext.rollback()
+          return false
+        }
+        if !orphans.isEmpty {
+          toastMessage = orphanMessage(count: orphans.count)
+        }
+        return true
+      }
     }
+    .transientToast(message: $toastMessage)
+  }
+
+  private func orphanMessage(count: Int) -> String {
+    count == 1
+      ? "1 participant was removed during save (already deleted on another device)"
+      : "\(count) participants were removed during save (already deleted on another device)"
   }
 
   private func header(variant: ThemeVariant) -> some View {

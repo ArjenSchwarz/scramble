@@ -180,13 +180,13 @@ references:
 
 ## Editor + People
 
-- [ ] 20. Tests: TripDraft.validate <!-- id:1n8ganj -->
+- [x] 20. Tests: TripDraft.validate <!-- id:1n8ganj -->
   - Add ScrambleTests/Features/TripDraftTests.swift table-driven over: empty name, end < start, both invalid, all valid.
   - Blocked-by: 1n8gan0 (Define core enums)
   - Stream: 1
   - Requirements: [8.1](requirements.md#8.1), [8.6](requirements.md#8.6)
 
-- [ ] 21. Implement TripDraft + TripEditorView + PersonEditor <!-- id:1n8gank -->
+- [x] 21. Implement TripDraft + TripEditorView + PersonEditor <!-- id:1n8gank -->
   - Add Features/Trips/TripDraft.swift (value-type draft + validate()).
   - Add Features/Trips/TripEditorView.swift (Form sections: name+dates, attribute pickers (4 single-select, 1 multi-select for weather), people add/remove with PersonAvatar rows, inline create affordance).
   - Add Features/People/PersonEditor.swift (sheet with name + palette picker showing 8 colors + duplicate-color advisory using nextUnusedKey result).
@@ -194,7 +194,7 @@ references:
   - Stream: 1
   - Requirements: [8.1](requirements.md#8.1), [8.2](requirements.md#8.2), [8.3](requirements.md#8.3), [8.4](requirements.md#8.4), [8.5](requirements.md#8.5), [8.6](requirements.md#8.6), [9.1](requirements.md#9.1), [9.3](requirements.md#9.3), [9.4](requirements.md#9.4), [9.5](requirements.md#9.5)
 
-- [ ] 22. Wire trip create/edit/delete + orphan-participant resolution <!-- id:1n8ganl -->
+- [x] 22. Wire trip create/edit/delete + orphan-participant resolution <!-- id:1n8ganl -->
   - Hook TripEditorView from TripListView (create) and TripDetailView (edit) including the orphanedParticipants toast: on save, resolve participantIDs via FetchDescriptor<Person>(predicate: #Predicate { ids.contains($0.id) }), drop missing IDs silently, surface a transient toast naming them.
   - Wire delete with confirmation from TripDetailView.
   - Wire person delete denial alert (catch SwiftData throw on .deny, list referencing trips/items).

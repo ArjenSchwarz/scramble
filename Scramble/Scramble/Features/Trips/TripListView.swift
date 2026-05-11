@@ -5,9 +5,11 @@ import SwiftUI
   @Query(sort: \Trip.startDate, order: .forward) private var allTrips: [Trip]
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.modelContext) private var modelContext
 
   @State private var showCreateEditor = false
   @State private var previousExpanded = false
+  @State private var toastMessage: String?
 
   private var calendar: Calendar { Calendar.current }
   private var today: Date { calendar.startOfDay(for: .now) }
@@ -58,9 +60,27 @@ import SwiftUI
     .listStyle(.insetGrouped)
     .navigationTitle("Trips")
     .sheet(isPresented: $showCreateEditor) {
-      Text("Trip editor placeholder")
-        .padding()
+      TripEditorView(mode: .create) { draft in
+        let (_, orphans) = TripPersistence.create(from: draft, in: modelContext)
+        do {
+          try modelContext.save()
+        } catch {
+          modelContext.rollback()
+          return false
+        }
+        if !orphans.isEmpty {
+          toastMessage = orphanMessage(count: orphans.count)
+        }
+        return true
+      }
     }
+    .transientToast(message: $toastMessage)
+  }
+
+  private func orphanMessage(count: Int) -> String {
+    count == 1
+      ? "1 participant was removed during save (already deleted on another device)"
+      : "\(count) participants were removed during save (already deleted on another device)"
   }
 
   private func newTripButton(accent: Color) -> some View {
