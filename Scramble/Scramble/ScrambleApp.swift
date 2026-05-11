@@ -10,6 +10,12 @@ import SwiftUI
 
 @main
 struct ScrambleApp: App {
+  init() {
+    #if DEBUG
+      UITestSeed.applyIfRequested(to: ModelStore.shared)
+    #endif
+  }
+
   var body: some Scene {
     WindowGroup {
       RootView()

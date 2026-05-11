@@ -19,5 +19,26 @@ import SwiftUI
         }
         .tag(Tab.masterLists)
     }
+    #if DEBUG
+      .background {
+        Color.clear
+          .frame(width: 1, height: 1)
+          .accessibilityElement()
+          .accessibilityIdentifier(Self.modelStoreModeIdentifier)
+      }
+    #endif
   }
+
+  #if DEBUG
+    /// Debug-only marker the UI tests use to assert the host app booted with
+    /// the in-memory `ModelContainer` (rather than the production CloudKit
+    /// container). See `AppLaunchUITests.testLaunchUsesInMemoryContainer`.
+    static var modelStoreModeIdentifier: String {
+      let probe = EnvironmentProbe.production
+      if probe.isUITestHost || probe.isTest || probe.isPreview {
+        return "modelStore.in-memory"
+      }
+      return "modelStore.cloud"
+    }
+  #endif
 }

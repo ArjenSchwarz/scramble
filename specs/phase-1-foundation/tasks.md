@@ -221,7 +221,7 @@ references:
 
 ## UI tests
 
-- [ ] 25. AppLaunchUITests <!-- id:1n8gano -->
+- [x] 25. AppLaunchUITests <!-- id:1n8gano -->
   - Add ScrambleUITests/AppLaunchUITests.swift. setUp constructs XCUIApplication, sets app.launchArguments = ['-uitest', '1'] BEFORE app.launch().
   - One test asserts the app launched with the in-memory container (via a debug-only accessibility identifier on RootView, e.g. 'modelStore.in-memory').
   - Add the debug-only accessibility identifier to RootView in this task (under #if DEBUG) since it is the test hook.
@@ -229,14 +229,14 @@ references:
   - Stream: 1
   - Requirements: [2.2](requirements.md#2.2)
 
-- [ ] 26. RootNavigationUITests <!-- id:1n8ganp -->
+- [x] 26. RootNavigationUITests <!-- id:1n8ganp -->
   - Add ScrambleUITests/RootNavigationUITests.swift covering: cold launch with zero trips → Trip List; cold launch with one qualifying trip → Trip Detail; cold launch with one non-qualifying trip → Trip List; cold launch with two qualifying trips → Trip List; tab bar hidden on Trip Detail and restored on pop; testAutoOpenDoesNotRefireOnTabSwitch (switch to Master Lists and back, assert auto-opened detail does not re-push).
   - Test fixtures use the in-memory container; pre-seed via a debug-only test-data launch argument (e.g., -seed-fixture 'one-qualifying-trip') that the app reads under #if DEBUG.
   - Blocked-by: 1n8gann (Implement TripsTab auto-open + predicate)
   - Stream: 1
   - Requirements: [4.3](requirements.md#4.3), [5.6](requirements.md#5.6), [5.7](requirements.md#5.7)
 
-- [ ] 27. TripCRUDUITests <!-- id:1n8ganq -->
+- [x] 27. TripCRUDUITests <!-- id:1n8ganq -->
   - Add ScrambleUITests/TripCRUDUITests.swift covering: create trip (tap +New, fill name+dates+attributes, save, verify in list); edit trip attributes (open detail, edit, change weather to multi-select, save, verify chips updated); delete trip (open detail, delete, confirm, verify trip disappears from list).
   - Blocked-by: 1n8ganl (Wire trip create/edit/delete + orphan-participant resolution)
   - Stream: 1

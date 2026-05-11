@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 1 UI test suite: `AppLaunchUITests` (`Scramble/ScrambleUITests/AppLaunchUITests.swift`) verifies `XCUIApplication.launchArguments = ["-uitest", "1"]` set BEFORE `launch()` produces the in-memory `ModelContainer`, asserted via the debug-only `modelStore.in-memory` accessibility identifier on `RootView`.
+- `RootNavigationUITests` (`Scramble/ScrambleUITests/RootNavigationUITests.swift`) covering cold-launch outcomes (zero / one-qualifying / one-non-qualifying / two-qualifying trips), tab bar hidden on Trip Detail and restored on pop, and `testAutoOpenDoesNotRefireOnTabSwitch` (auto-open guard survives a Trips → Master Lists → Trips round-trip per AC 5.7).
+- `TripCRUDUITests` (`Scramble/ScrambleUITests/TripCRUDUITests.swift`) exercising end-to-end create (tap +New, fill name, save → row appears), edit (open detail → menu → Edit → toggle Weather "Rain" → save → chip "rain" appears), and delete (open detail → menu → Delete Trip → confirm → row disappears).
+- `UITestSeed` (`Scramble/Scramble/Persistence/UITestSeed.swift`, DEBUG-only) parses the launch argument `-seed-fixture <name>` and pre-seeds the in-memory container before SwiftUI's first body pass. Fixtures: `one-qualifying-trip`, `one-non-qualifying-trip`, `two-qualifying-trips`, `single-editable-trip`. Production binaries cannot be seeded.
+
+### Changed
+
+- `RootView` (`Scramble/Scramble/Features/Root/RootView.swift`) attaches a 1pt invisible accessibility element under `#if DEBUG` exposing `modelStore.in-memory` (or `modelStore.cloud` in production-detection contexts) so UI tests can assert the host app booted with the in-memory store. The marker is compiled out of release builds.
+- `ScrambleApp.init` (`Scramble/Scramble/ScrambleApp.swift`) calls `UITestSeed.applyIfRequested(to: ModelStore.shared)` under `#if DEBUG`, ensuring fixtures land in the main context before `RootView`'s `@Query` evaluates and the auto-open `.task` fires.
+- `TripDetailView.swift` adds `.accessibilityLabel("Trip actions")` to the toolbar `Menu`'s `ellipsis.circle` icon so the button is reachable by both VoiceOver and `XCUIElementQuery`.
+
 - Phase 1 cold-launch auto-open: `singleQualifyingTrip(in:today:calendar:)` helper (`Scramble/Scramble/Features/Trips/TripsTab.swift`) that returns the single qualifying trip when exactly one matches (start ≤ today + 2 calendar days AND end ≥ today at calendar-day granularity); zero or two-or-more qualifying trips return `nil` per AC 5.6.
 - Swift Testing suite `TripsTabPredicateTests` (`ScrambleTests/Features/TripsTabPredicateTests.swift`) table-driven over empty trips, single qualifying, non-qualifying (start past today+2 / end before today), two qualifying, boundary edges (start = today+2, end = today, start = today), time-of-day on `today` not affecting the calendar-day comparison, and mixed sets where exactly one qualifies.
 

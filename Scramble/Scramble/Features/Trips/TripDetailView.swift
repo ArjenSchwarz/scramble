@@ -52,6 +52,7 @@ import SwiftUI
           }
         } label: {
           Image(systemName: "ellipsis.circle")
+            .accessibilityLabel("Trip actions")
         }
       }
     }
