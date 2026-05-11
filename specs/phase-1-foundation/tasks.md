@@ -106,12 +106,12 @@ references:
 
 ## Theme
 
-- [ ] 12. Tests: Theme + PersonPalette behaviour <!-- id:1n8ganb -->
+- [x] 12. Tests: Theme + PersonPalette behaviour <!-- id:1n8ganb -->
   - Add ScrambleTests/Theme/ThemeTests.swift covering: variant(for:.dark) and variant(for:.light) return the right ThemeVariant; personColor(key:in:) resolves all 8 Midnight Atlas palette keys for both schemes; PersonPalette.entry(forKey:) hit/miss; PersonPalette.nextUnusedKey behavior across empty / partial / full(8) sets (returns first canonical entry on full per design.md).
   - Stream: 1
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.5](requirements.md#3.5), [3.6](requirements.md#3.6)
 
-- [ ] 13. Implement Theme + ThemeVariant + PaletteEntry + PersonPalette + MidnightAtlas + ThemeKey <!-- id:1n8ganc -->
+- [x] 13. Implement Theme + ThemeVariant + PaletteEntry + PersonPalette + MidnightAtlas + ThemeKey <!-- id:1n8ganc -->
   - Add Theme/Theme.swift (struct definitions, Sendable conformance, EnvironmentKey, EnvironmentValues.theme extension), Theme/MidnightAtlas.swift (color/gradient constants per UI design doc table), Theme/PersonPalette.swift (palette types + nextUnusedKey).
   - Blocked-by: 1n8ganb (Tests: Theme + PersonPalette behaviour)
   - Stream: 1
