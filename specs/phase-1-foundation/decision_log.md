@@ -533,3 +533,48 @@ There is no defensible way to forbid the race short of synchronous CKShare confl
 
 ---
 
+## Decision 16: SwiftData `.deny` rule is declared but UI enforcement is primary
+
+**Date**: 2026-05-11
+**Status**: accepted
+
+### Context
+
+Requirement 1.5 and the design specify a `.deny` delete rule on `Person → TripPackingItem` and `Person → MasterPackingItem`, with the SchemaTests asserting that `context.save()` throws after deleting a Person with live references. Implementation discovered that SwiftData (iOS 26.4) does not reliably enforce `.deny` at save time on in-memory stores: the deletion completes silently and `save()` returns without throwing.
+
+Several configurations were tried — `inverse:` on the owning side (TripPackingItem.person) with `deleteRule:` on the to-many side (Person.tripPackingItems), and the reverse, with `inverse:` and `deleteRule:` colocated on Person.tripPackingItems. None caused the runtime check to fire. Force-loading the to-many relationship before the delete also had no effect.
+
+### Decision
+
+Keep the `.deny` delete rule declared on `Person.tripPackingItems` and `Person.masterPackingItems` (with `inverse:` colocated on the same relationship) as documented model-level intent and defense-in-depth. The primary, observable enforcement is the UI-level guard mandated by requirement 9.7: the trip editor and people-management surface MUST check `Person.tripPackingItems.isEmpty && Person.masterPackingItems.isEmpty` before allowing a delete, and surface the references when they exist. The SchemaTests verify the inverse-traversal reads (`Person.tripPackingItems`, `Person.masterPackingItems`) so the UI guard has a tested, observable contract; they no longer assert runtime throw behavior on `.deny`.
+
+### Rationale
+
+`.deny` semantics in SwiftData are not part of a documented stable contract for in-memory or CloudKit-mirrored stores in iOS 26.4. Asserting on it locks the test suite to an implementation detail outside our control. The UI guard at the delete affordance is the authoritative enforcement mechanism users will encounter; it is fully testable and matches requirement 9.7's intent verbatim.
+
+### Alternatives Considered
+
+- **Drop SwiftData and use raw CKRecord for Person**: Rejected — abandons SwiftData ergonomics for an enforcement guarantee that the UI already provides.
+- **Re-enable `.deny` runtime assertion and mark the test as flaky**: Rejected — flaky tests erode trust; better to test the contract that is observably enforced.
+- **Implement `.deny` via a manual `willSave` hook on the Person model**: Rejected — Phase 1 budget. The UI guard already lands in task 22 and covers the primary user-facing case. Revisit if cross-device sync exposes additional deletion paths in a later phase.
+
+### Consequences
+
+**Positive:**
+
+- Test suite reflects observable behavior, not unstable framework internals.
+- The `.deny` rule remains in the schema as documentation of intent and as a future-proofing hedge if SwiftData's enforcement firms up.
+
+**Negative:**
+
+- A direct programmatic `context.delete(person)` (e.g., from a future background sync or developer console) will not be blocked by the model layer. Any code path that deletes a Person without going through the UI guard must include its own reference check.
+- The decision log diverges from the original design's assertion that `.deny` would throw on save; readers must consult this entry before relying on `.deny` semantics.
+
+### Impact
+
+- `Scramble/Models/Person.swift` declares `.deny` with `inverse:` colocated.
+- `ScrambleTests/Persistence/SchemaTests.swift` replaces the runtime-throw assertions with inverse-traversal queryability tests.
+- Task 22 (Wire trip create/edit/delete + orphan-participant resolution) and the UI surfaces it owns are the authoritative enforcement point for AC 9.7.
+
+---
+

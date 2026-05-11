@@ -65,7 +65,7 @@ references:
 
 ## Persistence
 
-- [ ] 8. Tests: SwiftData schema + entities + relationships + delete rules <!-- id:1n8gan7 -->
+- [x] 8. Tests: SwiftData schema + entities + relationships + delete rules <!-- id:1n8gan7 -->
   - Add ScrambleTests/Persistence/SchemaTests.swift covering: container constructs with SchemaV1, all 6 entities round-trip, inverse relationships work both directions, cascade Trip→TripTask + Trip→TripPackingItem, deny Person→TripPackingItem and Person→MasterPackingItem (assert save throws), nullify on Person delete from Trip.participants, Person.initial extraction (first grapheme uppercased, '?' on empty), Codable bridge round-trip via attributesData↔attributes and conditionsData↔conditions, phaseRaw/sourceRaw/stateRaw bridge round-trip, masterItemID dangling reference tolerated.
   - Use in-memory ModelContainer (cloudKitDatabase:.none) constructed directly, not ModelStore.shared.
   - Person.initial test cases pin grapheme behavior across simple letters, accented letters, empty string, and ZWJ-joined emoji.
@@ -73,7 +73,7 @@ references:
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [1.3](requirements.md#1.3), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [1.8](requirements.md#1.8), [1.9](requirements.md#1.9), [1.10](requirements.md#1.10), [1.12](requirements.md#1.12), [1.13](requirements.md#1.13), [9.6](requirements.md#9.6), [9.7](requirements.md#9.7)
 
-- [ ] 9. Implement SwiftData entities + SchemaV1 + AppMigrationPlan <!-- id:1n8gan8 -->
+- [x] 9. Implement SwiftData entities + SchemaV1 + AppMigrationPlan <!-- id:1n8gan8 -->
   - Add Models/Trip.swift, Models/Person.swift, Models/MasterTaskItem.swift, Models/MasterPackingItem.swift, Models/TripTask.swift, Models/TripPackingItem.swift, Models/Schema.swift (VersionedSchema + empty SchemaMigrationPlan).
   - Inverse declared on owning side only: Trip.participants(inverse:\Person.trips), Trip.tasks(inverse:\TripTask.trip), Trip.packingItems(inverse:\TripPackingItem.trip), TripPackingItem.person(inverse:\Person.tripPackingItems), MasterPackingItem.person(inverse:\Person.masterPackingItems).
   - Non-owning side: plain @Relationship var (no inverse argument).
@@ -85,7 +85,7 @@ references:
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [1.3](requirements.md#1.3), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [1.8](requirements.md#1.8), [1.10](requirements.md#1.10), [1.12](requirements.md#1.12), [1.13](requirements.md#1.13)
 
-- [ ] 10. Tests: ModelStore EnvironmentProbe selector branches <!-- id:1n8gan9 -->
+- [x] 10. Tests: ModelStore EnvironmentProbe selector branches <!-- id:1n8gan9 -->
   - Add ScrambleTests/Persistence/ModelStoreEnvironmentTests.swift covering each branch (unit-test env, UI-test launch arg, preview env, production fallthrough) returns the expected ModelConfiguration shape using injected EnvironmentProbe.
   - Probe takes injected EnvironmentProbe(environment:[String:String], arguments:[String]).
   - Real ProcessInfo.processInfo cannot be mocked — assertions must be over the probe-derived configuration, not the real shared container.
@@ -93,7 +93,7 @@ references:
   - Stream: 1
   - Requirements: [2.1](requirements.md#2.1), [2.2](requirements.md#2.2)
 
-- [ ] 11. Implement EnvironmentProbe + ModelStore <!-- id:1n8gana -->
+- [x] 11. Implement EnvironmentProbe + ModelStore <!-- id:1n8gana -->
   - Add Persistence/EnvironmentProbe.swift and Persistence/ModelStore.swift.
   - ModelStore.shared is @MainActor static let; production tries CloudKit .private then silently falls back to local-only on throw, logging via os_log(.error) with a distinctive marker string.
   - Detection: XCTestConfigurationFilePath env var, -uitest 1 arg, XCODE_RUNNING_FOR_PREVIEWS env var.
