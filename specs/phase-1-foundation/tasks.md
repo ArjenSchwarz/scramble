@@ -204,13 +204,13 @@ references:
 
 ## Auto-open
 
-- [ ] 23. Tests: singleQualifyingTrip predicate <!-- id:1n8ganm -->
+- [x] 23. Tests: singleQualifyingTrip predicate <!-- id:1n8ganm -->
   - Add ScrambleTests/Features/TripsTabPredicateTests.swift table-driven over: empty trips→nil, one qualifying→that trip, one non-qualifying (start > today+2d, or end < today)→nil, two qualifying→nil, edge cases (start = today+2d, end = today).
   - Blocked-by: 1n8gan8 (Implement SwiftData entities + SchemaV1 + AppMigrationPlan)
   - Stream: 1
   - Requirements: [5.6](requirements.md#5.6)
 
-- [ ] 24. Implement TripsTab auto-open + predicate <!-- id:1n8gann -->
+- [x] 24. Implement TripsTab auto-open + predicate <!-- id:1n8gann -->
   - Add singleQualifyingTrip(in:today:calendar:) helper.
   - Implement TripsTab.swift fully: NavigationStack(path:), @Query private var trips, @State path: NavigationPath, @State didAttemptAutoOpen = false (NOT @SceneStorage), .task(id: 'trips-tab-mount') runs once and sets didAttemptAutoOpen = true BEFORE appending to path, navigationDestination(for: Trip.self) renders TripDetailView with .toolbar(.hidden, for: .tabBar).
   - Use @State NOT @SceneStorage — code-review-visible comment per design.
