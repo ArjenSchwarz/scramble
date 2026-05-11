@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 /// Inline person create/edit sheet used by `TripEditorView`.
 ///
@@ -135,7 +136,13 @@ import SwiftUI
       dismiss()
     } catch {
       context.rollback()
-      saveError = error.localizedDescription
+      // SwiftData errors expose schema/constraint internals that aren't useful
+      // (or appropriate) to show to end users — log the raw error privately and
+      // show a generic recovery prompt.
+      modelLogger.error(
+        "PersonEditor save failed: \(error.localizedDescription, privacy: .public)"
+      )
+      saveError = "Couldn't save the person. Please try again."
     }
   }
 }

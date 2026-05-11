@@ -24,8 +24,12 @@ import os
     guard !idSet.isEmpty else {
       return ResolvedParticipants(resolved: [], missingIDs: [])
     }
+    // `#Predicate` translates `Array.contains` to a SwiftData query reliably;
+    // `Set.contains` is less consistently supported across OS versions. Keep
+    // the `idSet` around for O(1) missing-ID lookup below.
+    let idArray = Array(idSet)
     let descriptor = FetchDescriptor<Person>(
-      predicate: #Predicate<Person> { idSet.contains($0.id) }
+      predicate: #Predicate<Person> { idArray.contains($0.id) }
     )
     let fetched: [Person]
     do {

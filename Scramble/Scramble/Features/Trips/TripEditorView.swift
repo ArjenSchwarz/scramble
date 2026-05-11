@@ -300,14 +300,21 @@ import SwiftUI
   }
 
   private func performDelete(_ person: Person) {
-    if let index = draft.participantIDs.firstIndex(of: person.id) {
-      draft.participantIDs.remove(at: index)
+    let removedIndex = draft.participantIDs.firstIndex(of: person.id)
+    if let removedIndex {
+      draft.participantIDs.remove(at: removedIndex)
     }
     modelContext.delete(person)
     do {
       try modelContext.save()
     } catch {
       modelContext.rollback()
+      // Rollback restored the Person in the store, so the draft must reflect
+      // that too — otherwise the UI shows the person gone while they're still
+      // around. Re-insert at the original position.
+      if let removedIndex {
+        draft.participantIDs.insert(person.id, at: removedIndex)
+      }
     }
     personPendingDelete = nil
   }
