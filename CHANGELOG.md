@@ -8,8 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 1 trip surfaces: `TripListView` (`Scramble/Scramble/Features/Trips/TripListView.swift`) with `@Query`-driven Active and Previous sections split in memory by calendar-day end-date comparison; Active sorted by start date ascending, Previous sorted by end date descending and collapsed by default via `Section(isExpanded:)`; each row renders trip name + abbreviated date range + `LocalizedTripStatus`; `NavigationLink(value: trip)` pushes onto the surrounding navigation path; "+ New Trip" dashed-border button beneath the Active section (placeholder sheet wired in a later task).
+- `TripDetailView` (`Scramble/Scramble/Features/Trips/TripDetailView.swift`) scaffold with a non-scrolling header (name + date range + `LocalizedTripStatus`), horizontally scrolling attribute chip row that flattens `TripAttributes` selections into tap-to-edit chips, vertical 2pt spine with seven labelled `PhaseNodeMarker` rows whose past/current/future state is computed from today's calendar day against the trip's `startDate`/`endDate` (with `dayBefore`/`dayBeforeReturn`/`afterTrip` derived from those bounds), Edit/Delete affordances via a toolbar `Menu`, `.confirmationDialog` for delete that calls `modelContext.delete(trip)` + `dismiss`, and `.toolbar(.hidden, for: .tabBar)` to hide the root tab bar inside Trip Detail.
 - Phase 1 app shell: `RootView` (`Scramble/Scramble/Features/Root/RootView.swift`) with a two-tab `TabView` (Trips / Master Lists) using `suitcase` and `list.bullet.rectangle` SF Symbols. Default selected tab is Trips. Liquid Glass treatment is system-applied to the root TabView on iOS 26.
-- `TripsTab` (`Scramble/Scramble/Features/Trips/TripsTab.swift`) and `MasterListsTab` (`Scramble/Scramble/Features/MasterLists/MasterListsTab.swift`) placeholder views, each wrapping a `NavigationStack` with `ContentUnavailableView` describing that real content arrives in later tasks.
+- `TripsTab` (`Scramble/Scramble/Features/Trips/TripsTab.swift`) placeholder view wrapping a `NavigationStack` with `ContentUnavailableView` describing that real content arrives in later tasks.
+
+### Changed
+
+- `MasterListsTab` (`Scramble/Scramble/Features/MasterLists/MasterListsTab.swift`): replaced the `ContentUnavailableView` placeholder with a segmented control (Packing Items / Tasks) backed by a nested `Segment` enum; per-segment `ContentUnavailableView` explains that master-list editing arrives in a later phase. No item creation, editing, or deletion affordances per AC 7.3.
 
 ### Changed
 

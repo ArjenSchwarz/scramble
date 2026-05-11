@@ -152,14 +152,14 @@ references:
 
 ## Trip surfaces
 
-- [ ] 17. Implement MasterListsTab placeholder <!-- id:1n8gang -->
+- [x] 17. Implement MasterListsTab placeholder <!-- id:1n8gang -->
   - Replace placeholder in Features/MasterLists/MasterListsTab.swift with segmented control (Packing Items / Tasks) and per-segment empty-state placeholder explaining master-list editing arrives in a later phase.
   - No item creation, editing, or deletion affordances per AC 7.3.
   - Blocked-by: 1n8ganf (Refactor app shell: replace template, wire RootView + ModelStore + theme env)
   - Stream: 1
   - Requirements: [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3)
 
-- [ ] 18. Implement TripListView <!-- id:1n8ganh -->
+- [x] 18. Implement TripListView <!-- id:1n8ganh -->
   - Add Features/Trips/TripListView.swift with @Query-driven Active and Previous sections (calendar-day comparison via Calendar.current.startOfDay).
   - '+ New Trip' dashed-border button below Active section opens TripEditorView in create mode.
   - Each row shows name + date range + LocalizedTripStatus.
@@ -168,7 +168,7 @@ references:
   - Stream: 1
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.4](requirements.md#5.4), [5.5](requirements.md#5.5)
 
-- [ ] 19. Implement TripDetailView scaffold <!-- id:1n8gani -->
+- [x] 19. Implement TripDetailView scaffold <!-- id:1n8gani -->
   - Add Features/Trips/TripDetailView.swift with sticky header (trip name + date range + status line per task 7), attribute chip row tappable to open editor scrolled to that attribute, vertical 2pt spine with 7 PhaseNodeMarker instances labelled with phase names, Edit affordance opens TripEditorView in edit mode, Delete affordance with confirmation dialog removes trip and pops back.
   - Apply .toolbar(.hidden, for: .tabBar).
   - Phase node state computed from today vs trip date range (calendar-day) — past, current, future.
