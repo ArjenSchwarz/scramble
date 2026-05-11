@@ -31,7 +31,7 @@ import SwiftUI
   @State private var showPersonEditor = false
   @State private var newlyCreatedPerson: Person?
   @State private var personPendingDelete: Person?
-  @State private var personDeleteConflict: PersonDeleteConflict?
+  @State private var personDeleteConflict: PersonDeleteBlocker?
 
   init(
     mode: Mode,
@@ -287,41 +287,15 @@ import SwiftUI
 
   // MARK: - Person delete (AC 9.7 — UI-level enforcement per Decision 16)
 
-  struct PersonDeleteConflict: Identifiable {
-    let id: UUID
-    let personName: String
-    let referencingTripNames: [String]
-    let referencingMasterItemNames: [String]
-
-    var message: String {
-      var lines: [String] = [
-        "\(personName.isEmpty ? "This person" : personName) is still referenced by:"
-      ]
-      if !referencingTripNames.isEmpty {
-        let names = referencingTripNames.map { $0.isEmpty ? "Untitled trip" : $0 }
-        lines.append("Trips: \(names.joined(separator: ", "))")
-      }
-      if !referencingMasterItemNames.isEmpty {
-        let names = referencingMasterItemNames.map { $0.isEmpty ? "Unnamed item" : $0 }
-        lines.append("Master packing items: \(names.joined(separator: ", "))")
-      }
-      lines.append("Remove the references before deleting.")
-      return lines.joined(separator: "\n")
-    }
-  }
-
   private func requestDelete(_ person: Person) {
-    let referencingTrips = Set(person.tripPackingItems.compactMap { $0.trip?.name })
-    let masterNames = person.masterPackingItems.map(\.name)
-    if referencingTrips.isEmpty && masterNames.isEmpty {
-      personPendingDelete = person
+    if let blocker = PersonDeleteBlocker.make(
+      for: person,
+      tripPacking: person.tripPackingItems,
+      masterPacking: person.masterPackingItems
+    ) {
+      personDeleteConflict = blocker
     } else {
-      personDeleteConflict = PersonDeleteConflict(
-        id: person.id,
-        personName: person.name,
-        referencingTripNames: Array(referencingTrips).sorted(),
-        referencingMasterItemNames: masterNames.sorted()
-      )
+      personPendingDelete = person
     }
   }
 

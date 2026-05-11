@@ -103,4 +103,48 @@ struct ModelStoreEnvironmentTests {
     )
     #expect(!probe.isPreview)
   }
+
+  // MARK: - Strategy decision (pure function)
+
+  @Test("strategy: unit-test env → .inMemory(.unitTest)")
+  func strategyUnitTest() {
+    let probe = EnvironmentProbe(
+      environment: ["XCTestConfigurationFilePath": "/tmp/whatever.xctestconfig"],
+      arguments: []
+    )
+    #expect(ModelStore.strategy(probe: probe) == .inMemory(reason: .unitTest))
+  }
+
+  @Test("strategy: UI-test launch arg → .inMemory(.uiTest)")
+  func strategyUITest() {
+    let probe = EnvironmentProbe(
+      environment: [:],
+      arguments: ["/path/Scramble.app", "-uitest", "1"]
+    )
+    #expect(ModelStore.strategy(probe: probe) == .inMemory(reason: .uiTest))
+  }
+
+  @Test("strategy: preview env → .inMemory(.preview)")
+  func strategyPreview() {
+    let probe = EnvironmentProbe(
+      environment: ["XCODE_RUNNING_FOR_PREVIEWS": "1"],
+      arguments: []
+    )
+    #expect(ModelStore.strategy(probe: probe) == .inMemory(reason: .preview))
+  }
+
+  @Test("strategy: clean probe → .productionCloudKit")
+  func strategyProduction() {
+    let probe = EnvironmentProbe(environment: [:], arguments: [])
+    #expect(ModelStore.strategy(probe: probe) == .productionCloudKit)
+  }
+
+  @Test("strategy: unit-test wins over UI-test when both signals present")
+  func strategyUnitTestBeatsUITest() {
+    let probe = EnvironmentProbe(
+      environment: ["XCTestConfigurationFilePath": "/tmp/whatever"],
+      arguments: ["-uitest", "1"]
+    )
+    #expect(ModelStore.strategy(probe: probe) == .inMemory(reason: .unitTest))
+  }
 }

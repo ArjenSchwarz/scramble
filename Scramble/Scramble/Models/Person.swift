@@ -30,8 +30,10 @@ extension String {
   /// First grapheme of the string, uppercased; falls back to "?" when empty.
   /// Used by `Person.initial` and `PersonAvatar` to render the same letter
   /// from a name. Returns the full grapheme cluster (e.g. ZWJ-joined emoji);
-  /// `.uppercased()` is a no-op for those.
-  var firstGraphemeUppercased: String {
+  /// `.uppercased()` is a no-op for those. `nonisolated` because the file
+  /// inherits `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` but this is a pure
+  /// `String` helper safe to call from any context.
+  nonisolated var firstGraphemeUppercased: String {
     guard let first = first else { return "?" }
     return String(first).uppercased()
   }

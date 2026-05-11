@@ -8,19 +8,46 @@ enum ModelStore {
 
   nonisolated static let cloudKitContainerIdentifier = "iCloud.me.nore.ig.scramble"
 
+  /// Why an in-memory container was chosen. Exposed so tests can assert on the
+  /// reason directly rather than inferring it from `ModelConfiguration` fields
+  /// that Apple may reshape between SDK releases.
+  nonisolated enum StrategyReason: Equatable, Sendable {
+    case unitTest
+    case uiTest
+    case preview
+  }
+
+  /// Pure decision: which container should be built for the given probe?
+  /// `configuration(probe:)` and `makeContainer(probe:)` both switch on this so
+  /// the unit tests can pin the four branches without inspecting opaque
+  /// SwiftData types.
+  nonisolated enum Strategy: Equatable, Sendable {
+    case inMemory(reason: StrategyReason)
+    case productionCloudKit
+  }
+
+  nonisolated static func strategy(probe: EnvironmentProbe) -> Strategy {
+    if probe.isTest { return .inMemory(reason: .unitTest) }
+    if probe.isUITestHost { return .inMemory(reason: .uiTest) }
+    if probe.isPreview { return .inMemory(reason: .preview) }
+    return .productionCloudKit
+  }
+
   nonisolated static func configuration(probe: EnvironmentProbe) -> ModelConfiguration {
     let schema = Schema(versionedSchema: SchemaV1.self)
-    if probe.isTest || probe.isUITestHost || probe.isPreview {
+    switch strategy(probe: probe) {
+    case .inMemory:
       return ModelConfiguration(
         schema: schema,
         isStoredInMemoryOnly: true,
         cloudKitDatabase: .none
       )
+    case .productionCloudKit:
+      return ModelConfiguration(
+        schema: schema,
+        cloudKitDatabase: .private(cloudKitContainerIdentifier)
+      )
     }
-    return ModelConfiguration(
-      schema: schema,
-      cloudKitDatabase: .private(cloudKitContainerIdentifier)
-    )
   }
 
   static func makeContainer(probe: EnvironmentProbe) -> ModelContainer {
