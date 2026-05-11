@@ -8,7 +8,7 @@ references:
 
 ## Foundation types
 
-- [ ] 1. Define core enums <!-- id:1n8gan0 -->
+- [x] 1. Define core enums <!-- id:1n8gan0 -->
   - Add Models/Enums.swift with Phase, ItemSource, PackingState, TripAttribute (all String-rawValue Codable enums).
   - Pure types, no behavior — exempt from preceding test task per TDD rule.
   - Phase: weeksBefore, dayBefore, departureDay, duringTrip, dayBeforeReturn, returnDay, afterTrip.
@@ -18,7 +18,7 @@ references:
   - Stream: 1
   - Requirements: [1.10](requirements.md#1.10), [1.11](requirements.md#1.11)
 
-- [ ] 2. Tests: TripAttributes Codable round-trip + helpers <!-- id:1n8gan1 -->
+- [x] 2. Tests: TripAttributes Codable round-trip + helpers <!-- id:1n8gan1 -->
   - Add ScrambleTests/Models/TripAttributesTests.swift covering empty, single-value, multi-value (weather), and helpers setSingle/toggle/selected.
   - Include a Swift Testing parameterized test for round-trip property (decode(encode(x)) == x) with a generator over arbitrary attribute selections (single-select for D/T/S/P, 0–4 weather values).
   - Cover decode-failure fallback returns .init() (corrupt blob).
@@ -26,13 +26,13 @@ references:
   - Stream: 1
   - Requirements: [1.6](requirements.md#1.6), [1.11](requirements.md#1.11)
 
-- [ ] 3. Implement TripAttributes <!-- id:1n8gan2 -->
+- [x] 3. Implement TripAttributes <!-- id:1n8gan2 -->
   - Add Models/Codable/TripAttributes.swift with the struct + Codable + helpers (selected, setSingle, toggle).
   - Blocked-by: 1n8gan1 (Tests: TripAttributes Codable round-trip + helpers)
   - Stream: 1
   - Requirements: [1.6](requirements.md#1.6), [1.11](requirements.md#1.11)
 
-- [ ] 4. Tests: ItemConditions Codable + evaluator <!-- id:1n8gan3 -->
+- [x] 4. Tests: ItemConditions Codable + evaluator <!-- id:1n8gan3 -->
   - Add ScrambleTests/Models/ItemConditionsTests.swift, table-driven across always/match/all/any.
   - Table cases for evaluator: .always, .match hit, .match miss, nested .all all-true, nested .all with one false, nested .any any-true, nested .any all-false, empty .all (vacuous true), empty .any (vacuous false).
   - Add a Swift Testing parameterized round-trip test (depth-bounded recursive generator, max depth 3): decode(encode(c)) == c.
@@ -42,13 +42,13 @@ references:
   - Stream: 1
   - Requirements: [1.7](requirements.md#1.7)
 
-- [ ] 5. Implement ItemConditions <!-- id:1n8gan4 -->
+- [x] 5. Implement ItemConditions <!-- id:1n8gan4 -->
   - Add Models/Codable/ItemConditions.swift with the indirect enum + custom Codable using a discriminator key + evaluate(against:).
   - Blocked-by: 1n8gan3 (Tests: ItemConditions Codable + evaluator)
   - Stream: 1
   - Requirements: [1.7](requirements.md#1.7)
 
-- [ ] 6. Tests: TripStatus.compute table-driven <!-- id:1n8gan5 -->
+- [x] 6. Tests: TripStatus.compute table-driven <!-- id:1n8gan5 -->
   - Add ScrambleTests/TripStatusTests.swift covering upcoming/inProgress/returningSoon/completed across edge cases (today=start, today=end, midnight boundary, time-zone shift).
   - Status enum cases per design.md: upcoming(daysAway), inProgress(currentDay,totalDays), returningSoon(daysUntilEnd), completed(daysSinceEnd).
   - 'returning soon' threshold: within 2 days of trip end.
@@ -57,7 +57,7 @@ references:
   - Stream: 1
   - Requirements: [5.4](requirements.md#5.4)
 
-- [ ] 7. Implement TripStatus + LocalizedTripStatus <!-- id:1n8gan6 -->
+- [x] 7. Implement TripStatus + LocalizedTripStatus <!-- id:1n8gan6 -->
   - Add Features/Trips/TripStatus.swift with the enum + pure compute(trip:today:calendar:) function + a separate LocalizedTripStatus(_:) formatter.
   - Blocked-by: 1n8gan5 (Tests: TripStatus.compute table-driven)
   - Stream: 1

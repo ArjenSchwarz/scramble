@@ -14,12 +14,24 @@ struct ScrambleApp: App {
         let schema = Schema([
             Item.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let isTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: isTest,
+            cloudKitDatabase: isTest ? .none : .automatic
+        )
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // Fall back to in-memory so the app does not crash on first run before
+            // ModelStore (task 11) replaces this scaffold.
+            let fallback = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: true,
+                cloudKitDatabase: .none
+            )
+            return try! ModelContainer(for: schema, configurations: [fallback])
         }
     }()
 

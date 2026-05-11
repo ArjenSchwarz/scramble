@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 1 foundation types: `Phase`, `ItemSource`, `PackingState`, `TripAttribute` enums (`Models/Enums.swift`); `TripAttributes` Codable struct with `setSingle`/`toggle`/`selected` helpers and deterministic on-disk ordering (`Models/Codable/TripAttributes.swift`); `ItemConditions` indirect enum (`.always`/`.match`/`.all`/`.any`) with discriminator-keyed custom Codable and pure `evaluate(against:)` (`Models/Codable/ItemConditions.swift`); `TripStatus` enum (`upcoming`/`inProgress`/`returningSoon`/`completed`) with pure `compute(startDate:endDate:today:calendar:)` honouring calendar-day granularity and a 2-day `returningSoon` threshold, plus `LocalizedTripStatus` display formatter (`Features/Trips/TripStatus.swift`).
+- Swift Testing suites covering all foundation types: `TripAttributesTests` (helpers + Codable round-trip property test across 240 generated samples + corrupt-blob fallback), `ItemConditionsTests` (evaluator table including vacuous empty `.all`/`.any` + idempotence + distributive equivalence + depth-bounded round-trip), `TripStatusTests` (every status case + midnight/timezone boundaries).
+
+### Changed
+
+- `ScrambleApp.sharedModelContainer`: switched the template scaffold to an in-memory store under XCTest and added a local-only fallback on container construction failure so tests can run before `ModelStore` (task 11) replaces this code path.
+
 - Xcode project (`Scramble/Scramble.xcodeproj`) generated from the iOS App template: SwiftUI + SwiftData, iOS 26.4 deployment target, Swift 6 language mode, MainActor-default actor isolation, approachable concurrency.
 - CloudKit capability wired to container `iCloud.me.nore.ig.scramble` (entitlements + `UIBackgroundModes: remote-notification` for silent push).
 - `Makefile` wrapping `xcodebuild` with help/build/test/install/run/lint/format targets, conditional `xcbeautify`/`swiftlint`/`swift-format` detection, repo-local `./DerivedData`, and serial simulator execution to avoid flakes. Defaults: `SIMULATOR=iPhone 17 Pro`, `DEVICE_MODEL=iPhone 17 Pro`, `CONFIG=Debug`.
