@@ -103,7 +103,8 @@ extension TripSnapshot {
         currentlyMatchesRules: task.currentlyMatchesRules,
         pinnedByUser: task.pinnedByUser,
         source: task.source,
-        isCompleted: task.isCompleted
+        isCompleted: task.isCompleted,
+        userDeletedOnThisTrip: task.userDeletedOnThisTrip
       )
     }
     let packingRefs = trip.packingItems.map { item in

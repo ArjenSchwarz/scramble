@@ -9,7 +9,7 @@ import Testing
 struct SchemaTests {
 
   private static func makeContainer() throws -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV1.self)
+    let schema = Schema(versionedSchema: SchemaV2.self)
     let config = ModelConfiguration(
       schema: schema,
       isStoredInMemoryOnly: true,
@@ -20,14 +20,14 @@ struct SchemaTests {
 
   // MARK: - Container construction
 
-  @Test("Container constructs from SchemaV1")
+  @Test("Container constructs from SchemaV2")
   func containerConstructs() throws {
     _ = try Self.makeContainer()
   }
 
-  @Test("Container constructs with SchemaV1 + AppMigrationPlan")
+  @Test("Container constructs with SchemaV2 + AppMigrationPlan")
   func containerConstructsWithMigrationPlan() throws {
-    let schema = Schema(versionedSchema: SchemaV1.self)
+    let schema = Schema(versionedSchema: SchemaV2.self)
     let config = ModelConfiguration(
       schema: schema,
       isStoredInMemoryOnly: true,

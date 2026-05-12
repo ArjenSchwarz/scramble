@@ -9,7 +9,7 @@ import Testing
 struct ApplyTests {
 
   private static func makeContainer() throws -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV1.self)
+    let schema = Schema(versionedSchema: SchemaV2.self)
     let config = ModelConfiguration(
       schema: schema,
       isStoredInMemoryOnly: true,
@@ -135,8 +135,10 @@ struct ApplyTests {
     let plan = Plan(
       tripID: trip.id,
       toAddTasks: [],
-      toAddPacking: [MasterPackingSnapshot(
-        id: UUID(), name: "Orphan", personID: UUID(), conditions: .always)],
+      toAddPacking: [
+        MasterPackingSnapshot(
+          id: UUID(), name: "Orphan", personID: UUID(), conditions: .always)
+      ],
       toFlagUnmatched: [],
       toFlagMatched: []
     )
@@ -222,6 +224,84 @@ struct ApplyTests {
     #expect(updated.person?.id == person.id)
   }
 
+  // MARK: - userDeletedOnThisTrip — apply carve-out (Req 7.4)
+
+  @Test("toFlagMatched on a userDeleted TripTask: flagTasks must not write currentlyMatchesRules")
+  func userDeletedTaskIsNotFlaggedMatched() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let trip = Trip(name: "Test", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let task = TripTask(
+      trip: trip,
+      masterItemID: UUID(),
+      name: "Deleted ruling",
+      phase: .dayBefore,
+      isCompleted: false,
+      source: .rule,
+      currentlyMatchesRules: false,
+      pinnedByUser: false,
+      userDeletedOnThisTrip: true
+    )
+    context.insert(task)
+    try context.save()
+
+    let plan = Plan(
+      tripID: trip.id,
+      toAddTasks: [],
+      toAddPacking: [],
+      toFlagUnmatched: [],
+      toFlagMatched: [TripItemRef(kind: .task, id: task.id)]
+    )
+    try apply(plan: plan, context: context)
+
+    let fetched = try context.fetch(FetchDescriptor<TripTask>())
+    let stored = try #require(fetched.first)
+    #expect(stored.userDeletedOnThisTrip == true)
+    #expect(
+      stored.currentlyMatchesRules == false,
+      "currentlyMatchesRules must not be flipped on a deleted record")
+  }
+
+  @Test("toFlagUnmatched on a userDeleted TripTask: flagTasks must not write currentlyMatchesRules")
+  func userDeletedTaskIsNotFlaggedUnmatched() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let trip = Trip(name: "Test", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let task = TripTask(
+      trip: trip,
+      masterItemID: UUID(),
+      name: "Deleted ruling",
+      phase: .dayBefore,
+      isCompleted: false,
+      source: .rule,
+      currentlyMatchesRules: true,
+      pinnedByUser: false,
+      userDeletedOnThisTrip: true
+    )
+    context.insert(task)
+    try context.save()
+
+    let plan = Plan(
+      tripID: trip.id,
+      toAddTasks: [],
+      toAddPacking: [],
+      toFlagUnmatched: [TripItemRef(kind: .task, id: task.id)],
+      toFlagMatched: []
+    )
+    try apply(plan: plan, context: context)
+
+    let fetched = try context.fetch(FetchDescriptor<TripTask>())
+    let stored = try #require(fetched.first)
+    #expect(stored.userDeletedOnThisTrip == true)
+    #expect(
+      stored.currentlyMatchesRules == true,
+      "currentlyMatchesRules must not be flipped on a deleted record")
+  }
+
   // MARK: - Missing trip (cross-device delete race)
 
   @Test("Missing trip: apply returns without throwing and writes nothing")
@@ -231,8 +311,10 @@ struct ApplyTests {
 
     let plan = Plan(
       tripID: UUID(),
-      toAddTasks: [MasterTaskSnapshot(
-        id: UUID(), name: "Phantom", phase: .weeksBefore, conditions: .always)],
+      toAddTasks: [
+        MasterTaskSnapshot(
+          id: UUID(), name: "Phantom", phase: .weeksBefore, conditions: .always)
+      ],
       toAddPacking: [],
       toFlagUnmatched: [],
       toFlagMatched: []
@@ -316,10 +398,14 @@ struct ApplyTests {
     let addedPackID = UUID()
     let plan = Plan(
       tripID: trip.id,
-      toAddTasks: [MasterTaskSnapshot(
-        id: addedTaskID, name: "Added task", phase: .weeksBefore, conditions: .always)],
-      toAddPacking: [MasterPackingSnapshot(
-        id: addedPackID, name: "Added pack", personID: person.id, conditions: .always)],
+      toAddTasks: [
+        MasterTaskSnapshot(
+          id: addedTaskID, name: "Added task", phase: .weeksBefore, conditions: .always)
+      ],
+      toAddPacking: [
+        MasterPackingSnapshot(
+          id: addedPackID, name: "Added pack", personID: person.id, conditions: .always)
+      ],
       toFlagUnmatched: [TripItemRef(kind: .task, id: existingMatched.id)],
       toFlagMatched: [TripItemRef(kind: .packing, id: existingUnmatched.id)]
     )

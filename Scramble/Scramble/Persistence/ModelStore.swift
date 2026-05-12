@@ -34,7 +34,7 @@ enum ModelStore {
   }
 
   nonisolated static func configuration(probe: EnvironmentProbe) -> ModelConfiguration {
-    let schema = Schema(versionedSchema: SchemaV1.self)
+    let schema = Schema(versionedSchema: SchemaV2.self)
     switch strategy(probe: probe) {
     case .inMemory:
       return ModelConfiguration(
@@ -51,7 +51,7 @@ enum ModelStore {
   }
 
   static func makeContainer(probe: EnvironmentProbe) -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV1.self)
+    let schema = Schema(versionedSchema: SchemaV2.self)
     let primary = configuration(probe: probe)
     do {
       return try ModelContainer(

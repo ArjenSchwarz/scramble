@@ -9,7 +9,7 @@ import Testing
 struct RulesEngineRunnerTests {
 
   private static func makeContainer() throws -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV1.self)
+    let schema = Schema(versionedSchema: SchemaV2.self)
     let config = ModelConfiguration(
       schema: schema,
       isStoredInMemoryOnly: true,
@@ -115,7 +115,8 @@ struct RulesEngineRunnerTests {
     let pastEnd = calendar.date(byAdding: .day, value: -1, to: today)!
     let futureEnd = calendar.date(byAdding: .day, value: 7, to: today)!
 
-    let past = Trip(name: "Past", startDate: pastEnd, endDate: pastEnd, attributes: Self.rainyAttributes())
+    let past = Trip(
+      name: "Past", startDate: pastEnd, endDate: pastEnd, attributes: Self.rainyAttributes())
     let future = Trip(
       name: "Future", startDate: today, endDate: futureEnd, attributes: Self.rainyAttributes())
     context.insert(past)

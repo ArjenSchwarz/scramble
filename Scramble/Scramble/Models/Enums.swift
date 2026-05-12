@@ -41,3 +41,12 @@ nonisolated enum TripAttribute: String, Codable, CaseIterable, Hashable, Sendabl
   case weather
   case purpose
 }
+
+/// Visual state of a `PhaseNode` on the Trip Detail timeline.
+/// Computed from `(Trip, today, Phase)` via
+/// `TripDetailView.state(for:today:start:end:calendar)`.
+nonisolated enum PhaseNodeState: Hashable, Sendable {
+  case past
+  case current
+  case future
+}

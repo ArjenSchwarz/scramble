@@ -4,6 +4,7 @@ import os
 
 @MainActor struct TripDetailView: View {
   let trip: Trip
+  let today: Date
 
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
@@ -14,8 +15,19 @@ import os
   @State private var editAttributeFocus: TripAttribute?
   @State private var showDeleteConfirmation = false
   @State private var toastMessage: String?
+  @State private var expandedPhase: Phase?
+  @State private var openDisclosureTaskID: UUID?
+  @State private var pendingForm: TaskFormPresentation?
 
   private var calendar: Calendar { Calendar.current }
+
+  init(trip: Trip, today: Date = .now) {
+    self.trip = trip
+    self.today = today
+    _expandedPhase = State(
+      initialValue: Self.autoExpandPhase(for: trip, today: today, calendar: .current)
+    )
+  }
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
@@ -29,7 +41,18 @@ import os
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
           chipRow(variant: variant)
-          phaseSpine(variant: variant)
+          AccordionTimeline(
+            trip: trip,
+            today: today,
+            expandedPhase: $expandedPhase,
+            openDisclosureTaskID: $openDisclosureTaskID,
+            onAddTaskInPhase: { phase in
+              pendingForm = .add(phase: phase, trip: trip)
+            },
+            onEditTask: { task in
+              pendingForm = .edit(task: task)
+            }
+          )
         }
         .padding(.vertical, 16)
       }
@@ -75,6 +98,13 @@ import os
       Button("Cancel", role: .cancel) {}
     } message: {
       Text("This will permanently remove the trip and all its data.")
+    }
+    .sheet(item: $pendingForm) { presentation in
+      TaskForm(
+        mode: presentation,
+        onSave: { pendingForm = nil },
+        onCancel: { pendingForm = nil }
+      )
     }
     .sheet(isPresented: $showEditor) {
       TripEditorView(mode: .edit(trip), focusAttribute: editAttributeFocus) { draft in
@@ -214,43 +244,46 @@ import os
     }
   }
 
-  private func phaseSpine(variant: ThemeVariant) -> some View {
-    VStack(spacing: 0) {
-      ForEach(Array(Phase.allCases.enumerated()), id: \.element) { index, phase in
-        HStack(alignment: .top, spacing: 16) {
-          VStack(spacing: 0) {
-            PhaseNodeMarker(
-              state: Self.state(
-                for: phase,
-                today: .now,
-                start: trip.startDate,
-                end: trip.endDate,
-                calendar: calendar
-              ),
-              phaseColor: variant.phaseColour(for: phase),
-              diameter: 22
-            )
-            if index < Phase.allCases.count - 1 {
-              Rectangle()
-                .fill(variant.surfaceBorder)
-                .frame(width: 2)
-                .frame(maxHeight: .infinity)
-            }
-          }
-          .frame(width: 24)
-
-          Text(phase.displayName)
-            .font(.headline)
-            .foregroundStyle(variant.textPrimary)
-            .padding(.top, 1)
-            .padding(.bottom, 24)
-
-          Spacer(minLength: 0)
-        }
-        .frame(minHeight: 56)
-      }
+  /// Picks the phase that should auto-expand when Trip Detail appears.
+  ///
+  /// Implements Req 2.3 + 3.2: finds the `.current` phase via the existing
+  /// `state(for:today:start:end:calendar)` helper, then gates expandability:
+  /// - Compressed `duringTrip` is never auto-expanded.
+  /// - Packing phases (`departureDay`, `dayBeforeReturn`) are always
+  ///   expandable, even with no tasks (the Phase 4 packing summary will
+  ///   live there).
+  /// - Other phases are expandable only when at least one non-soft-deleted
+  ///   task is attached.
+  ///
+  /// Returns `nil` when no phase is `.current` or when the current phase is
+  /// non-expandable; `TripDetailView`'s init then opens with the accordion
+  /// fully collapsed.
+  static func autoExpandPhase(
+    for trip: Trip,
+    today: Date,
+    calendar: Calendar
+  ) -> Phase? {
+    let current = Phase.allCases.first { phase in
+      Self.state(
+        for: phase,
+        today: today,
+        start: trip.startDate,
+        end: trip.endDate,
+        calendar: calendar
+      ) == .current
     }
-    .padding(.horizontal)
+    guard let phase = current else { return nil }
+
+    if PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar) {
+      return nil
+    }
+    if phase == .departureDay || phase == .dayBeforeReturn {
+      return phase
+    }
+    let hasVisibleTask = trip.tasks.contains { task in
+      task.phase == phase && !task.userDeletedOnThisTrip
+    }
+    return hasVisibleTask ? phase : nil
   }
 
   // swiftlint:disable:next cyclomatic_complexity

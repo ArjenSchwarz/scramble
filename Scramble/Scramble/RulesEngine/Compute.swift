@@ -14,7 +14,8 @@ nonisolated func compute(
   // merge that briefly surfaces two masters with the same UUID does not
   // trap. Duplicates are tolerated; we keep the first.
   let taskMap = Dictionary(masterTasks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-  let packingMap = Dictionary(masterPacking.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+  let packingMap = Dictionary(
+    masterPacking.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
   let referenced = referencedMasterIDs(in: trip)
 
   let toAddTasks = masterTasks.filter { master in
@@ -70,6 +71,9 @@ private nonisolated func classifyTaskRefs(
   matched: inout [TripItemRef]
 ) {
   for ref in refs {
+    // Phase 3 / Decision 7: a user-deleted rule task is inert — neither
+    // re-matched nor un-matched by subsequent compute runs.
+    guard !ref.userDeletedOnThisTrip else { continue }
     guard ref.source != .manual, let masterID = ref.masterItemID else { continue }
     let matches = taskMap[masterID]?.conditions.evaluate(against: attributes) ?? false
     switch (ref.currentlyMatchesRules, matches) {

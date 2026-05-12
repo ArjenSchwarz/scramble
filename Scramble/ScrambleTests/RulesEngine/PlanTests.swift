@@ -58,7 +58,8 @@ struct PlanTests {
       currentlyMatchesRules: true,
       pinnedByUser: false,
       source: .rule,
-      isCompleted: false
+      isCompleted: false,
+      userDeletedOnThisTrip: false
     )
     let b = TripTaskRef(
       id: Self.idA,
@@ -66,7 +67,8 @@ struct PlanTests {
       currentlyMatchesRules: true,
       pinnedByUser: false,
       source: .rule,
-      isCompleted: false
+      isCompleted: false,
+      userDeletedOnThisTrip: false
     )
     let c = TripTaskRef(
       id: Self.idA,
@@ -74,7 +76,8 @@ struct PlanTests {
       currentlyMatchesRules: false,
       pinnedByUser: false,
       source: .rule,
-      isCompleted: false
+      isCompleted: false,
+      userDeletedOnThisTrip: false
     )
     #expect(a == b)
     #expect(a != c)
@@ -120,7 +123,8 @@ struct PlanTests {
       currentlyMatchesRules: true,
       pinnedByUser: false,
       source: .manual,
-      isCompleted: false
+      isCompleted: false,
+      userDeletedOnThisTrip: false
     )
     let a = TripSnapshot(
       id: Self.idC, attributes: attrs, existingTasks: [task], existingPacking: [])
@@ -161,7 +165,8 @@ struct PlanTests {
       currentlyMatchesRules: true,
       pinnedByUser: false,
       source: .rule,
-      isCompleted: false
+      isCompleted: false,
+      userDeletedOnThisTrip: false
     )
     let set: Set<TripTaskRef> = [a, a]
     #expect(set.count == 1)
@@ -204,7 +209,8 @@ struct PlanTests {
       currentlyMatchesRules: true,
       pinnedByUser: false,
       source: .rule,
-      isCompleted: false
+      isCompleted: false,
+      userDeletedOnThisTrip: false
     )
     let packingRef = TripPackingItemRef(
       id: Self.idA,
