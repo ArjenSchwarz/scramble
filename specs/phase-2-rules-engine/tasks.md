@@ -140,21 +140,21 @@ references:
 
 ## Master lists UI
 
-- [ ] 14. Tests: MasterTaskDraft + MasterPackingDraft validate() <!-- id:diu0hgq -->
+- [x] 14. Tests: MasterTaskDraft + MasterPackingDraft validate() <!-- id:diu0hgq -->
   - Add ScrambleTests/MasterLists/MasterDraftTests.swift.
   - MasterTaskDraft: empty name → [.name: msg]; valid name → empty error map.
   - MasterPackingDraft: empty name → [.name: msg]; nil person → [.person: msg]; both → both fields populated.
   - Stream: 1
   - Requirements: [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5)
 
-- [ ] 15. Implement MasterTaskDraft + MasterPackingDraft + MasterPersistence <!-- id:diu0hgr -->
+- [x] 15. Implement MasterTaskDraft + MasterPackingDraft + MasterPersistence <!-- id:diu0hgr -->
   - Add Scramble/Scramble/Features/MasterLists/MasterTaskDraft.swift, MasterPackingDraft.swift.
   - Add Scramble/Scramble/Features/MasterLists/MasterPersistence.swift: createTask/applyTask/deleteTask + createPacking/applyPacking/deletePacking. None call context.save() — caller saves.
   - Blocked-by: diu0hgq (Tests: MasterTaskDraft + MasterPackingDraft validate())
   - Stream: 1
   - Requirements: [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [1.6](requirements.md#1.6), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5), [2.6](requirements.md#2.6)
 
-- [ ] 16. Implement ConditionsEditor + AdvancedConditionView <!-- id:diu0hgs -->
+- [x] 16. Implement ConditionsEditor + AdvancedConditionView <!-- id:diu0hgs -->
   - Add Scramble/Scramble/Features/MasterLists/ConditionsEditor.swift: ForEach(TripAttribute.allCases) row with LazyVGrid adaptive(minimum: 88) chip multi-select; binding to AttributeSelections.
   - Add Scramble/Scramble/Features/MasterLists/AdvancedConditionView.swift: ContentUnavailableView-style with prettyPrinted output + Reset to simple button + confirmation dialog ('Reset conditions to empty? On the next re-evaluation this item will match every non-past trip until you save new conditions.') — on confirm calls onReset, which writes .always.
   - Chip selected: theme accent fill; unchecked: 1pt surfaceBorder outline + surface fill.
@@ -162,7 +162,7 @@ references:
   - Stream: 1
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3), [3.7](requirements.md#3.7)
 
-- [ ] 17. Implement MasterTaskEditor + MasterPackingEditor (wires AC 5.3 trigger) <!-- id:diu0hgt -->
+- [x] 17. Implement MasterTaskEditor + MasterPackingEditor (wires AC 5.3 trigger) <!-- id:diu0hgt -->
   - Add Scramble/Scramble/Features/MasterLists/MasterTaskEditor.swift: Form with name field, Phase Picker, ConditionsEditor (or AdvancedConditionView if AttributeSelections.from returns nil); Save/Cancel toolbar; Delete with confirmation. Inline validation per AC 1.5.
   - Add Scramble/Scramble/Features/MasterLists/MasterPackingEditor.swift: same pattern, Person picker, validation per AC 2.5.
   - Both editors' Save closure: (1) MasterPersistence.{create|apply}*, (2) modelContext.save() with try/catch → toast, (3) RulesEngineRunner(context:).runForAllNonPastTrips() with try/catch → 'Saved. Some trips couldn't be updated…' toast (per design Error Handling table).
@@ -171,7 +171,7 @@ references:
   - Stream: 1
   - Requirements: [1.2](requirements.md#1.2), [1.3](requirements.md#1.3), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [1.6](requirements.md#1.6), [2.2](requirements.md#2.2), [2.3](requirements.md#2.3), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5), [2.6](requirements.md#2.6), [5.3](requirements.md#5.3)
 
-- [ ] 18. Implement MasterTasksList + MasterPackingList <!-- id:diu0hgu -->
+- [x] 18. Implement MasterTasksList + MasterPackingList <!-- id:diu0hgu -->
   - Add Scramble/Scramble/Features/MasterLists/MasterTasksList.swift: @Query(sort: \.name) all MasterTaskItem; in-memory group by phase iterating Phase.allCases skipping empty groups; '+ Add task' dashed-border button; .sheet for MasterTaskEditor (create / edit).
   - Add Scramble/Scramble/Features/MasterLists/MasterPackingList.swift: @Query all MasterPackingItem + @Query all Person; group by person sorted by Person.name asc; per-person header shows owned-item count; '+ Add item' affordance.
   - Empty state for AC 2.7: when @Query Person is empty, render ContentUnavailableView 'No people yet' with 'Add a person to a trip first, then return here to define their packing items.' Hide '+ Add item' affordance.
@@ -179,7 +179,7 @@ references:
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.7](requirements.md#2.7), [8.1](requirements.md#8.1)
 
-- [ ] 19. Wire MasterListsTab to host the two list views <!-- id:diu0hgv -->
+- [x] 19. Wire MasterListsTab to host the two list views <!-- id:diu0hgv -->
   - Modify Scramble/Scramble/Features/MasterLists/MasterListsTab.swift: keep existing segmented control (Packing Items / Tasks); replace placeholder body with switch on segment → MasterTasksList() / MasterPackingList().
   - NavigationStack wraps content; tab keeps the existing navigation title.
   - Wiring task — content ACs are covered by tasks 17/18, so this is exempt from a preceding test task per skill rules.

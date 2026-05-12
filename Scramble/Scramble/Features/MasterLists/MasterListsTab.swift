@@ -11,28 +11,6 @@ import SwiftUI
       case .tasks: "Tasks"
       }
     }
-
-    var systemImage: String {
-      switch self {
-      case .packing: "shippingbox"
-      case .tasks: "checklist"
-      }
-    }
-
-    var placeholderText: String {
-      switch self {
-      case .packing:
-        return """
-          Master packing items arrive in a later phase. You'll define reusable items here \
-          that automatically populate trips based on attribute rules.
-          """
-      case .tasks:
-        return """
-          Master tasks arrive in a later phase. You'll define reusable tasks here that \
-          automatically populate trips based on attribute rules.
-          """
-      }
-    }
   }
 
   @State private var segment: Segment = .packing
@@ -49,12 +27,12 @@ import SwiftUI
         .padding(.horizontal)
         .padding(.top, 8)
 
-        ContentUnavailableView(
-          segment.title,
-          systemImage: segment.systemImage,
-          description: Text(segment.placeholderText)
-        )
-        .frame(maxHeight: .infinity)
+        switch segment {
+        case .packing:
+          MasterPackingList()
+        case .tasks:
+          MasterTasksList()
+        }
       }
       .navigationTitle("Master Lists")
     }
