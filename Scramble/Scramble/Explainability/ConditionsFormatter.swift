@@ -6,7 +6,9 @@ import Foundation
 /// Walks the tree, collects every `.match(attribute:, anyOf:)` leaf, and
 /// for each `TripAttribute.allCases` intersects the union of the master's
 /// allowed values for that attribute with the trip's currently selected
-/// values. The per-attribute matched values are joined with `" or "`; the
+/// values. Each intersected value is rendered via `attributeValueDisplay`
+/// (so output matches the chips and pickers elsewhere in the UI); the
+/// per-attribute matched values are joined with `" or "`, and the
 /// non-empty per-attribute strings are joined with `" + "` in
 /// `TripAttribute.allCases` order.
 ///
@@ -35,7 +37,7 @@ enum ConditionsFormatter {
       let selected = attributes.selected(attribute)
       let intersected = selected.filter { allowed.contains($0) }
       guard !intersected.isEmpty else { continue }
-      groups.append(intersected.joined(separator: " or "))
+      groups.append(intersected.map(\.attributeValueDisplay).joined(separator: " or "))
     }
     return groups.joined(separator: " + ")
   }

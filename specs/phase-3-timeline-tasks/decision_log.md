@@ -370,3 +370,51 @@ A two-property additive change is not by itself a strong case for a new schema, 
 
 **Negative:**
 - Small amount of boilerplate per schema change, including this one.
+
+---
+
+## Decision 12: `userDeletedOnThisTrip` stored as `Bool?`, surfaced as non-Optional via computed bridge
+
+**Date**: 2026-05-13
+**Status**: accepted (added during pre-push review)
+
+### Context
+
+Decision 7 defined `TripTask.userDeletedOnThisTrip` as a non-Optional `Bool` with a default of `false`. Implementation on iOS 26.4 hit a Core Data validation panic (`Code=1570 ... is a required value`) when SwiftData's lightweight migration tried to backfill the new column on existing `SchemaV1.TripTask` rows. The same migration also exists for `assigneePersonID` but that field is `UUID?` already, so it surfaces as `nil` and no validation fires.
+
+A second related deviation surfaced during review: `SchemaV2MigrationTests` was designed to seed a real on-disk `SchemaV1` store and re-open with `AppMigrationPlan` configured for `SchemaV2` (per design.md "Testing Strategy"). In practice, two `@Model` types named `TripTask` cannot coexist in the same test process — SwiftData resolves entity-class lookup by class name, so the two namespaced types collide at the schema-registration boundary. The on-disk round-trip test was reduced to a plan-shape verification.
+
+### Decision
+
+Store `userDeletedOnThisTrip` as `var userDeletedOnThisTripRaw: Bool?` on `SchemaV2.TripTask`. Expose the documented non-Optional `userDeletedOnThisTrip: Bool` via a computed-property bridge that treats `nil` as `false` (matching Decision 7's documented default). Application code reads and writes `userDeletedOnThisTrip`; `userDeletedOnThisTripRaw` is implementation detail.
+
+Defer the real on-disk migration round-trip test. `SchemaV2MigrationTests` verifies migration-plan shape (versions registered, single lightweight stage, stage type) but does not exercise V1-row-on-disk → V2 read. The migration will be exercised on first launch against any existing on-device store.
+
+### Rationale
+
+The `Bool?` workaround is the smallest mechanism that lets `.lightweight` migration succeed on iOS 26.4 without breaking Decision 7's surface contract. Treating `nil` as `false` preserves the documented default; the engine and UI never see the underlying Optional.
+
+Skipping the round-trip migration test is a real coverage gap, but the alternative (separating `SchemaV1.TripTask` and `SchemaV2.TripTask` into different binaries) would require either a separate test executable or runtime class-name munging — both heavy for a single test. The migration is mechanically the simplest kind (two nullable columns added); regressions would be visible on first launch.
+
+### Alternatives Considered
+
+- **Keep `Bool` storage with `= false` Swift default**: Rejected because iOS 26.4 panics during lightweight migration validation when the new column has a non-Optional Swift default. Would block the upgrade path entirely.
+- **Custom migration stage to backfill `false`**: Rejected because `.lightweight` is the only stage type that doesn't require writing migration code per schema version; a custom stage for a two-property additive change is disproportionate to the problem.
+- **Run the migration test in a separate test target/binary**: Rejected as too heavy for one test; the cost in build time and CI complexity is greater than the coverage value, given the migration is mechanically trivial.
+
+### Consequences
+
+**Positive:**
+- Migration succeeds on iOS 26.4 without runtime panics.
+- Decision 7's surface contract (`userDeletedOnThisTrip: Bool` default `false`) is preserved for callers.
+- The `*Raw` pattern matches existing precedent (`phaseRaw`, `sourceRaw`, `stateRaw`).
+
+**Negative:**
+- Two-name access for the same logical field (`userDeletedOnThisTrip` vs `userDeletedOnThisTripRaw`) — callers can accidentally read the raw storage. Mitigated by docs in `Schema.swift` and `docs/agent-notes/persistence.md`.
+- The migration's actual disk round-trip is untested. First-launch regressions on a real device with a pre-Phase-3 store would not be caught in CI.
+
+### Impact
+
+`Scramble/Scramble/Models/Schema.swift` (`SchemaV2.TripTask.userDeletedOnThisTripRaw` + computed bridge), `Scramble/ScrambleTests/Persistence/SchemaV2MigrationTests.swift` (scope reduced), `docs/agent-notes/persistence.md` (documents the storage pattern and the test deferral).
+
+---

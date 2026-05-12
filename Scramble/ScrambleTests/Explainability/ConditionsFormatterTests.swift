@@ -26,7 +26,7 @@ struct ConditionsFormatterTests {
     ])
     let trip = Self.attrs([(.weather, ["rain"]), (.duration, ["week"])])
     // TripAttribute.allCases order is: duration, transport, scope, weather, purpose
-    #expect(ConditionsFormatter.format(cond, against: trip) == "week + rain")
+    #expect(ConditionsFormatter.format(cond, against: trip) == "Week + Rain")
   }
 
   // MARK: - OR within attribute type ('or')
@@ -35,7 +35,7 @@ struct ConditionsFormatterTests {
   func orWithinAttributeType() {
     let cond: ItemConditions = .match(attribute: .weather, anyOf: ["rain", "snow"])
     let trip = Self.attrs([(.weather, ["rain", "snow"])])
-    #expect(ConditionsFormatter.format(cond, against: trip) == "rain or snow")
+    #expect(ConditionsFormatter.format(cond, against: trip) == "Rain or Snow")
   }
 
   @Test("OR within attribute type returns only intersected values")
@@ -43,7 +43,7 @@ struct ConditionsFormatterTests {
     let cond: ItemConditions = .match(attribute: .weather, anyOf: ["rain", "snow", "sun"])
     // Trip only has rain selected — sun and snow are not in the trip's attrs.
     let trip = Self.attrs([(.weather, ["rain"])])
-    #expect(ConditionsFormatter.format(cond, against: trip) == "rain")
+    #expect(ConditionsFormatter.format(cond, against: trip) == "Rain")
   }
 
   // MARK: - Iteration order matches TripAttribute.allCases
@@ -69,7 +69,7 @@ struct ConditionsFormatterTests {
     // Expected order matches TripAttribute.allCases:
     // duration, transport, scope, weather, purpose
     #expect(
-      ConditionsFormatter.format(cond, against: trip) == "week + car + domestic + rain + leisure")
+      ConditionsFormatter.format(cond, against: trip) == "Week + Car + Domestic + Rain + Leisure")
   }
 
   // MARK: - Empty intersection
@@ -106,7 +106,7 @@ struct ConditionsFormatterTests {
     ])
     let trip = Self.attrs([(.weather, ["rain"]), (.transport, ["car"])])
     // TripAttribute.allCases puts transport before weather.
-    #expect(ConditionsFormatter.format(cond, against: trip) == "car + rain")
+    #expect(ConditionsFormatter.format(cond, against: trip) == "Car + Rain")
   }
 
   @Test(".any across types collapses to per-attribute OR groups joined by ' + '")
@@ -117,7 +117,7 @@ struct ConditionsFormatterTests {
     ])
     let trip = Self.attrs([(.weather, ["rain"]), (.duration, ["week"])])
     // Both branches contribute distinct attribute types — duration first, then weather.
-    #expect(ConditionsFormatter.format(cond, against: trip) == "week + rain")
+    #expect(ConditionsFormatter.format(cond, against: trip) == "Week + Rain")
   }
 
   @Test("Multiple .match branches on the same attribute type collapse to a single OR group")
@@ -130,7 +130,7 @@ struct ConditionsFormatterTests {
     // Both values match within weather — they are joined by ' or ' under a single group.
     let out = ConditionsFormatter.format(cond, against: trip)
     #expect(
-      out == "rain or snow" || out == "snow or rain",
+      out == "Rain or Snow" || out == "Snow or Rain",
       "Got unexpected value: \(out)")
   }
 
@@ -144,6 +144,6 @@ struct ConditionsFormatterTests {
     ])
     // Trip selects only weather; duration not selected.
     let trip = Self.attrs([(.weather, ["rain"])])
-    #expect(ConditionsFormatter.format(cond, against: trip) == "rain")
+    #expect(ConditionsFormatter.format(cond, against: trip) == "Rain")
   }
 }

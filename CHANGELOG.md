@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Pre-push review follow-ups for Phase 3:
+  - `Scramble/Scramble/Components/TaskRow.swift` invalidates the cached `WhyResolver.Reason` on `task.currentlyMatchesRules` changes so an open `WhyDisclosure` reflects the rules engine flipping the matching state between `.ruleMatched` ↔ `.ruleNoLongerMatches` without requiring a close-and-reopen.
+  - `Scramble/Scramble/Explainability/ConditionsFormatter.swift` routes matched values through `attributeValueDisplay` so the disclosure copy (`"Rain or Snow"`) matches the chips and pickers elsewhere in the UI rather than emitting the raw storage form (`"rain or snow"`). Test expectations in `ConditionsFormatterTests.swift` + `WhyResolverTests.swift` updated to match.
+  - `docs/agent-notes/persistence.md` now documents `SchemaV2`, the typealias `TripTask = SchemaV2.TripTask`, the `userDeletedOnThisTripRaw: Bool?` storage rationale (iOS 26.4 Core Data NULL-default constraint), and the versioned-schema policy.
+  - `docs/agent-notes/rules-engine.md` documents the `userDeletedOnThisTrip` carve-out (Compute guard + Apply belt-and-braces) and the Phase 3 explainability chain (`WhyResolver`, `ConditionsFormatter`).
+  - `specs/phase-3-timeline-tasks/decision_log.md` Decision 12 added: records the `Bool?` storage workaround and the `SchemaV2MigrationTests` on-disk round-trip deferral with rationale and alternatives.
+
 ### Added
 
 - Phase 3 Timeline + Tasks implementation: full accordion timeline replacing the static Phase 1 spine, per-phase task lists with manual add/edit/delete, and an inline `WhyDisclosure` for rule-driven explainability.

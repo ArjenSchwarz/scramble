@@ -152,7 +152,7 @@ struct WhyResolverTests {
     try context.save()
 
     let reason = WhyResolver.reason(for: task, context: context)
-    #expect(reason == .ruleMatched(conditionsText: "rain"))
+    #expect(reason == .ruleMatched(conditionsText: "Rain"))
   }
 
   // MARK: - .ruleNoLongerMatches
@@ -209,7 +209,7 @@ struct WhyResolverTests {
     try context.save()
 
     // First call: matches.
-    #expect(WhyResolver.reason(for: task, context: context) == .ruleMatched(conditionsText: "rain"))
+    #expect(WhyResolver.reason(for: task, context: context) == .ruleMatched(conditionsText: "Rain"))
 
     // Mutate trip attributes — switch to sunny.
     trip.attributes = Self.sunnyAttributes()

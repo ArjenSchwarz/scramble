@@ -2,8 +2,8 @@
 
 ## Files
 
-- `Scramble/Scramble/Models/Schema.swift` — `SchemaV1` (VersionedSchema, all six entities), `AppMigrationPlan` (no stages in v1), shared `modelLogger` for the persistence layer.
-- `Scramble/Scramble/Models/{Trip,Person,MasterTaskItem,MasterPackingItem,TripTask,TripPackingItem}.swift` — `@Model` entities with Codable-bridge extensions for `attributes`, `conditions`, `phase`, `source`, `state`.
+- `Scramble/Scramble/Models/Schema.swift` — `SchemaV1` (pre-Phase-3 frozen) and `SchemaV2` (current — adds `TripTask.assigneePersonID` + `TripTask.userDeletedOnThisTripRaw`), `AppMigrationPlan` with a single `.lightweight` stage `V1 → V2`, `typealias TripTask = SchemaV2.TripTask`, and shared `modelLogger`.
+- `Scramble/Scramble/Models/{Trip,Person,MasterTaskItem,MasterPackingItem,TripPackingItem}.swift` — `@Model` entities with Codable-bridge extensions for `attributes`, `conditions`, `phase`, `source`, `state`. `TripTask` now lives inside `Schema.swift` (both V1 and V2 variants).
 - `Scramble/Scramble/Persistence/EnvironmentProbe.swift` — value type wrapping `environment` + `arguments`; `production` reads `ProcessInfo.processInfo`. Branches: `isTest`, `isUITestHost`, `isPreview`.
 - `Scramble/Scramble/Persistence/ModelStore.swift` — `@MainActor enum`. `shared` evaluates `makeContainer(probe: .production)` once. `configuration(probe:)` is `nonisolated` and unit-tested.
 
@@ -29,6 +29,17 @@ SwiftData iOS 26.4 does not throw on `context.save()` after deleting a Person wi
 
 - `TripAttributes` (blob) and `ItemConditions` (blob) round-trip via `JSONEncoder/Decoder`. Decode failures fall back to defaults (`TripAttributes()`, `.always`) and log via `modelLogger.error(...)` — never crash.
 - Enum-valued properties (`Phase`, `ItemSource`, `PackingState`) are stored as `String` rawValues with `*Raw` storage and computed-property bridges. Unknown raw values fall back to the documented default. This pattern sidesteps CloudKit schema-promotion friction (Decision 14).
+- `TripTask.userDeletedOnThisTrip` (Phase 3, Decision 7) is exposed as non-Optional `Bool` via a computed bridge, but the underlying column `userDeletedOnThisTripRaw` is `Bool?`. The nullable storage is mandatory on iOS 26.4: SwiftData/CoreData asserts (`Code=1570 ... is a required value`) when a lightweight-migrated column has a non-Optional Swift default — see Phase 3 decision log Decision 12. Treat the `userDeletedOnThisTrip` computed property as the canonical surface; the `*Raw` storage exists only because the migration path requires it.
+
+## Versioned schema policy
+
+- Phase 3 (Decision 11) established versioned schemas as policy going forward. Each schema change — additive or not — gets a new `SchemaV<N>` and an explicit `MigrationStage` in `AppMigrationPlan`, even when SwiftData would tolerate in-place edits.
+- `TripTask` is the first model with V1 and V2 variants. Other models (`Trip`, `Person`, `MasterTaskItem`, `MasterPackingItem`, `TripPackingItem`) are referenced from both versions but are unchanged.
+- Each `VersionedSchema.models` array must list its own model references; `MigrationStage.lightweight` compares metadata between versions, so if both versions point at the same Swift type there is no diff and the migration is a no-op.
+
+## SchemaV2 migration test deferral
+
+- `SchemaV2MigrationTests` verifies plan shape (`schemas`, `stages`, lightweight stage typing) but **does not** perform a real on-disk V1→V2 round-trip. Two `@Model` types named `TripTask` cannot coexist in the same test process: SwiftData resolves entity-class lookup by class name, so seeding a `SchemaV1.TripTask` store and re-opening with `SchemaV2.TripTask` in one binary collides. The functional check (new fields default correctly on migrated rows) is exercised indirectly via fresh-V2 inserts in other tests. If a regression in the migration step ever ships, it will surface on first launch against an existing on-device store rather than in CI.
 
 ## Test environment detection
 

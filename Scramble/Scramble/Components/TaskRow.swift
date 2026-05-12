@@ -13,7 +13,7 @@ import SwiftUI
 /// State ownership: `isDisclosureOpen` is bound by the parent; the resolved
 /// `WhyDisclosure.Reason` is cached locally and recomputed only when the
 /// disclosure opens or relevant inputs (`task.trip?.attributesData`,
-/// `task.name`) change.
+/// `task.currentlyMatchesRules`, `task.name`) change.
 struct TaskRow: View {
   let task: TripTask
   let phaseColour: Color
@@ -105,6 +105,11 @@ struct TaskRow: View {
       }
     }
     .onChange(of: task.trip?.attributesData) { _, _ in
+      if isDisclosureOpen {
+        resolvedReason = WhyResolver.reason(for: task, context: modelContext)
+      }
+    }
+    .onChange(of: task.currentlyMatchesRules) { _, _ in
       if isDisclosureOpen {
         resolvedReason = WhyResolver.reason(for: task, context: modelContext)
       }
