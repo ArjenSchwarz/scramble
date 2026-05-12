@@ -14,10 +14,10 @@ import SwiftUI
     case create
     case edit(PersistentIdentifier)
 
-    var id: String {
+    var id: AnyHashable {
       switch self {
-      case .create: "create"
-      case .edit(let id): "edit-\(id.hashValue)"
+      case .create: AnyHashable("create")
+      case .edit(let id): AnyHashable(id)
       }
     }
   }

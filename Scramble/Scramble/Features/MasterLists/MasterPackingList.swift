@@ -17,10 +17,10 @@ import SwiftUI
     case create
     case edit(PersistentIdentifier)
 
-    var id: String {
+    var id: AnyHashable {
       switch self {
-      case .create: "create"
-      case .edit(let id): "edit-\(id.hashValue)"
+      case .create: AnyHashable("create")
+      case .edit(let id): AnyHashable(id)
       }
     }
   }
@@ -37,10 +37,9 @@ import SwiftUI
     } else {
       let variant = theme.variant(for: colorScheme)
       let grouped = Dictionary(grouping: allItems) { $0.person?.id }
-      let sortedPeople = allPeople.sorted { $0.name < $1.name }
 
       List {
-        ForEach(sortedPeople) { person in
+        ForEach(allPeople) { person in
           let items = grouped[person.id] ?? []
           if !items.isEmpty {
             Section {

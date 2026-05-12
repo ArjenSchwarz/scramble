@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 @MainActor struct TripListView: View {
   @Query(sort: \Trip.startDate, order: .forward) private var allTrips: [Trip]
@@ -70,7 +71,13 @@ import SwiftUI
           modelContext.rollback()
           return false
         }
-        _ = try? RulesEngineRunner(context: modelContext).runForTrip(newTrip)
+        do {
+          try RulesEngineRunner(context: modelContext).runForTrip(newTrip)
+        } catch {
+          modelLogger.error(
+            "[RulesEngine.trip-edit-failed] tripID=\(newTrip.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+          )
+        }
         if !orphans.isEmpty {
           toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
         }

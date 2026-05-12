@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 @MainActor struct TripDetailView: View {
   let trip: Trip
@@ -84,7 +85,13 @@ import SwiftUI
           modelContext.rollback()
           return false
         }
-        _ = try? RulesEngineRunner(context: modelContext).runForTrip(trip)
+        do {
+          try RulesEngineRunner(context: modelContext).runForTrip(trip)
+        } catch {
+          modelLogger.error(
+            "[RulesEngine.trip-edit-failed] tripID=\(trip.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+          )
+        }
         if !orphans.isEmpty {
           toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
         }

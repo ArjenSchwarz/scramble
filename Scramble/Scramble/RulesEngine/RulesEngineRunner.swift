@@ -19,7 +19,10 @@ struct RulesEngineRunner {
     calendar: Calendar = .current
   ) throws -> [Plan] {
     let cutoff = calendar.startOfDay(for: today)
-    let trips = try context.fetch(FetchDescriptor<Trip>())
+    // Push the cutoff into the predicate so past trips are skipped at the
+    // SQLite layer rather than materialised then filtered in memory.
+    let tripDescriptor = FetchDescriptor<Trip>(predicate: #Predicate { $0.endDate >= cutoff })
+    let trips = try context.fetch(tripDescriptor)
     // Hoist the master snapshot fetches out of the per-trip loop. With 20
     // non-past trips × 200 masters the prior shape was 8,000 model
     // materialisations; one shared fetch keeps the AC 5.5 budget safe.
@@ -27,12 +30,13 @@ struct RulesEngineRunner {
     let masterPacking = try fetchMasterPackingSnapshots()
     var plans: [Plan] = []
     for trip in trips {
-      let endDay = calendar.startOfDay(for: trip.endDate)
-      guard endDay >= cutoff else { continue }
       do {
         let plan = try runForTrip(trip, masterTasks: masterTasks, masterPacking: masterPacking)
         plans.append(plan)
       } catch {
+        // Drop any partial inserts/changes from the failed trip so the next
+        // iteration's save() doesn't silently persist orphaned rows.
+        context.rollback()
         modelLogger.error(
           "[RulesEngine.run-failed] tripID=\(trip.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
         )
