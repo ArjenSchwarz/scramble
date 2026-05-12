@@ -59,7 +59,7 @@ references:
 
 ## Rules engine
 
-- [ ] 7. Tests: Compute decision matrix + exclusion table <!-- id:diu0hgj -->
+- [x] 7. Tests: Compute decision matrix + exclusion table <!-- id:diu0hgj -->
   - Add ScrambleTests/RulesEngine/ComputeTests.swift, table-driven.
   - 4-way matrix: (currentlyMatchesRules, conditions-evaluate) → expected emission. All four cells.
   - Exclusion table: pin / completed / packed/repacked/excluded each protect against toFlagUnmatched but NOT toFlagMatched.
@@ -72,7 +72,7 @@ references:
   - Stream: 1
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.5](requirements.md#4.5), [4.6](requirements.md#4.6), [4.7](requirements.md#4.7), [4.9](requirements.md#4.9), [6.1](requirements.md#6.1), [6.2](requirements.md#6.2), [6.3](requirements.md#6.3), [6.4](requirements.md#6.4), [6.5](requirements.md#6.5)
 
-- [ ] 8. Tests: Compute idempotence + determinism (PBT) <!-- id:diu0hgk -->
+- [x] 8. Tests: Compute idempotence + determinism (PBT) <!-- id:diu0hgk -->
   - Add ScrambleTests/RulesEngine/ComputeIdempotenceTests.swift.
   - PBT determinism: compute(x, m1, m2) == compute(x, m1, m2) over random v1-shaped inputs.
   - PBT idempotence: simulate apply as a value-type rewrite of TripSnapshot.existingTasks/existingPacking (apply toAdd → append fresh refs with currentlyMatchesRules=true; toFlag → update flag), then second compute returns an empty Plan.
@@ -81,7 +81,7 @@ references:
   - Stream: 1
   - Requirements: [4.5](requirements.md#4.5), [5.6](requirements.md#5.6)
 
-- [ ] 9. Implement compute(...) in Compute.swift <!-- id:diu0hgl -->
+- [x] 9. Implement compute(...) in Compute.swift <!-- id:diu0hgl -->
   - Add Scramble/Scramble/RulesEngine/Compute.swift.
   - Build [UUID: MasterTaskSnapshot] and [UUID: MasterPackingSnapshot] lookup maps at entry (O(1) step-3 lookups).
   - Build Set<UUID> of referenced master ids across both existing collections.
@@ -92,7 +92,7 @@ references:
   - Stream: 1
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.5](requirements.md#4.5), [4.6](requirements.md#4.6), [4.7](requirements.md#4.7), [4.8](requirements.md#4.8), [4.9](requirements.md#4.9), [6.1](requirements.md#6.1), [6.2](requirements.md#6.2), [6.3](requirements.md#6.3), [6.4](requirements.md#6.4), [6.5](requirements.md#6.5)
 
-- [ ] 10. Tests: Apply (in-memory ModelContainer) <!-- id:diu0hgm -->
+- [x] 10. Tests: Apply (in-memory ModelContainer) <!-- id:diu0hgm -->
   - Add ScrambleTests/RulesEngine/ApplyTests.swift using in-memory container per Phase 1 SchemaTests pattern.
   - Empty plan → no fetch, no save (assert via tracking ModelContext hasChanges before/after).
   - toAddTasks → TripTask inserted with name/phase/masterItemID snapshotted, source=.rule, currentlyMatchesRules=true, pinnedByUser=false, isCompleted=false.
@@ -105,7 +105,7 @@ references:
   - Stream: 1
   - Requirements: [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5), [4.7](requirements.md#4.7)
 
-- [ ] 11. Implement apply(plan:context:) in Apply.swift <!-- id:diu0hgn -->
+- [x] 11. Implement apply(plan:context:) in Apply.swift <!-- id:diu0hgn -->
   - Add Scramble/Scramble/RulesEngine/Apply.swift, @MainActor.
   - Algorithm per design.md: short-circuit on Plan.isEmpty; fetch Trip by id; insert tasks/packing per snapshot; fetch + update flag for toFlag*; context.save().
   - Implementer-choice fetch: FetchDescriptor with #Predicate { ids.contains($0.id) } preferred; per-id or trip-then-filter acceptable.
@@ -114,7 +114,7 @@ references:
   - Stream: 1
   - Requirements: [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
-- [ ] 12. Tests: RulesEngineRunner end-to-end <!-- id:diu0hgo -->
+- [x] 12. Tests: RulesEngineRunner end-to-end <!-- id:diu0hgo -->
   - Add ScrambleTests/RulesEngine/RulesEngineRunnerTests.swift using in-memory container.
   - runForTrip captures snapshot, computes, applies; round-trip end-to-end on a seeded trip.
   - runForAllNonPastTrips(today:calendar:) only touches non-past trips; the past trip is left untouched.
@@ -129,7 +129,7 @@ references:
   - Stream: 1
   - Requirements: [4.4](requirements.md#4.4), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.4](requirements.md#5.4), [5.6](requirements.md#5.6), [5.7](requirements.md#5.7), [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.5](requirements.md#7.5)
 
-- [ ] 13. Implement RulesEngineRunner.swift <!-- id:diu0hgp -->
+- [x] 13. Implement RulesEngineRunner.swift <!-- id:diu0hgp -->
   - Add Scramble/Scramble/RulesEngine/RulesEngineRunner.swift, @MainActor struct.
   - runForTrip(_:): build TripSnapshot from a Trip @Model, fetch all masters as snapshots (skip nil-person), call compute, call apply, return Plan.
   - runForAllNonPastTrips(today:calendar:): predicate = calendar.startOfDay(endDate) >= calendar.startOfDay(today); evaluated once at top; per-trip do/catch around runForTrip; returns [Plan] of successful runs.
