@@ -8,7 +8,7 @@ references:
 
 ## Foundation value types
 
-- [ ] 1. Tests: Snapshot value types + Plan + TripItemRef <!-- id:diu0hgd -->
+- [x] 1. Tests: Snapshot value types + Plan + TripItemRef <!-- id:diu0hgd -->
   - Add ScrambleTests/RulesEngine/PlanTests.swift covering TripSnapshot / TripTaskRef / TripPackingItemRef / MasterTaskSnapshot / MasterPackingSnapshot Equatable + Hashable + Sendable conformance.
   - Plan sort invariant: toAddTasks/toAddPacking sorted by master id asc; toFlagUnmatched/toFlagMatched sorted by (kind, id) asc.
   - Plan.isEmpty true iff all four collections empty.
@@ -16,7 +16,7 @@ references:
   - Stream: 1
   - Requirements: [4.1](requirements.md#4.1), [4.8](requirements.md#4.8), [4.9](requirements.md#4.9), [6.4](requirements.md#6.4)
 
-- [ ] 2. Implement Snapshots.swift + Plan.swift <!-- id:diu0hge -->
+- [x] 2. Implement Snapshots.swift + Plan.swift <!-- id:diu0hge -->
   - Add Scramble/Scramble/RulesEngine/Snapshots.swift (TripSnapshot, TripTaskRef, TripPackingItemRef, MasterTaskSnapshot, MasterPackingSnapshot).
   - Add Scramble/Scramble/RulesEngine/Plan.swift (Plan, TripItemRef).
   - All types value-type Sendable; master snapshots also Hashable.

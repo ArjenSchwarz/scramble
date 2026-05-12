@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated indirect enum ItemConditions: Codable, Equatable, Sendable {
+nonisolated indirect enum ItemConditions: Codable, Equatable, Hashable, Sendable {
   case always
   case match(attribute: TripAttribute, anyOf: [String])
   case all([ItemConditions])
