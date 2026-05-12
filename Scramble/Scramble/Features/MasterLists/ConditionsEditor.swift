@@ -53,6 +53,7 @@ import SwiftUI
         )
     }
     .buttonStyle(.plain)
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 
   private func toggle(attribute: TripAttribute, value: String) {

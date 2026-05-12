@@ -22,5 +22,11 @@ nonisolated enum UITestArguments {
   nonisolated enum DebugAccessibilityID {
     static let modelStoreInMemory = "modelStore.in-memory"
     static let modelStoreCloud = "modelStore.cloud"
+
+    /// Prefix for the `RootView` counter exposing how many times the
+    /// scenePhase `.background → .active` trigger has invoked the rules
+    /// engine runner during this app session. Used by
+    /// `RootViewScenePhaseTests` to verify the cold-launch carve-out.
+    static let scenePhaseRunnerCallsPrefix = "rulesEngine.scenePhaseRunnerCalls."
   }
 #endif

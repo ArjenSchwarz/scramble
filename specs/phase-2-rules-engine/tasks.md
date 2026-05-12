@@ -213,7 +213,7 @@ references:
 
 ## UI and integration tests
 
-- [ ] 23. MasterListsCRUDUITests <!-- id:diu0hgz -->
+- [x] 23. MasterListsCRUDUITests <!-- id:diu0hgz -->
   - Add ScrambleUITests/MasterListsCRUDUITests.swift.
   - Create master task: open Master Lists → Tasks segment → '+ Add task' → fill name + select phase + skip conditions → Save → assert row appears under correct Phase header.
   - Edit master task: open existing row → change name → Save → assert row text updates.
@@ -223,7 +223,7 @@ references:
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [1.3](requirements.md#1.3), [1.6](requirements.md#1.6), [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.3](requirements.md#2.3), [2.6](requirements.md#2.6)
 
-- [ ] 24. ConditionsEditorUITests <!-- id:diu0hh0 -->
+- [x] 24. ConditionsEditorUITests <!-- id:diu0hh0 -->
   - Add ScrambleUITests/ConditionsEditorUITests.swift.
   - Round-trip: open editor, select Weather chips (rain, cold), select Scope chip (international), Save, reopen, assert chips reflect saved selection (AC 3.6).
   - Empty save: open editor, leave all attribute rows empty, Save, reopen, assert empty state matches .always (AC 3.4).
@@ -233,14 +233,14 @@ references:
   - Stream: 1
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [3.7](requirements.md#3.7)
 
-- [ ] 25. MasterPackingEmptyStateUITests <!-- id:diu0hh1 -->
+- [x] 25. MasterPackingEmptyStateUITests <!-- id:diu0hh1 -->
   - Add ScrambleUITests/MasterPackingEmptyStateUITests.swift.
   - Seed: zero Person records. Open Master Lists → Packing Items. Assert ContentUnavailableView text matches the AC 2.7 copy; assert '+ Add item' affordance not present.
   - Blocked-by: diu0hgv (Wire MasterListsTab to host the two list views)
   - Stream: 1
   - Requirements: [2.7](requirements.md#2.7)
 
-- [ ] 26. RulesEnginePopulationUITests <!-- id:diu0hh2 -->
+- [x] 26. RulesEnginePopulationUITests <!-- id:diu0hh2 -->
   - Add ScrambleUITests/RulesEnginePopulationUITests.swift.
   - Extend UITestSeed with a phase2-rules-fixture keyword: seed one Person + one MasterPackingItem (e.g., 'Rain jacket' with conditions .all([.match(.weather, ['rain'])])).
   - AC 5.1 create path: launch with fixture, create new trip via TripListView with Weather=Rain, save. Assert (via debug accessibility identifier on TripDetailView) that the trip's packingItems contains 'Rain jacket' with currentlyMatchesRules=true.
@@ -250,7 +250,7 @@ references:
   - Stream: 1
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
 
-- [ ] 27. ColdLaunchSequencingUITests <!-- id:diu0hh3 -->
+- [x] 27. ColdLaunchSequencingUITests <!-- id:diu0hh3 -->
   - Add ScrambleUITests/ColdLaunchSequencingUITests.swift.
   - Seed: one qualifying trip (start ≤ today+2d, end ≥ today) AND a MasterTaskItem whose conditions newly match. Cold launch.
   - Phase 1 AC 5.6 auto-open should land on TripDetail; assert the trip's tasks collection contains the rule-driven master with currentlyMatchesRules=true.
@@ -259,7 +259,7 @@ references:
   - Stream: 1
   - Requirements: [5.4](requirements.md#5.4)
 
-- [ ] 28. RootViewScenePhaseTests <!-- id:diu0hh4 -->
+- [x] 28. RootViewScenePhaseTests <!-- id:diu0hh4 -->
   - Add ScrambleUITests/RootViewScenePhaseTests.swift (XCUITest, host-app harness).
   - Cold-launch carve-out: launch the app; nil → .inactive → .active sequence should NOT call the runner (asserted via a debug-only counter on RulesEngineRunner exposed via accessibility hook).
   - Background → foreground transition: send the app to background, return; assert one runner invocation since the carve-out's previousScenePhase==.background guard now holds.
@@ -267,7 +267,7 @@ references:
   - Stream: 1
   - Requirements: [5.7](requirements.md#5.7)
 
-- [ ] 29. PersonDeletionGuardUITests (extends to master refs) <!-- id:diu0hh5 -->
+- [x] 29. PersonDeletionGuardUITests (extends to master refs) <!-- id:diu0hh5 -->
   - Add ScrambleUITests/PersonDeletionGuardUITests.swift.
   - Seed: a Person with one MasterPackingItem AND zero TripPackingItem refs. Open TripEditorView's person picker, attempt delete on that person; assert PersonDeleteBlocker alert message lists 'Master packing items: …' (proving Phase 1's existing helper handles master refs).
   - This is the only Phase 2 work for AC 8.2 (no new code — see design.md Person deletion guard section).

@@ -101,6 +101,7 @@ import SwiftUI
         }
       }
       .pickerStyle(.menu)
+      .accessibilityIdentifier("masterPacking.personPicker")
       if let message = errors[.person] {
         Text(message)
           .font(.footnote)
