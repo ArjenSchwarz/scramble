@@ -48,12 +48,14 @@ private func insertAddedTasks(_ masters: [MasterTaskSnapshot], on trip: Trip, co
 private func insertAddedPacking(
   _ masters: [MasterPackingSnapshot], on trip: Trip, context: ModelContext
 ) throws {
+  guard !masters.isEmpty else { return }
+  let personIDs = Array(Set(masters.map(\.personID)))
+  let descriptor = FetchDescriptor<Person>(predicate: #Predicate { personIDs.contains($0.id) })
+  let byID = Dictionary(uniqueKeysWithValues: try context.fetch(descriptor).map { ($0.id, $0) })
   for master in masters {
-    let personID = master.personID
-    let descriptor = FetchDescriptor<Person>(predicate: #Predicate { $0.id == personID })
-    guard let person = try context.fetch(descriptor).first else {
+    guard let person = byID[master.personID] else {
       modelLogger.info(
-        "[RulesEngine.skip-packing-orphan] master=\(master.id, privacy: .public) personID=\(personID, privacy: .public) not found"
+        "[RulesEngine.skip-packing-orphan] master=\(master.id, privacy: .public) personID=\(master.personID, privacy: .public) not found"
       )
       continue
     }

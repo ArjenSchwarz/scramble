@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 /// Helpers for applying master drafts to the model context. Mirrors
 /// `TripPersistence`: the helpers mutate but do NOT call `context.save()` —
@@ -75,6 +76,13 @@ import SwiftData
     let descriptor = FetchDescriptor<Person>(
       predicate: #Predicate<Person> { $0.id == id }
     )
-    return try? context.fetch(descriptor).first
+    do {
+      return try context.fetch(descriptor).first
+    } catch {
+      modelLogger.error(
+        "[MasterPersistence.resolvePerson] id=\(id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+      )
+      return nil
+    }
   }
 }

@@ -10,8 +10,11 @@ nonisolated func compute(
   masterTasks: [MasterTaskSnapshot],
   masterPacking: [MasterPackingSnapshot]
 ) -> Plan {
-  let taskMap = Dictionary(uniqueKeysWithValues: masterTasks.map { ($0.id, $0) })
-  let packingMap = Dictionary(uniqueKeysWithValues: masterPacking.map { ($0.id, $0) })
+  // `uniquingKeysWith` rather than `uniqueKeysWithValues` so a CloudKit
+  // merge that briefly surfaces two masters with the same UUID does not
+  // trap. Duplicates are tolerated; we keep the first.
+  let taskMap = Dictionary(masterTasks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+  let packingMap = Dictionary(masterPacking.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
   let referenced = referencedMasterIDs(in: trip)
 
   let toAddTasks = masterTasks.filter { master in

@@ -8,16 +8,9 @@ struct RulesEngineRunner {
 
   @discardableResult
   func runForTrip(_ trip: Trip) throws -> Plan {
-    let snapshot = TripSnapshot.capture(from: trip)
     let masterTasks = try fetchMasterTaskSnapshots()
     let masterPacking = try fetchMasterPackingSnapshots()
-    let plan = compute(
-      trip: snapshot,
-      masterTasks: masterTasks,
-      masterPacking: masterPacking
-    )
-    try apply(plan: plan, context: context)
-    return plan
+    return try runForTrip(trip, masterTasks: masterTasks, masterPacking: masterPacking)
   }
 
   @discardableResult
@@ -27,12 +20,17 @@ struct RulesEngineRunner {
   ) throws -> [Plan] {
     let cutoff = calendar.startOfDay(for: today)
     let trips = try context.fetch(FetchDescriptor<Trip>())
+    // Hoist the master snapshot fetches out of the per-trip loop. With 20
+    // non-past trips × 200 masters the prior shape was 8,000 model
+    // materialisations; one shared fetch keeps the AC 5.5 budget safe.
+    let masterTasks = try fetchMasterTaskSnapshots()
+    let masterPacking = try fetchMasterPackingSnapshots()
     var plans: [Plan] = []
     for trip in trips {
       let endDay = calendar.startOfDay(for: trip.endDate)
       guard endDay >= cutoff else { continue }
       do {
-        let plan = try runForTrip(trip)
+        let plan = try runForTrip(trip, masterTasks: masterTasks, masterPacking: masterPacking)
         plans.append(plan)
       } catch {
         modelLogger.error(
@@ -41,6 +39,21 @@ struct RulesEngineRunner {
       }
     }
     return plans
+  }
+
+  private func runForTrip(
+    _ trip: Trip,
+    masterTasks: [MasterTaskSnapshot],
+    masterPacking: [MasterPackingSnapshot]
+  ) throws -> Plan {
+    let snapshot = TripSnapshot.capture(from: trip)
+    let plan = compute(
+      trip: snapshot,
+      masterTasks: masterTasks,
+      masterPacking: masterPacking
+    )
+    try apply(plan: plan, context: context)
+    return plan
   }
 
   private func fetchMasterTaskSnapshots() throws -> [MasterTaskSnapshot] {

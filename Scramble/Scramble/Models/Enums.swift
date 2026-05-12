@@ -8,6 +8,18 @@ nonisolated enum Phase: String, Codable, CaseIterable, Hashable, Sendable {
   case dayBeforeReturn
   case returnDay
   case afterTrip
+
+  var displayName: String {
+    switch self {
+    case .weeksBefore: "Weeks before"
+    case .dayBefore: "Day before"
+    case .departureDay: "Departure day"
+    case .duringTrip: "During trip"
+    case .dayBeforeReturn: "Day before return"
+    case .returnDay: "Return day"
+    case .afterTrip: "After trip"
+    }
+  }
 }
 
 nonisolated enum ItemSource: String, Codable, CaseIterable, Hashable, Sendable {

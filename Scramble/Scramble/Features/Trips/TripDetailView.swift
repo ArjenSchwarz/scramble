@@ -232,7 +232,7 @@ import SwiftUI
           }
           .frame(width: 24)
 
-          Text(Self.label(for: phase))
+          Text(phase.displayName)
             .font(.headline)
             .foregroundStyle(variant.textPrimary)
             .padding(.top, 1)
@@ -244,18 +244,6 @@ import SwiftUI
       }
     }
     .padding(.horizontal)
-  }
-
-  static func label(for phase: Phase) -> String {
-    switch phase {
-    case .weeksBefore: "Weeks before"
-    case .dayBefore: "Day before"
-    case .departureDay: "Departure day"
-    case .duringTrip: "During trip"
-    case .dayBeforeReturn: "Day before return"
-    case .returnDay: "Return day"
-    case .afterTrip: "After trip"
-    }
   }
 
   // swiftlint:disable:next cyclomatic_complexity

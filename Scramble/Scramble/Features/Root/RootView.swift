@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 @MainActor struct RootView: View {
   enum Tab: Hashable { case trips, masterLists }
@@ -40,7 +41,13 @@ import SwiftUI
       }
       guard newPhase == .active, hasBeenBackgrounded else { return }
       hasBeenBackgrounded = false
-      _ = try? RulesEngineRunner(context: modelContext).runForAllNonPastTrips()
+      do {
+        _ = try RulesEngineRunner(context: modelContext).runForAllNonPastTrips()
+      } catch {
+        modelLogger.error(
+          "[RulesEngine.scenePhase-failed] error=\(String(describing: error), privacy: .public)"
+        )
+      }
       #if DEBUG
         scenePhaseRunnerCalls += 1
       #endif

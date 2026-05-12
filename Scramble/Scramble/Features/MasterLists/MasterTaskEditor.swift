@@ -94,7 +94,7 @@ import SwiftUI
     Section("Phase") {
       Picker("Phase", selection: $draft.phase) {
         ForEach(Phase.allCases, id: \.self) { phase in
-          Text(MasterListLabels.phase(phase)).tag(phase)
+          Text(phase.displayName).tag(phase)
         }
       }
       .pickerStyle(.menu)

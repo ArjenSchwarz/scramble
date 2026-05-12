@@ -67,7 +67,9 @@ import SwiftUI
         }
 
         Section {
-          addButton(accent: variant.accent)
+          DashedAddButton(title: "Add item", accent: variant.accent) {
+            editTarget = .create
+          }
         }
       }
       .listStyle(.insetGrouped)
@@ -87,30 +89,5 @@ import SwiftUI
         MasterPackingEditor(mode: .edit(item))
       }
     }
-  }
-
-  private func addButton(accent: Color) -> some View {
-    Button {
-      editTarget = .create
-    } label: {
-      HStack(spacing: 8) {
-        Image(systemName: "plus")
-        Text("Add item")
-      }
-      .font(.headline)
-      .foregroundStyle(accent)
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 12)
-      .overlay(
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .strokeBorder(
-            accent.opacity(0.6),
-            style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-          )
-      )
-    }
-    .buttonStyle(.borderless)
-    .listRowBackground(Color.clear)
-    .listRowSeparator(.hidden)
   }
 }

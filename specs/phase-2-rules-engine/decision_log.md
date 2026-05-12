@@ -246,6 +246,80 @@ Defer to Phase 3. Phase 2 ships the evaluator alone. Phase 3 adds the parallel "
 
 ---
 
+## Decision 8: `Plan.init` enforces sort order; `compute` no longer sorts before construction
+
+**Date**: 2026-05-12
+**Status**: accepted
+
+### Context
+
+The original design.md (§Compute algorithm step 5) assigned sort responsibility to `compute(...)`: "Sort each collection by id ascending. Construct `Plan`." During implementation, the natural place to enforce AC 4.9's deterministic-ordering invariant turned out to be the `Plan` initializer itself: every `Plan` value is sorted by construction, regardless of caller.
+
+### Decision
+
+`Plan.init(...)` sorts `toAddTasks` / `toAddPacking` by master id ascending and `toFlagUnmatched` / `toFlagMatched` by `(kind.rawValue, id)` ascending. `compute(...)` passes unsorted arrays; the initializer enforces the invariant.
+
+### Rationale
+
+- AC 4.9's invariant becomes a type-level guarantee — there is no way to construct a `Plan` that breaks it. Future callers (a hypothetical dry-run preview, a test fixture, a CloudKit sync handler) cannot produce an unsorted `Plan`.
+- Compute stays focused on the classification logic; sort is mechanical and lives at the value-type boundary.
+- The cost is one redundant pass for callers who already pass sorted data, which is negligible against the bounded dataset (≤200 master items per AC 5.5).
+
+### Alternatives Considered
+
+- **Keep sort inside `compute(...)` per the original design**: Rejected — caller must remember the invariant, and `Plan` could otherwise be constructed unsorted (e.g., in tests).
+- **Add a `debugAssert(isSorted)` in `Plan.init` and keep sort in compute**: Rejected — debug-only check disappears in release builds, leaving the invariant unenforced where it matters most.
+
+### Consequences
+
+**Positive:**
+
+- Sort invariant is type-enforced; no caller can violate AC 4.9.
+- `compute(...)` body is one line shorter (no `.sorted` calls at construction).
+
+**Negative:**
+
+- `Plan` doing work beyond pure value carrying. Acceptable because the work is mechanical (sort, not classification) and lives at the construction boundary.
+
+---
+
+## Decision 9: scenePhase carve-out uses `hasBeenBackgrounded: Bool`, not `previousScenePhase: ScenePhase?`
+
+**Date**: 2026-05-12
+**Status**: accepted (corrects design.md §scenePhase carve-out)
+
+### Context
+
+The original design.md (§scenePhase carve-out, AC 5.7) committed to a `previousScenePhase: ScenePhase? = nil` pattern with the guard `previousScenePhase == .background, newPhase == .active`. During implementation, this guard was found to **never fire**: iOS delivers backgrounding as `.background → .inactive → .active`, with `.inactive` as an intermediary. By the time `onChange(of: scenePhase)` sees `.active`, the previous observed phase is `.inactive`, not `.background`. The guard fails and the trigger never runs.
+
+### Decision
+
+Replace the `previousScenePhase: ScenePhase?` pair with a `hasBeenBackgrounded: Bool` latch. Set the flag to `true` whenever the new phase is `.background`; on the next `.active` transition, fire the runner and reset the flag. The cold-launch carve-out is preserved: the initial `nil → .inactive → .active` sequence never observes `.background`, so the flag stays `false` and the runner is not invoked.
+
+### Rationale
+
+- Correctness: the `.inactive` intermediary makes the design's direct edge unobservable. The latch approach matches what iOS actually delivers.
+- Idempotence (AC 5.6) protects against any unexpected scene-phase sequence the system might deliver.
+- Symmetry: a `Bool` flag mirrors the cold-launch invariant (which is also a one-shot "have we initialised yet" flag).
+
+### Alternatives Considered
+
+- **Track every prior phase in a fixed-size buffer and check for a `.background` entry**: Rejected — over-engineered; the latch captures the single bit that matters.
+- **Use `applicationDidEnterBackground` / `applicationWillEnterForeground` lifecycle notifications**: Rejected — the `scenePhase` SwiftUI signal is the project-conventional source of truth (see Phase 1 patterns) and these notifications are not scene-aware on multi-scene platforms.
+
+### Consequences
+
+**Positive:**
+
+- AC 5.7 trigger fires correctly on real `.background → .active` cycles.
+- Cold-launch carve-out remains intact.
+
+**Negative:**
+
+- design.md §scenePhase carve-out code snippet is now stale; this decision supersedes it. The CHANGELOG entry under "Fixed" records the same.
+
+---
+
 ## Decision 7: Foreground-transition trigger added on peer-review feedback
 
 **Date**: 2026-05-11

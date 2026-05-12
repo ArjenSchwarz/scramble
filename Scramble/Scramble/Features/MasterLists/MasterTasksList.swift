@@ -29,7 +29,7 @@ import SwiftUI
     List {
       ForEach(Phase.allCases, id: \.self) { phase in
         if let items = grouped[phase], !items.isEmpty {
-          Section(MasterListLabels.phase(phase)) {
+          Section(phase.displayName) {
             ForEach(items) { item in
               Button {
                 editTarget = .edit(item.persistentModelID)
@@ -46,7 +46,9 @@ import SwiftUI
       }
 
       Section {
-        addButton(accent: variant.accent)
+        DashedAddButton(title: "Add task", accent: variant.accent) {
+          editTarget = .create
+        }
       }
     }
     .listStyle(.insetGrouped)
@@ -65,30 +67,5 @@ import SwiftUI
         MasterTaskEditor(mode: .edit(item))
       }
     }
-  }
-
-  private func addButton(accent: Color) -> some View {
-    Button {
-      editTarget = .create
-    } label: {
-      HStack(spacing: 8) {
-        Image(systemName: "plus")
-        Text("Add task")
-      }
-      .font(.headline)
-      .foregroundStyle(accent)
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 12)
-      .overlay(
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .strokeBorder(
-            accent.opacity(0.6),
-            style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-          )
-      )
-    }
-    .buttonStyle(.borderless)
-    .listRowBackground(Color.clear)
-    .listRowSeparator(.hidden)
   }
 }
