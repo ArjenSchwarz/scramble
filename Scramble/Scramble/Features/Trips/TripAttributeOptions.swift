@@ -40,7 +40,7 @@ extension TripAttribute {
 
 extension String {
   /// Display form for an attribute value used by chips and pickers ("plane" → "Plane").
-  var attributeValueDisplay: String {
+  nonisolated var attributeValueDisplay: String {
     self.prefix(1).uppercased() + self.dropFirst()
   }
 }

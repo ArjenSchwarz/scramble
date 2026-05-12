@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 @MainActor struct TripDetailView: View {
   let trip: Trip
@@ -84,6 +85,13 @@ import SwiftUI
           modelContext.rollback()
           return false
         }
+        do {
+          try RulesEngineRunner(context: modelContext).runForTrip(trip)
+        } catch {
+          modelLogger.error(
+            "[RulesEngine.trip-edit-failed] tripID=\(trip.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+          )
+        }
         if !orphans.isEmpty {
           toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
         }
@@ -91,7 +99,44 @@ import SwiftUI
       }
     }
     .transientToast(message: $toastMessage)
+    #if DEBUG
+      .background { inspectionMarkers }
+    #endif
   }
+
+  #if DEBUG
+    /// Debug-only invisible markers that expose the trip's rule-driven items so
+    /// `RulesEnginePopulationUITests` / `ColdLaunchSequencingUITests` can assert
+    /// the engine populated the expected refs. No Phase 3 timeline UI consumes
+    /// these records yet; without the marker view the tests have nothing to
+    /// query. Format: `tripDetail.{packingItem|task}.{matching|unmatched}.{name}`.
+    private var inspectionMarkers: some View {
+      ZStack {
+        ForEach(trip.packingItems) { item in
+          Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement()
+            .accessibilityIdentifier(Self.inspectionID(packingItem: item))
+        }
+        ForEach(trip.tasks) { task in
+          Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement()
+            .accessibilityIdentifier(Self.inspectionID(task: task))
+        }
+      }
+    }
+
+    static func inspectionID(packingItem item: TripPackingItem) -> String {
+      let flag = item.currentlyMatchesRules ? "matching" : "unmatched"
+      return "tripDetail.packingItem.\(flag).\(item.name)"
+    }
+
+    static func inspectionID(task: TripTask) -> String {
+      let flag = task.currentlyMatchesRules ? "matching" : "unmatched"
+      return "tripDetail.task.\(flag).\(task.name)"
+    }
+  #endif
 
   private func header(variant: ThemeVariant) -> some View {
     VStack(alignment: .leading, spacing: 6) {
@@ -194,7 +239,7 @@ import SwiftUI
           }
           .frame(width: 24)
 
-          Text(Self.label(for: phase))
+          Text(phase.displayName)
             .font(.headline)
             .foregroundStyle(variant.textPrimary)
             .padding(.top, 1)
@@ -206,18 +251,6 @@ import SwiftUI
       }
     }
     .padding(.horizontal)
-  }
-
-  static func label(for phase: Phase) -> String {
-    switch phase {
-    case .weeksBefore: "Weeks before"
-    case .dayBefore: "Day before"
-    case .departureDay: "Departure day"
-    case .duringTrip: "During trip"
-    case .dayBeforeReturn: "Day before return"
-    case .returnDay: "Return day"
-    case .afterTrip: "After trip"
-    }
   }
 
   // swiftlint:disable:next cyclomatic_complexity

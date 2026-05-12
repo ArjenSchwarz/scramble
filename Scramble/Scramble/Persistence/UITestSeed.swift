@@ -16,6 +16,12 @@
       case oneNonQualifyingTrip = "one-non-qualifying-trip"
       case twoQualifyingTrips = "two-qualifying-trips"
       case singleEditableTrip = "single-editable-trip"
+      case masterListsEmptyWithPerson = "master-lists-empty-with-person"
+      case masterTaskAdvancedConditions = "master-task-advanced-conditions"
+      case phase2RulesFixture = "phase2-rules-fixture"
+      case phase2RulesFixtureSunTrip = "phase2-rules-fixture-sun-trip"
+      case phase2RulesColdLaunch = "phase2-rules-cold-launch"
+      case personWithMasterPackingOnly = "person-with-master-packing-only"
     }
 
     static func applyIfRequested(
@@ -77,8 +83,101 @@
         let start = calendar.date(byAdding: .day, value: 30, to: day) ?? day
         let end = calendar.date(byAdding: .day, value: 35, to: day) ?? day
         context.insert(Trip(name: "Sample Trip", startDate: start, endDate: end))
+      case .masterListsEmptyWithPerson,
+        .masterTaskAdvancedConditions,
+        .phase2RulesFixture,
+        .phase2RulesFixtureSunTrip,
+        .phase2RulesColdLaunch,
+        .personWithMasterPackingOnly:
+        seedPhase2(fixture: fixture, in: context, day: day, calendar: calendar)
       }
       try? context.save()
+    }
+
+    // swiftlint:disable:next function_body_length
+    private static func seedPhase2(
+      fixture: Fixture,
+      in context: ModelContext,
+      day: Date,
+      calendar: Calendar
+    ) {
+      switch fixture {
+      case .masterListsEmptyWithPerson:
+        let alex = Person(name: "Alex", colorKey: "blue")
+        context.insert(alex)
+        // Seeded item lets packing CRUD tests exercise edit + delete paths
+        // without driving the Picker(.menu) UI (XCTest can't open it reliably
+        // under iOS 26); MasterPersistenceTests covers the create path.
+        context.insert(
+          MasterPackingItem(name: "Seeded item", person: alex, conditions: .always)
+        )
+      case .masterTaskAdvancedConditions:
+        // Out-of-domain weather value forces AdvancedConditionView per AC 3.7a.
+        context.insert(Person(name: "Alex", colorKey: "blue"))
+        context.insert(
+          MasterTaskItem(
+            name: "Snow boots check",
+            phase: .weeksBefore,
+            conditions: .all([.match(attribute: .weather, anyOf: ["snow"])])
+          )
+        )
+      case .phase2RulesFixture:
+        let person = Person(name: "Alex", colorKey: "blue")
+        context.insert(person)
+        context.insert(
+          MasterPackingItem(
+            name: "Rain jacket",
+            person: person,
+            conditions: .all([.match(attribute: .weather, anyOf: ["rain"])])
+          )
+        )
+      case .phase2RulesFixtureSunTrip:
+        let person = Person(name: "Alex", colorKey: "blue")
+        context.insert(person)
+        context.insert(
+          MasterPackingItem(
+            name: "Rain jacket",
+            person: person,
+            conditions: .all([.match(attribute: .weather, anyOf: ["rain"])])
+          )
+        )
+        var attrs = TripAttributes()
+        attrs.toggle(.weather, value: "sun")
+        let start = calendar.date(byAdding: .day, value: 30, to: day) ?? day
+        let end = calendar.date(byAdding: .day, value: 35, to: day) ?? day
+        context.insert(
+          Trip(name: "Sunny Trip", startDate: start, endDate: end, attributes: attrs)
+        )
+      case .phase2RulesColdLaunch:
+        // Qualifying trip + always-matching master proves ScrambleApp.init()
+        // scan finishes before TripsTab's auto-open task fires.
+        context.insert(
+          Trip(
+            name: "Active Trip",
+            startDate: day,
+            endDate: calendar.date(byAdding: .day, value: 5, to: day) ?? day
+          )
+        )
+        context.insert(
+          MasterTaskItem(name: "Charge devices", phase: .dayBefore, conditions: .always)
+        )
+      case .personWithMasterPackingOnly:
+        // Person owns one MasterPackingItem AND zero TripPackingItem refs,
+        // plus an editable trip so PersonDeleteBlocker can surface the
+        // master-list reference (Phase 2 contribution to AC 8.2).
+        let person = Person(name: "Alex", colorKey: "blue")
+        context.insert(person)
+        context.insert(
+          MasterPackingItem(name: "Toothbrush", person: person, conditions: .always)
+        )
+        let start = calendar.date(byAdding: .day, value: 30, to: day) ?? day
+        let end = calendar.date(byAdding: .day, value: 35, to: day) ?? day
+        let trip = Trip(name: "Sample Trip", startDate: start, endDate: end)
+        trip.participants.append(person)
+        context.insert(trip)
+      default:
+        break
+      }
     }
   }
 #endif

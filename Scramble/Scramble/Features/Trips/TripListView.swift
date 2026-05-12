@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 @MainActor struct TripListView: View {
   @Query(sort: \Trip.startDate, order: .forward) private var allTrips: [Trip]
@@ -44,7 +45,9 @@ import SwiftUI
           }
         }
 
-        newTripButton(accent: variant.accent)
+        DashedAddButton(title: "New Trip", accent: variant.accent) {
+          showCreateEditor = true
+        }
       }
 
       if !previousTrips.isEmpty {
@@ -61,12 +64,19 @@ import SwiftUI
     .navigationTitle("Trips")
     .sheet(isPresented: $showCreateEditor) {
       TripEditorView(mode: .create) { draft in
-        let (_, orphans) = TripPersistence.create(from: draft, in: modelContext)
+        let (newTrip, orphans) = TripPersistence.create(from: draft, in: modelContext)
         do {
           try modelContext.save()
         } catch {
           modelContext.rollback()
           return false
+        }
+        do {
+          try RulesEngineRunner(context: modelContext).runForTrip(newTrip)
+        } catch {
+          modelLogger.error(
+            "[RulesEngine.trip-edit-failed] tripID=\(newTrip.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+          )
         }
         if !orphans.isEmpty {
           toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
@@ -77,30 +87,6 @@ import SwiftUI
     .transientToast(message: $toastMessage)
   }
 
-  private func newTripButton(accent: Color) -> some View {
-    Button {
-      showCreateEditor = true
-    } label: {
-      HStack(spacing: 8) {
-        Image(systemName: "plus")
-        Text("New Trip")
-      }
-      .font(.headline)
-      .foregroundStyle(accent)
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 12)
-      .overlay(
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .strokeBorder(
-            accent.opacity(0.6),
-            style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-          )
-      )
-    }
-    .buttonStyle(.borderless)
-    .listRowBackground(Color.clear)
-    .listRowSeparator(.hidden)
-  }
 }
 
 private struct TripRow: View {
