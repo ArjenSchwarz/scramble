@@ -84,6 +84,7 @@ import SwiftUI
           modelContext.rollback()
           return false
         }
+        _ = try? RulesEngineRunner(context: modelContext).runForTrip(trip)
         if !orphans.isEmpty {
           toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
         }

@@ -61,13 +61,14 @@ import SwiftUI
     .navigationTitle("Trips")
     .sheet(isPresented: $showCreateEditor) {
       TripEditorView(mode: .create) { draft in
-        let (_, orphans) = TripPersistence.create(from: draft, in: modelContext)
+        let (newTrip, orphans) = TripPersistence.create(from: draft, in: modelContext)
         do {
           try modelContext.save()
         } catch {
           modelContext.rollback()
           return false
         }
+        _ = try? RulesEngineRunner(context: modelContext).runForTrip(newTrip)
         if !orphans.isEmpty {
           toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
         }

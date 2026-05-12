@@ -188,14 +188,14 @@ references:
 
 ## Lifecycle trigger wiring
 
-- [ ] 20. Wire AC 5.4 cold-launch scan in ScrambleApp.init() <!-- id:diu0hgw -->
+- [x] 20. Wire AC 5.4 cold-launch scan in ScrambleApp.init() <!-- id:diu0hgw -->
   - Modify Scramble/Scramble/ScrambleApp.swift: after the existing UITestSeed.applyIfRequested block, add `try? RulesEngineRunner(context: ModelStore.shared.mainContext).runForAllNonPastTrips()`.
   - Wiring task — covered by RulesEngineRunnerTests + ColdLaunchSequencingUITests.
   - Blocked-by: diu0hgp (Implement RulesEngineRunner.swift)
   - Stream: 1
   - Requirements: [5.4](requirements.md#5.4)
 
-- [ ] 21. Wire AC 5.7 scenePhase trigger in RootView <!-- id:diu0hgx -->
+- [x] 21. Wire AC 5.7 scenePhase trigger in RootView <!-- id:diu0hgx -->
   - Modify Scramble/Scramble/Features/Root/RootView.swift: add @Environment(\.scenePhase), @State previousScenePhase: ScenePhase? = nil, .onChange(of: scenePhase) handler.
   - Handler: guard previousScenePhase == .background AND newPhase == .active → call try? RulesEngineRunner(...).runForAllNonPastTrips() with MainActor. defer { previousScenePhase = newPhase }.
   - Carve-out: nil → .inactive → .active sequence at cold launch must NOT fire the trigger (covered by RootViewScenePhaseTests).
@@ -203,7 +203,7 @@ references:
   - Stream: 1
   - Requirements: [5.7](requirements.md#5.7)
 
-- [ ] 22. Wire AC 5.1 + 5.2 in TripListView + TripDetailView onSave closures <!-- id:diu0hgy -->
+- [x] 22. Wire AC 5.1 + 5.2 in TripListView + TripDetailView onSave closures <!-- id:diu0hgy -->
   - Modify Scramble/Scramble/Features/Trips/TripListView.swift onSave closure (create path): after TripPersistence.create + modelContext.save, insert `try? RulesEngineRunner(context: modelContext).runForTrip(newTrip)` before returning true.
   - Modify Scramble/Scramble/Features/Trips/TripDetailView.swift onSave closure at TripEditorView(mode: .edit(trip)) at line 79: after TripPersistence.apply + modelContext.save, insert `try? RulesEngineRunner(context: modelContext).runForTrip(trip)` before dismiss.
   - Runner-throw path surfaces transient toast using the existing TripPersistence orphan-participants toast pattern.

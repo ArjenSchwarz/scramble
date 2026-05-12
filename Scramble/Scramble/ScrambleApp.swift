@@ -14,6 +14,7 @@ struct ScrambleApp: App {
     #if DEBUG
       UITestSeed.applyIfRequested(to: ModelStore.shared)
     #endif
+    _ = try? RulesEngineRunner(context: ModelStore.shared.mainContext).runForAllNonPastTrips()
   }
 
   var body: some Scene {
