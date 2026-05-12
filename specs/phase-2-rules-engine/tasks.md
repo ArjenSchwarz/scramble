@@ -26,7 +26,7 @@ references:
 
 ## Conditions editor bridge
 
-- [ ] 3. Tests: AttributeSelections ↔ ItemConditions <!-- id:diu0hgf -->
+- [x] 3. Tests: AttributeSelections ↔ ItemConditions <!-- id:diu0hgf -->
   - Add ScrambleTests/MasterLists/AttributeSelectionsTests.swift, table-driven.
   - Round-trip: AttributeSelections.empty.toConditions() == .always; from(.always) == .empty; from(.all([.match(.weather,['rain','cold'])])) → matching chip selections; toConditions on those round-trips to .all([.match(.weather,['cold','rain'])]) (values sorted).
   - from(_:) returns nil for: top-level .any, nested .all/.any inside .all child, .match with anyOf containing value outside TripAttributeOptions.values(for: attr).
@@ -34,7 +34,7 @@ references:
   - Stream: 1
   - Requirements: [3.4](requirements.md#3.4), [3.5](requirements.md#3.5), [3.6](requirements.md#3.6), [3.7](requirements.md#3.7)
 
-- [ ] 4. Implement AttributeSelections.swift <!-- id:diu0hgg -->
+- [x] 4. Implement AttributeSelections.swift <!-- id:diu0hgg -->
   - Add Scramble/Scramble/Features/MasterLists/AttributeSelections.swift.
   - Struct with byAttribute: [TripAttribute: Set<String>], static let empty, toConditions(), static from(_:), isInDomain().
   - toConditions iterates TripAttribute.allCases declaration order; values within match are sorted alphabetically for stable encoding.
@@ -42,14 +42,14 @@ references:
   - Stream: 1
   - Requirements: [3.4](requirements.md#3.4), [3.5](requirements.md#3.5), [3.6](requirements.md#3.6), [3.7](requirements.md#3.7), [3.8](requirements.md#3.8)
 
-- [ ] 5. Tests: ItemConditions+PrettyPrint <!-- id:diu0hgh -->
+- [x] 5. Tests: ItemConditions+PrettyPrint <!-- id:diu0hgh -->
   - Add ScrambleTests/MasterLists/ItemConditionsPrettyPrintTests.swift, representative trees.
   - .always → 'always'; .match(.weather, ['rain','cold']) → 'weather is Rain or Cold'; .all([.match(.weather,['rain']), .match(.scope,['international'])]) → multi-line 'all of:\n  weather is Rain\n  scope is International'; nested .any rendered 'any of:' with indented children.
   - ZWJ-emoji-in-value-string does not crash.
   - Stream: 1
   - Requirements: [3.7](requirements.md#3.7)
 
-- [ ] 6. Implement ItemConditions+PrettyPrint.swift <!-- id:diu0hgi -->
+- [x] 6. Implement ItemConditions+PrettyPrint.swift <!-- id:diu0hgi -->
   - Add Scramble/Scramble/Features/MasterLists/ItemConditions+PrettyPrint.swift.
   - Recursive prettyPrinted(indent:) using attributeValueDisplay (Phase 1 String extension).
   - File deliberately not under Models/Codable/ so the model file stays CloudKit-pure.

@@ -241,7 +241,7 @@ struct PlanTests {
     let plan = Plan(
       tripID: Self.idA,
       toAddTasks: [
-        Self.taskSnap(id: Self.idC), Self.taskSnap(id: Self.idA), Self.taskSnap(id: Self.idB),
+        Self.taskSnap(id: Self.idC), Self.taskSnap(id: Self.idA), Self.taskSnap(id: Self.idB)
       ],
       toAddPacking: [],
       toFlagUnmatched: [],
@@ -257,7 +257,7 @@ struct PlanTests {
       toAddTasks: [],
       toAddPacking: [
         Self.packingSnap(id: Self.idC), Self.packingSnap(id: Self.idA),
-        Self.packingSnap(id: Self.idB),
+        Self.packingSnap(id: Self.idB)
       ],
       toFlagUnmatched: [],
       toFlagMatched: []
@@ -275,7 +275,7 @@ struct PlanTests {
         TripItemRef(kind: .packing, id: Self.idB),
         TripItemRef(kind: .task, id: Self.idC),
         TripItemRef(kind: .packing, id: Self.idA),
-        TripItemRef(kind: .task, id: Self.idA),
+        TripItemRef(kind: .task, id: Self.idA)
       ],
       toFlagMatched: []
     )
@@ -285,7 +285,7 @@ struct PlanTests {
         TripItemRef(kind: .packing, id: Self.idA),
         TripItemRef(kind: .packing, id: Self.idB),
         TripItemRef(kind: .task, id: Self.idA),
-        TripItemRef(kind: .task, id: Self.idC),
+        TripItemRef(kind: .task, id: Self.idC)
       ])
   }
 
@@ -299,14 +299,14 @@ struct PlanTests {
       toFlagMatched: [
         TripItemRef(kind: .task, id: Self.idB),
         TripItemRef(kind: .packing, id: Self.idC),
-        TripItemRef(kind: .task, id: Self.idA),
+        TripItemRef(kind: .task, id: Self.idA)
       ]
     )
     #expect(
       plan.toFlagMatched == [
         TripItemRef(kind: .packing, id: Self.idC),
         TripItemRef(kind: .task, id: Self.idA),
-        TripItemRef(kind: .task, id: Self.idB),
+        TripItemRef(kind: .task, id: Self.idB)
       ])
   }
 
