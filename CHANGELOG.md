@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- PR #3 review follow-ups (iteration 4):
+  - `PhaseDateMapping.durationDays` now returns `Int?` (`nil` for open-ended phases `.weeksBefore` / `.afterTrip`) instead of the sentinel `-1`. Self-documenting and compiler-checked at every call site. `PhaseDateMappingTests` updated; `isCompressed` continues to work because `Optional(0) == 0` and `nil != 0`.
+
 - PR #3 review follow-ups (iteration 3):
   - `PhaseRow.leftColumn` now wraps `PhaseNode` in a `44×44` frame with `TapToToggleModifier`, and the left column itself is `44pt` wide. Req 1.7 / 10.4 require a `44×44` hit target on each phase node, but previously only the right-column header carried the tap modifier — tapping the visible circle (24–28pt) did nothing. `design.md` updated to reflect the split.
   - `design.md` `TaskRow` opacity section now describes the `min(0.5, 0.45) = 0.45` behaviour and explains the chained-`.opacity` history. The earlier `0.22` reference was stale once `TaskRow.rowOpacity` was introduced.

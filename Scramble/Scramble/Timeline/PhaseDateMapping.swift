@@ -9,7 +9,7 @@ import Foundation
 /// trailing time-of-day components do not skew durations.
 ///
 /// `dateRange` returns `nil` for the open-ended phases (`.weeksBefore`,
-/// `.afterTrip`). `durationDays` returns `-1` for those same phases.
+/// `.afterTrip`). `durationDays` returns `nil` for those same phases.
 /// `isCompressed` is true iff the phase is `.duringTrip` with zero duration,
 /// which happens exactly when `endDate - startDate <= 1 day`.
 ///
@@ -51,17 +51,17 @@ enum PhaseDateMapping {
     }
   }
 
-  /// Number of calendar days in the phase. `-1` for open-ended phases
+  /// Number of calendar days in the phase. `nil` for open-ended phases
   /// (`.weeksBefore`, `.afterTrip`). For `.duringTrip` returns
   /// `max(0, (E - S) - 1)`; for the four 1-day phases returns `1`.
   static func durationDays(
     _ phase: Phase,
     for trip: Trip,
     calendar: Calendar
-  ) -> Int {
+  ) -> Int? {
     switch phase {
     case .weeksBefore, .afterTrip:
-      return -1
+      return nil
     case .dayBefore, .departureDay, .dayBeforeReturn, .returnDay:
       return 1
     case .duringTrip:

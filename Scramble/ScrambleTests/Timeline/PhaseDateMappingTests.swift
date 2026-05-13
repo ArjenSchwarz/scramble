@@ -25,11 +25,11 @@ struct PhaseDateMappingTests {
 
   // MARK: - Multi-day trip (2026-06-01 ... 2026-06-07)
 
-  @Test("Multi-day trip: weeksBefore is open-ended (durationDays == -1, dateRange == nil)")
+  @Test("Multi-day trip: weeksBefore is open-ended (durationDays == nil, dateRange == nil)")
   func multiDayWeeksBefore() {
     let t = Self.trip(start: Self.date(2026, 6, 1), end: Self.date(2026, 6, 7))
     #expect(PhaseDateMapping.dateRange(.weeksBefore, for: t, calendar: Self.calendar) == nil)
-    #expect(PhaseDateMapping.durationDays(.weeksBefore, for: t, calendar: Self.calendar) == -1)
+    #expect(PhaseDateMapping.durationDays(.weeksBefore, for: t, calendar: Self.calendar) == nil)
     #expect(PhaseDateMapping.isCompressed(.weeksBefore, for: t, calendar: Self.calendar) == false)
   }
 
@@ -88,7 +88,7 @@ struct PhaseDateMappingTests {
   func multiDayAfterTrip() {
     let t = Self.trip(start: Self.date(2026, 6, 1), end: Self.date(2026, 6, 7))
     #expect(PhaseDateMapping.dateRange(.afterTrip, for: t, calendar: Self.calendar) == nil)
-    #expect(PhaseDateMapping.durationDays(.afterTrip, for: t, calendar: Self.calendar) == -1)
+    #expect(PhaseDateMapping.durationDays(.afterTrip, for: t, calendar: Self.calendar) == nil)
     #expect(PhaseDateMapping.isCompressed(.afterTrip, for: t, calendar: Self.calendar) == false)
   }
 
@@ -133,8 +133,8 @@ struct PhaseDateMappingTests {
     #expect(PhaseDateMapping.durationDays(.departureDay, for: t, calendar: Self.calendar) == 1)
     #expect(PhaseDateMapping.durationDays(.dayBeforeReturn, for: t, calendar: Self.calendar) == 1)
     #expect(PhaseDateMapping.durationDays(.returnDay, for: t, calendar: Self.calendar) == 1)
-    #expect(PhaseDateMapping.durationDays(.weeksBefore, for: t, calendar: Self.calendar) == -1)
-    #expect(PhaseDateMapping.durationDays(.afterTrip, for: t, calendar: Self.calendar) == -1)
+    #expect(PhaseDateMapping.durationDays(.weeksBefore, for: t, calendar: Self.calendar) == nil)
+    #expect(PhaseDateMapping.durationDays(.afterTrip, for: t, calendar: Self.calendar) == nil)
     for phase in Phase.allCases where phase != .duringTrip {
       #expect(
         PhaseDateMapping.isCompressed(phase, for: t, calendar: Self.calendar) == false,
