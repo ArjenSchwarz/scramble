@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- PR #3 review follow-ups (iteration 3):
+  - `PhaseRow.leftColumn` now wraps `PhaseNode` in a `44×44` frame with `TapToToggleModifier`, and the left column itself is `44pt` wide. Req 1.7 / 10.4 require a `44×44` hit target on each phase node, but previously only the right-column header carried the tap modifier — tapping the visible circle (24–28pt) did nothing. `design.md` updated to reflect the split.
+  - `design.md` `TaskRow` opacity section now describes the `min(0.5, 0.45) = 0.45` behaviour and explains the chained-`.opacity` history. The earlier `0.22` reference was stale once `TaskRow.rowOpacity` was introduced.
+  - `SchemaV2.TripTask.userDeletedOnThisTripRaw` is now `private(set)`. The non-Optional `userDeletedOnThisTrip: Bool` bridge is the single mutation path; external callers can no longer bypass it.
+  - `TaskForm.save` carries a comment explaining the intentional dismiss-on-error behaviour (no user-facing error UI per CLAUDE.md "Out of scope for v1"; breadcrumb in `os_log`).
+  - `TripDetailView.init` notes that `today` is captured at init time and does not advance across a date boundary while the view stays mounted.
+
 - PR #3 review follow-ups (iteration 2):
   - `WhyDisclosure` namespace + `Reason` enum moved from `WhyResolver.swift` to `WhyDisclosure.swift`. The split made sense during the cross-stream load-order workaround but is misleading now that both streams are merged.
   - `TaskListSection` disclosure-dismiss tap moved from `.onTapGesture` on the VStack to a `Color.clear.onTapGesture` on a `.background { ... }` layer that only mounts when `openDisclosureTaskID != nil`. Prior layout could in principle let the parent gesture compete with `DashedAddButton` and the checkbox; the background-layer pattern keeps button taps and the dismiss target on separate layers and skips the gesture entirely when no disclosure is open.

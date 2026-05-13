@@ -81,8 +81,10 @@ nonisolated enum SchemaV2: VersionedSchema {
     /// remains non-Optional via the `userDeletedOnThisTrip` computed bridge
     /// below, which treats `nil` as `false`. The storage default is `nil`,
     /// not `false`, because SwiftData/CoreData on iOS 26.4 asserts when a
-    /// nullable column also declares a non-nil Swift default.
-    var userDeletedOnThisTripRaw: Bool?
+    /// nullable column also declares a non-nil Swift default. `private(set)`
+    /// keeps the bridge as the single mutation path; SwiftData still
+    /// observes writes from inside the `userDeletedOnThisTrip` setter.
+    private(set) var userDeletedOnThisTripRaw: Bool?
 
     init(
       id: UUID = UUID(),

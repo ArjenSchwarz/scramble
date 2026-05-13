@@ -155,7 +155,7 @@ struct PhaseNode: View {
 }
 ```
 
-`PhaseNodeState` already exists in `Models/Enums.swift` with cases `.past`, `.current`, `.future` (introduced in Phase 1 alongside `PhaseNodeMarker`); it is reused without change. The mapping from `(Trip, today, Phase)` to `PhaseNodeState` is computed by the existing `TripDetailView.state(for:today:start:end:calendar)` static helper. States and visuals follow UI doc §"Phase node visual states". Diameter: 24pt future, 28pt current (the 4pt delta accommodates the glow ring). The 44pt touch target is supplied by the surrounding `PhaseRow` `.contentShape(Rectangle())` and tap gesture, not by inflating the visual circle. `PhaseNodeMarker` is deleted; no other site references it.
+`PhaseNodeState` already exists in `Models/Enums.swift` with cases `.past`, `.current`, `.future` (introduced in Phase 1 alongside `PhaseNodeMarker`); it is reused without change. The mapping from `(Trip, today, Phase)` to `PhaseNodeState` is computed by the existing `TripDetailView.state(for:today:start:end:calendar)` static helper. States and visuals follow UI doc §"Phase node visual states". Diameter: 24pt future, 28pt current (the 4pt delta accommodates the glow ring). The 44pt touch target (Req 1.7 / 10.4) is supplied by the surrounding `PhaseRow` and split across both columns: the left column wraps `PhaseNode` in a `44×44` frame with its own `TapToToggleModifier`, and the right column's header carries the same tap modifier. Tapping the circle and tapping the label are interchangeable; neither inflates the visible circle. `PhaseNodeMarker` is deleted; no other site references it.
 
 ### `CompressedSpineDot`
 
@@ -231,7 +231,7 @@ struct TaskRow: View {
 
 Layout: 14pt avatar (right) reuses `PersonAvatar.compact`. Checkbox uses the existing project pattern (cf. UI doc §"Checkbox"). Long-press is attached to the row content (not the row container) and excludes the checkbox tap region per Req [8.1](requirements.md#8.1). `swipeActions(edge: .trailing)` exposes "Edit" and "Delete (destructive)"; the same actions are mirrored in a `contextMenu`. VoiceOver custom rotor actions are attached via `.accessibilityCustomContent`/`.accessibilityAction(named:)` for "Why is this here?", "Edit", "Delete".
 
-Dimming for unmatched-non-pinned tasks: `.opacity(0.5)` when completed, `.opacity(0.45)` when `currentlyMatchesRules == false && !pinnedByUser`, and `.opacity(0.22)` when both apply (multiplicative effect via `.opacity` chain on independent modifiers; the design phase confirmed the values from UI doc §"Colour Semantics" rather than computing them at runtime).
+Dimming for unmatched-non-pinned tasks is computed once in a `rowOpacity` property and applied as a single `.opacity` modifier: `0.5` when only `isCompleted`, `0.45` when only `currentlyMatchesRules == false && !pinnedByUser`, and `min(0.5, 0.45) = 0.45` when both apply. Earlier iterations chained two `.opacity` modifiers and ended up at `0.5 × 0.45 = 0.22` for the combined state, which read as broken rather than intentionally muted. `min` is preferred over multiplication because the UI doc only specifies the 50% completed dim; the combined state should not be more aggressive than the dimmer of the two single states, and strikethrough already distinguishes completed.
 
 ### `WhyDisclosure`
 

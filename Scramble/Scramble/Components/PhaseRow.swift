@@ -60,6 +60,10 @@ struct PhaseRow<Content: View>: View {
           .frame(width: 2)
           .frame(maxHeight: .infinity)
       } else {
+        // The visible circle is 24–28pt (PhaseNode owns its size); the
+        // surrounding 44×44 frame supplies the Req 1.7 / Req 10.4 hit
+        // target. The same tap toggles the accordion so tapping the node
+        // is interchangeable with tapping the header.
         PhaseNode(
           phase: phase,
           state: state,
@@ -69,13 +73,16 @@ struct PhaseRow<Content: View>: View {
         #if DEBUG
           .accessibilityIdentifier("tripDetail.phaseNode.\(phase.rawValue)")
         #endif
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+        .modifier(TapToToggleModifier(enabled: expandable, action: onToggle))
         Rectangle()
           .fill(spineColour(variant: variant))
           .frame(width: 2)
           .frame(maxHeight: .infinity)
       }
     }
-    .frame(width: 28)
+    .frame(width: 44)
   }
 
   private func spineColour(variant: ThemeVariant) -> Color {

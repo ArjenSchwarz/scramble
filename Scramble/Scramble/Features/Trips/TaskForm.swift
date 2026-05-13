@@ -136,6 +136,10 @@ struct TaskForm: View {
       task.name = trimmed
       task.assigneePersonID = assigneePersonID
     }
+    // Intentional: the form dismisses even if save throws. Phase 3 has no
+    // user-facing error-UI for SwiftData failures (see CLAUDE.md "Out of
+    // scope for v1"); the breadcrumb in os_log is the diagnostic. Revisit
+    // when error surfacing is in scope.
     do {
       try modelContext.save()
     } catch {

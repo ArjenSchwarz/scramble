@@ -21,6 +21,11 @@ import os
 
   private var calendar: Calendar { Calendar.current }
 
+  /// `today` is captured at init time. If the app stays open across a date
+  /// boundary the "current phase" calculation does not advance until the
+  /// view re-initialises (typically on next navigation into the trip).
+  /// Acceptable for Phase 3 — a scene-phase observer could refresh on
+  /// foreground if midnight rollover becomes a visible issue in practice.
   init(trip: Trip, today: Date = .now) {
     self.trip = trip
     self.today = today
