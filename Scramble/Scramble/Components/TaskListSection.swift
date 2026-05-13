@@ -58,7 +58,13 @@ struct TaskListSection: View {
 
   private func toggleComplete(_ task: TripTask) {
     task.isCompleted.toggle()
-    try? modelContext.save()
+    do {
+      try modelContext.save()
+    } catch {
+      modelLogger.error(
+        "TaskListSection.toggleComplete save failed: \(error.localizedDescription, privacy: .public)"
+      )
+    }
   }
 
   private func toggleDisclosure(_ task: TripTask) {
@@ -71,6 +77,12 @@ struct TaskListSection: View {
     } else {
       task.userDeletedOnThisTrip = true
     }
-    try? modelContext.save()
+    do {
+      try modelContext.save()
+    } catch {
+      modelLogger.error(
+        "TaskListSection.delete save failed: \(error.localizedDescription, privacy: .public)"
+      )
+    }
   }
 }

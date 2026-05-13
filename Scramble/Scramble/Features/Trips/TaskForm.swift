@@ -136,7 +136,13 @@ struct TaskForm: View {
       task.name = trimmed
       task.assigneePersonID = assigneePersonID
     }
-    try? modelContext.save()
+    do {
+      try modelContext.save()
+    } catch {
+      modelLogger.error(
+        "TaskForm.save failed: \(error.localizedDescription, privacy: .public)"
+      )
+    }
     onSave()
     dismiss()
   }

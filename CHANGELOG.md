@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- PR #3 review follow-ups:
+  - `TaskRow.swift` chained two `.opacity()` modifiers that composed multiplicatively (`0.5 × 0.45 = 0.225`), rendering a completed + rule-no-longer-matches row far dimmer than intended. Replaced with a single `rowOpacity` computed property that takes `min(completedFactor, matchFactor)` — the combined state now matches the dimmer of the two single states (0.45), and strikethrough text continues to distinguish completed.
+  - `TaskListSection.toggleComplete`, `TaskListSection.delete`, and `TaskForm.save` previously used `try? modelContext.save()`, silently dropping save errors. Switched to `do/catch` with `modelLogger.error(...)` matching the established pattern in `TripPersistence`, `MasterPersistence`, and `PersonEditor`.
+  - `CompressedSpineDot` is now `.accessibilityHidden(true)` — it is purely decorative spine chrome and shouldn't appear as a VoiceOver landing point.
+
 ### Changed
 
 - Resolve the swift-format / SwiftLint trailing-comma conflict by making swift-format the single authority. SwiftLint's `trailing_comma` rule is disabled in `.swiftlint.yml` because its `mandatory_comma: true` setting fights swift-format's heuristic when a multi-line array's last element is itself a multi-line constructor (swift-format omits the comma there, SwiftLint demanded it). The idiomatic Swift convention — trailing commas in multi-line literals for cleaner diffs, codified in SE-0439 and Apple's swift-format defaults — is preserved through swift-format alone. swift-format's pending trailing-comma additions to `MidnightAtlas.swift`, `Theme.swift`, `PersonDeleteBlocker.swift` and several test files are folded into this commit so `make format lint` is a no-op going forward.

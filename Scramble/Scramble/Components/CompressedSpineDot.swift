@@ -12,5 +12,6 @@ struct CompressedSpineDot: View {
     Circle()
       .fill(phaseColour.opacity(0.4))
       .frame(width: 4, height: 4)
+      .accessibilityHidden(true)
   }
 }

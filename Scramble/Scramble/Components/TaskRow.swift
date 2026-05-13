@@ -63,8 +63,7 @@ struct TaskRow: View {
     .padding(.vertical, 8)
     .frame(minHeight: 44)
     .contentShape(Rectangle())
-    .opacity(task.isCompleted ? 0.5 : 1.0)
-    .opacity((task.currentlyMatchesRules || task.pinnedByUser) ? 1.0 : 0.45)
+    .opacity(rowOpacity)
     .animation(.easeInOut(duration: 0.2), value: task.isCompleted)
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       Button(role: .destructive) {
@@ -157,5 +156,17 @@ struct TaskRow: View {
     guard let id = task.assigneePersonID else { return nil }
     let participants = task.trip?.participants ?? []
     return participants.first { $0.id == id }
+  }
+
+  /// Combines the "completed" dim (UI doc §"Tasks") with the "rule no longer
+  /// matches" ghosting into a single opacity. Chained `.opacity()` modifiers
+  /// compose multiplicatively, so the previous `.opacity(0.5).opacity(0.45)`
+  /// pair rendered the combined state at `0.225` — far dimmer than either
+  /// single state intends. Take the dimmer of the two so the row matches the
+  /// stronger signal; strikethrough text already distinguishes completed.
+  private var rowOpacity: Double {
+    let completedFactor = task.isCompleted ? 0.5 : 1.0
+    let matchFactor = (task.currentlyMatchesRules || task.pinnedByUser) ? 1.0 : 0.45
+    return min(completedFactor, matchFactor)
   }
 }
