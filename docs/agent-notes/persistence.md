@@ -16,14 +16,16 @@ Inverse pairs:
 | `Trip.participants` → `inverse: \Person.trips`, `deleteRule: .nullify` | `Person.trips` |
 | `Trip.tasks` → `inverse: \TripTask.trip`, `deleteRule: .cascade` | `TripTask.trip` |
 | `Trip.packingItems` → `inverse: \TripPackingItem.trip`, `deleteRule: .cascade` | `TripPackingItem.trip` |
-| `Person.tripPackingItems` → `inverse: \TripPackingItem.person`, `deleteRule: .deny` | `TripPackingItem.person` |
-| `Person.masterPackingItems` → `inverse: \MasterPackingItem.person`, `deleteRule: .deny` | `MasterPackingItem.person` |
+| `Person.tripPackingItems` → `inverse: \TripPackingItem.person`, `deleteRule: .nullify` | `TripPackingItem.person` |
+| `Person.masterPackingItems` → `inverse: \MasterPackingItem.person`, `deleteRule: .nullify` | `MasterPackingItem.person` |
 
 Inverse and deleteRule are colocated on the same `@Relationship`. The non-owning side is a plain `@Relationship var` with no arguments; SwiftData resolves the inverse automatically.
 
-## SwiftData `.deny` is declared but not enforced — see decision_log Decision 16
+To-many relationships on `Trip` and `Person` are declared as Optional arrays (`[T]? = []`). CloudKit integration requires every relationship to be Optional — non-Optional to-many arrays trigger `NSCocoaErrorDomain Code=134060` (`"CloudKit integration requires that all relationships be optional"`) at `ModelContainer` construction, blocking app launch on a real device. Read sites consequently coalesce via `?? []`.
 
-SwiftData iOS 26.4 does not throw on `context.save()` after deleting a Person with live references, even with `.deny` correctly declared. The rule is kept in the schema as defense-in-depth and intent; primary enforcement happens in the UI guard at the delete affordance (req 9.7, task 22). The SchemaTests verify the inverse-traversal reads (`person.tripPackingItems`, `person.masterPackingItems`) that the UI uses.
+## Person delete-guard lives in the UI (req 9.7 / Decision 16)
+
+CloudKit does not support the `.deny` delete rule, so `Person.tripPackingItems` and `Person.masterPackingItems` use `.nullify`. SwiftData's `.deny` rule did not throw on `context.save()` on iOS 26.4 either, so even when the schema declared `.deny` the actual enforcement always lived in the UI guard at the delete affordance via `PersonDeleteBlocker`. The `SchemaTests` verify the inverse-traversal reads (`person.tripPackingItems`, `person.masterPackingItems`) that the UI uses.
 
 ## Codable-bridge contract
 

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- CloudKit compatibility for SwiftData relationships: `Trip.participants`, `Trip.tasks`, `Trip.packingItems`, `Person.trips`, `Person.tripPackingItems`, and `Person.masterPackingItems` are now Optional arrays (`[T]? = []`) — non-Optional to-many relationships triggered `NSCocoaErrorDomain Code=134060` (`"CloudKit integration requires that all relationships be optional"`) at `ModelContainer` construction, blocking app launch on a real device. All read sites coalesce via `?? []`. `Person.tripPackingItems` / `Person.masterPackingItems` delete rule downgraded from `.deny` to `.nullify` because CloudKit does not support `.deny`; Person delete-guard enforcement already lived in the UI layer via `PersonDeleteBlocker` per req 9.7, so behaviour is preserved. `SchemaTests`, `DanglingAssigneeTests`, `RulesEngineRunnerTests` and `docs/agent-notes/persistence.md` updated accordingly.
+
 - Pre-push review follow-ups for Phase 3:
   - `Scramble/Scramble/Components/TaskRow.swift` invalidates the cached `WhyResolver.Reason` on `task.currentlyMatchesRules` changes so an open `WhyDisclosure` reflects the rules engine flipping the matching state between `.ruleMatched` ↔ `.ruleNoLongerMatches` without requiring a close-and-reopen.
   - `Scramble/Scramble/Explainability/ConditionsFormatter.swift` routes matched values through `attributeValueDisplay` so the disclosure copy (`"Rain or Snow"`) matches the chips and pickers elsewhere in the UI rather than emitting the raw storage form (`"rain or snow"`). Test expectations in `ConditionsFormatterTests.swift` + `WhyResolverTests.swift` updated to match.

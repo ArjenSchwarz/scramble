@@ -7,13 +7,17 @@ final class Person {
   var name: String = ""
   var colorKey: String = ""
 
-  @Relationship var trips: [Trip] = []
+  // CloudKit-compatible: to-many relationships must be Optional and use a
+  // non-`.deny` delete rule. `.deny` is unsupported by CloudKit; the actual
+  // delete-guard for People is enforced at the UI layer via
+  // `PersonDeleteBlocker`, so `.nullify` here is safe.
+  @Relationship var trips: [Trip]? = []
 
-  @Relationship(deleteRule: .deny, inverse: \TripPackingItem.person)
-  var tripPackingItems: [TripPackingItem] = []
+  @Relationship(deleteRule: .nullify, inverse: \TripPackingItem.person)
+  var tripPackingItems: [TripPackingItem]? = []
 
-  @Relationship(deleteRule: .deny, inverse: \MasterPackingItem.person)
-  var masterPackingItems: [MasterPackingItem] = []
+  @Relationship(deleteRule: .nullify, inverse: \MasterPackingItem.person)
+  var masterPackingItems: [MasterPackingItem]? = []
 
   init(id: UUID = UUID(), name: String = "", colorKey: String = "") {
     self.id = id

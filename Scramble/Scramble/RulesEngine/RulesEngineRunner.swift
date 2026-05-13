@@ -96,7 +96,7 @@ struct RulesEngineRunner {
 @MainActor
 extension TripSnapshot {
   static func capture(from trip: Trip) -> TripSnapshot {
-    let taskRefs = trip.tasks.map { task in
+    let taskRefs = (trip.tasks ?? []).map { task in
       TripTaskRef(
         id: task.id,
         masterItemID: task.masterItemID,
@@ -107,7 +107,7 @@ extension TripSnapshot {
         userDeletedOnThisTrip: task.userDeletedOnThisTrip
       )
     }
-    let packingRefs = trip.packingItems.map { item in
+    let packingRefs = (trip.packingItems ?? []).map { item in
       TripPackingItemRef(
         id: item.id,
         masterItemID: item.masterItemID,

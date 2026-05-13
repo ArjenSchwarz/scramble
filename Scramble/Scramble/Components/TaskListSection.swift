@@ -21,7 +21,7 @@ struct TaskListSection: View {
 
   var body: some View {
     let visibleTasks = TaskListHelpers.sorted(
-      trip.tasks.filter { $0.phase == phase && !$0.userDeletedOnThisTrip }
+      (trip.tasks ?? []).filter { $0.phase == phase && !$0.userDeletedOnThisTrip }
     )
 
     VStack(alignment: .leading, spacing: 4) {

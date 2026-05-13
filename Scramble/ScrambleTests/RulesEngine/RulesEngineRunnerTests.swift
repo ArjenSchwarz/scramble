@@ -130,10 +130,10 @@ struct RulesEngineRunnerTests {
     #expect(plans.first?.tripID == future.id)
 
     // Past trip has zero rule-driven items.
-    let pastTasks = past.tasks
+    let pastTasks = past.tasks ?? []
     #expect(pastTasks.isEmpty)
     // Future trip got its task.
-    #expect(future.tasks.count == 1)
+    #expect((future.tasks ?? []).count == 1)
   }
 
   @Test("runForAllNonPastTrips: idempotent — second call returns []")
@@ -196,7 +196,7 @@ struct RulesEngineRunnerTests {
 
     let runner = RulesEngineRunner(context: context)
     _ = try runner.runForTrip(trip)
-    let originalTaskID = trip.tasks.first?.id
+    let originalTaskID = trip.tasks?.first?.id
 
     master.name = "Renamed"
     try context.save()

@@ -114,9 +114,10 @@ private struct TripRow: View {
       .font(.caption)
       .foregroundStyle(.secondary)
 
-      if !trip.participants.isEmpty {
+      let participants = trip.participants ?? []
+      if !participants.isEmpty {
         HStack(spacing: -4) {
-          ForEach(trip.participants) { person in
+          ForEach(participants) { person in
             PersonAvatar(name: person.name, colorKey: person.colorKey, size: .compact)
           }
         }

@@ -185,7 +185,7 @@
         let start = calendar.date(byAdding: .day, value: 30, to: day) ?? day
         let end = calendar.date(byAdding: .day, value: 35, to: day) ?? day
         let trip = Trip(name: "Sample Trip", startDate: start, endDate: end)
-        trip.participants.append(person)
+        trip.participants = (trip.participants ?? []) + [person]
         context.insert(trip)
       default:
         break
@@ -210,7 +210,7 @@
 
         let person = Person(name: "Alex", colorKey: "Cyan")
         context.insert(person)
-        trip.participants.append(person)
+        trip.participants = (trip.participants ?? []) + [person]
 
         let masterTask = MasterTaskItem(
           name: "Charge devices",

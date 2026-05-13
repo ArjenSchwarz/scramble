@@ -155,7 +155,7 @@ struct TaskRow: View {
 
   private var resolvedAssignee: Person? {
     guard let id = task.assigneePersonID else { return nil }
-    guard let participants = task.trip?.participants else { return nil }
+    let participants = task.trip?.participants ?? []
     return participants.first { $0.id == id }
   }
 }

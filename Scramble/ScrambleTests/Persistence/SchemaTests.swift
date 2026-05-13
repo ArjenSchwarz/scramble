@@ -199,8 +199,8 @@ struct SchemaTests {
     try context.save()
 
     let trips = try context.fetch(FetchDescriptor<Trip>())
-    #expect(trips.first?.tasks.count == 1)
-    #expect(trips.first?.tasks.first?.name == "Pack")
+    #expect(trips.first?.tasks?.count == 1)
+    #expect(trips.first?.tasks?.first?.name == "Pack")
 
     let tasks = try context.fetch(FetchDescriptor<TripTask>())
     #expect(tasks.first?.trip?.id == trip.id)
@@ -218,7 +218,7 @@ struct SchemaTests {
     try context.save()
 
     let trips = try context.fetch(FetchDescriptor<Trip>())
-    #expect(trips.first?.packingItems.count == 1)
+    #expect(trips.first?.packingItems?.count == 1)
 
     let items = try context.fetch(FetchDescriptor<TripPackingItem>())
     #expect(items.first?.trip?.id == trip.id)
@@ -239,11 +239,11 @@ struct SchemaTests {
     try context.save()
 
     let trips = try context.fetch(FetchDescriptor<Trip>())
-    #expect(trips.first?.participants.count == 2)
+    #expect(trips.first?.participants?.count == 2)
 
     let people = try context.fetch(FetchDescriptor<Person>())
     for person in people {
-      #expect(person.trips.contains { $0.id == trip.id })
+      #expect((person.trips ?? []).contains { $0.id == trip.id })
     }
   }
 
@@ -261,7 +261,7 @@ struct SchemaTests {
     try context.save()
 
     let people = try context.fetch(FetchDescriptor<Person>())
-    #expect(people.first?.tripPackingItems.count == 1)
+    #expect(people.first?.tripPackingItems?.count == 1)
   }
 
   @Test("Person.masterPackingItems inverse")
@@ -276,7 +276,7 @@ struct SchemaTests {
     try context.save()
 
     let people = try context.fetch(FetchDescriptor<Person>())
-    #expect(people.first?.masterPackingItems.count == 1)
+    #expect(people.first?.masterPackingItems?.count == 1)
   }
 
   // MARK: - Delete rules
@@ -317,13 +317,12 @@ struct SchemaTests {
     #expect(remaining.isEmpty)
   }
 
-  // SwiftData (iOS 26.4) does not reliably enforce `.deny` at save time on in-memory
-  // stores: the deletion completes silently and `save()` does not throw. The `.deny`
-  // rule is still declared on `Person.tripPackingItems` and `Person.masterPackingItems`
-  // as defense-in-depth, but the primary enforcement happens in the UI layer per
-  // requirement 9.7. The tests below verify the inverse traversal that the UI uses to
-  // detect references before allowing a person delete — see `personTripPackingItemsInverse`
-  // and `personMasterPackingItemsInverse` for the corresponding read paths.
+  // CloudKit does not support `.deny`; the delete rule on
+  // `Person.tripPackingItems` and `Person.masterPackingItems` is `.nullify`.
+  // Person-delete enforcement happens in the UI layer (`PersonDeleteBlocker`)
+  // per requirement 9.7. The tests below verify the inverse traversal that the
+  // UI uses to detect references before allowing a person delete — see
+  // `personTripPackingItemsInverse` and `personMasterPackingItemsInverse`.
 
   @Test("Person.tripPackingItems references survive a save and remain queryable")
   func personTripPackingItemReferencesQueryable() throws {
@@ -339,8 +338,8 @@ struct SchemaTests {
 
     let people = try context.fetch(FetchDescriptor<Person>())
     let p = try #require(people.first)
-    #expect(p.tripPackingItems.count == 1)
-    #expect(p.tripPackingItems.first?.name == "Toothbrush")
+    #expect(p.tripPackingItems?.count == 1)
+    #expect(p.tripPackingItems?.first?.name == "Toothbrush")
   }
 
   @Test("Person.masterPackingItems references survive a save and remain queryable")
@@ -355,7 +354,7 @@ struct SchemaTests {
 
     let people = try context.fetch(FetchDescriptor<Person>())
     let p = try #require(people.first)
-    #expect(p.masterPackingItems.count == 1)
+    #expect(p.masterPackingItems?.count == 1)
   }
 
   @Test("Nullify Trip.participants on Person delete")

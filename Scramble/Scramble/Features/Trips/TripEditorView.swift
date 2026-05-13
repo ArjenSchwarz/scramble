@@ -290,8 +290,8 @@ import SwiftUI
   private func requestDelete(_ person: Person) {
     if let blocker = PersonDeleteBlocker.make(
       for: person,
-      tripPacking: person.tripPackingItems,
-      masterPacking: person.masterPackingItems
+      tripPacking: person.tripPackingItems ?? [],
+      masterPacking: person.masterPackingItems ?? []
     ) {
       personDeleteConflict = blocker
     } else {

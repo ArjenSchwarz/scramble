@@ -65,7 +65,7 @@ struct AccordionTimeline: View {
       end: trip.endDate,
       calendar: calendar
     )
-    let phaseTasks = trip.tasks.filter { $0.phase == phase && !$0.userDeletedOnThisTrip }
+    let phaseTasks = (trip.tasks ?? []).filter { $0.phase == phase && !$0.userDeletedOnThisTrip }
     let counts = TaskListHelpers.counts(phaseTasks)
     let compressed = PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar)
     let packing = phase == .departureDay || phase == .dayBeforeReturn

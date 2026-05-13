@@ -142,13 +142,13 @@ import os
     /// query. Format: `tripDetail.{packingItem|task}.{matching|unmatched}.{name}`.
     private var inspectionMarkers: some View {
       ZStack {
-        ForEach(trip.packingItems) { item in
+        ForEach(trip.packingItems ?? []) { item in
           Color.clear
             .frame(width: 1, height: 1)
             .accessibilityElement()
             .accessibilityIdentifier(Self.inspectionID(packingItem: item))
         }
-        ForEach(trip.tasks) { task in
+        ForEach(trip.tasks ?? []) { task in
           Color.clear
             .frame(width: 1, height: 1)
             .accessibilityElement()
@@ -191,9 +191,10 @@ import os
       .font(.caption)
       .foregroundStyle(variant.textSecondary)
 
-      if !trip.participants.isEmpty {
+      let participants = trip.participants ?? []
+      if !participants.isEmpty {
         HStack(spacing: -6) {
-          ForEach(trip.participants) { person in
+          ForEach(participants) { person in
             PersonAvatar(name: person.name, colorKey: person.colorKey, size: .standard)
           }
         }
@@ -280,7 +281,7 @@ import os
     if phase == .departureDay || phase == .dayBeforeReturn {
       return phase
     }
-    let hasVisibleTask = trip.tasks.contains { task in
+    let hasVisibleTask = (trip.tasks ?? []).contains { task in
       task.phase == phase && !task.userDeletedOnThisTrip
     }
     return hasVisibleTask ? phase : nil

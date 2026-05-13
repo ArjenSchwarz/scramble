@@ -79,7 +79,7 @@ struct DanglingAssigneeTests {
     context.insert(task)
     try context.save()
 
-    trip.participants.removeAll(where: { $0.id == person.id })
+    trip.participants = (trip.participants ?? []).filter { $0.id != person.id }
     try context.save()
 
     let fetched = try context.fetch(FetchDescriptor<TripTask>())
