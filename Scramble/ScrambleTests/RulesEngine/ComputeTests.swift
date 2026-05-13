@@ -51,7 +51,8 @@ struct ComputeTests {
     currentlyMatchesRules: Bool = true,
     pinnedByUser: Bool = false,
     source: ItemSource = .rule,
-    isCompleted: Bool = false
+    isCompleted: Bool = false,
+    userDeletedOnThisTrip: Bool = false
   ) -> TripTaskRef {
     TripTaskRef(
       id: id,
@@ -59,7 +60,8 @@ struct ComputeTests {
       currentlyMatchesRules: currentlyMatchesRules,
       pinnedByUser: pinnedByUser,
       source: source,
-      isCompleted: isCompleted
+      isCompleted: isCompleted,
+      userDeletedOnThisTrip: userDeletedOnThisTrip
     )
   }
 
@@ -475,7 +477,7 @@ struct ComputeTests {
       masterTasks: [
         Self.taskMaster(id: Self.masterIDC),
         Self.taskMaster(id: Self.masterIDA),
-        Self.taskMaster(id: Self.masterIDB)
+        Self.taskMaster(id: Self.masterIDB),
       ],
       masterPacking: []
     )
@@ -490,7 +492,7 @@ struct ComputeTests {
       masterPacking: [
         Self.packingMaster(id: Self.masterIDC),
         Self.packingMaster(id: Self.masterIDA),
-        Self.packingMaster(id: Self.masterIDB)
+        Self.packingMaster(id: Self.masterIDB),
       ]
     )
     #expect(plan.toAddPacking.map(\.id) == [Self.masterIDA, Self.masterIDB, Self.masterIDC])
@@ -508,13 +510,16 @@ struct ComputeTests {
         packing: [pack1, pack2]
       ),
       masterTasks: [Self.taskMaster(id: Self.masterIDA)],
-      masterPacking: [Self.packingMaster(id: Self.masterIDB), Self.packingMaster(id: Self.masterIDC)]
+      masterPacking: [
+        Self.packingMaster(id: Self.masterIDB), Self.packingMaster(id: Self.masterIDC),
+      ]
     )
-    #expect(plan.toFlagUnmatched == [
-      TripItemRef(kind: .packing, id: Self.tripItemIDA),
-      TripItemRef(kind: .packing, id: Self.tripItemIDB),
-      TripItemRef(kind: .task, id: Self.tripItemIDC)
-    ])
+    #expect(
+      plan.toFlagUnmatched == [
+        TripItemRef(kind: .packing, id: Self.tripItemIDA),
+        TripItemRef(kind: .packing, id: Self.tripItemIDB),
+        TripItemRef(kind: .task, id: Self.tripItemIDC),
+      ])
   }
 
   // MARK: - tripID propagation
@@ -527,6 +532,80 @@ struct ComputeTests {
       masterPacking: []
     )
     #expect(plan.tripID == Self.tripID)
+  }
+
+  // MARK: - userDeletedOnThisTrip — engine carve-out (Req 7.4 / 7.5)
+
+  @Test(
+    "userDeleted: (matched=true, conditions=true) — ref is skipped (would have been no-op anyway)")
+  func userDeletedTrueTrue() {
+    let plan = compute(
+      trip: Self.snapshot(
+        tasks: [Self.taskRef(currentlyMatchesRules: true, userDeletedOnThisTrip: true)]
+      ),
+      masterTasks: [Self.taskMaster()],
+      masterPacking: []
+    )
+    #expect(plan.toFlagMatched.isEmpty)
+    #expect(plan.toFlagUnmatched.isEmpty)
+    #expect(
+      plan.toAddTasks.isEmpty, "Master is still referenced by the deleted ref, so toAdd stays empty"
+    )
+  }
+
+  @Test(
+    "userDeleted: (matched=true, conditions=false) — ref is skipped, NOT moved to toFlagUnmatched")
+  func userDeletedTrueFalse() {
+    let plan = compute(
+      trip: Self.snapshot(
+        attributes: Self.sunnyTripAttributes(),
+        tasks: [Self.taskRef(currentlyMatchesRules: true, userDeletedOnThisTrip: true)]
+      ),
+      masterTasks: [Self.taskMaster()],
+      masterPacking: []
+    )
+    #expect(plan.toFlagUnmatched.isEmpty)
+    #expect(plan.toFlagMatched.isEmpty)
+  }
+
+  @Test(
+    "userDeleted: (matched=false, conditions=true) — ref is skipped, NOT moved to toFlagMatched")
+  func userDeletedFalseTrue() {
+    let plan = compute(
+      trip: Self.snapshot(
+        tasks: [Self.taskRef(currentlyMatchesRules: false, userDeletedOnThisTrip: true)]
+      ),
+      masterTasks: [Self.taskMaster()],
+      masterPacking: []
+    )
+    #expect(plan.toFlagMatched.isEmpty)
+    #expect(plan.toFlagUnmatched.isEmpty)
+  }
+
+  @Test("userDeleted: (matched=false, conditions=false) — ref is skipped")
+  func userDeletedFalseFalse() {
+    let plan = compute(
+      trip: Self.snapshot(
+        attributes: Self.sunnyTripAttributes(),
+        tasks: [Self.taskRef(currentlyMatchesRules: false, userDeletedOnThisTrip: true)]
+      ),
+      masterTasks: [Self.taskMaster()],
+      masterPacking: []
+    )
+    #expect(plan.toFlagMatched.isEmpty)
+    #expect(plan.toFlagUnmatched.isEmpty)
+  }
+
+  @Test("userDeleted: master is still considered referenced — no re-add via toAddTasks")
+  func userDeletedDoesNotReAdd() {
+    let plan = compute(
+      trip: Self.snapshot(
+        tasks: [Self.taskRef(currentlyMatchesRules: true, userDeletedOnThisTrip: true)]
+      ),
+      masterTasks: [Self.taskMaster()],
+      masterPacking: []
+    )
+    #expect(plan.toAddTasks.isEmpty)
   }
 
   // MARK: - Snapshot capture worst case (200 masters, all matching)

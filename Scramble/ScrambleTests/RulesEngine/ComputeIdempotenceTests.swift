@@ -11,13 +11,13 @@ struct ComputeIdempotenceTests {
   /// Deterministic, seedable PRNG so failures reproduce.
   private struct SeededGenerator: RandomNumberGenerator {
     private var state: UInt64
-    init(seed: UInt64) { self.state = seed == 0 ? 0xDEADBEEFCAFEBABE : seed }
+    init(seed: UInt64) { self.state = seed == 0 ? 0xDEAD_BEEF_CAFE_BABE : seed }
     mutating func next() -> UInt64 {
       // SplitMix64
-      state &+= 0x9E3779B97F4A7C15
+      state &+= 0x9E37_79B9_7F4A_7C15
       var z = state
-      z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
-      z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+      z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+      z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
       return z ^ (z >> 31)
     }
   }
@@ -64,7 +64,9 @@ struct ComputeIdempotenceTests {
     return .all(matches)
   }
 
-  private static func randomMasterTasks(count: Int, rng: inout SeededGenerator) -> [MasterTaskSnapshot] {
+  private static func randomMasterTasks(
+    count: Int, rng: inout SeededGenerator
+  ) -> [MasterTaskSnapshot] {
     (0..<count).map { i in
       MasterTaskSnapshot(
         id: UUID(),
@@ -107,7 +109,8 @@ struct ComputeIdempotenceTests {
         currentlyMatchesRules: Bool.random(using: &rng),
         pinnedByUser: false,
         source: .rule,
-        isCompleted: false
+        isCompleted: false,
+        userDeletedOnThisTrip: false
       )
     }
     let packCount = Int.random(in: 0...min(maxExisting, masterPacking.count), using: &rng)
@@ -135,7 +138,8 @@ struct ComputeIdempotenceTests {
   /// `ModelContainer`.
   private static func applyToSnapshot(plan: Plan, snapshot: TripSnapshot) -> TripSnapshot {
     let tasks = updateTaskFlags(snapshot.existingTasks, plan: plan) + appendedTasks(from: plan)
-    let packing = updatePackingFlags(snapshot.existingPacking, plan: plan)
+    let packing =
+      updatePackingFlags(snapshot.existingPacking, plan: plan)
       + appendedPacking(from: plan)
     return TripSnapshot(
       id: snapshot.id,
@@ -158,7 +162,8 @@ struct ComputeIdempotenceTests {
         currentlyMatchesRules: flag,
         pinnedByUser: ref.pinnedByUser,
         source: ref.source,
-        isCompleted: ref.isCompleted
+        isCompleted: ref.isCompleted,
+        userDeletedOnThisTrip: ref.userDeletedOnThisTrip
       )
     }
   }
@@ -191,7 +196,8 @@ struct ComputeIdempotenceTests {
         currentlyMatchesRules: true,
         pinnedByUser: false,
         source: .rule,
-        isCompleted: false
+        isCompleted: false,
+        userDeletedOnThisTrip: false
       )
     }
   }

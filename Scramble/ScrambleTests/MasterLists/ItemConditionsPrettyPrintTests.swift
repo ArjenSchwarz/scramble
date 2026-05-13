@@ -27,7 +27,7 @@ struct ItemConditionsPrettyPrintTests {
   func allMultiLine() {
     let cond: ItemConditions = .all([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .scope, anyOf: ["international"])
+      .match(attribute: .scope, anyOf: ["international"]),
     ])
     let expected = """
       all of:
@@ -42,9 +42,9 @@ struct ItemConditionsPrettyPrintTests {
     let cond: ItemConditions = .all([
       .any([
         .match(attribute: .weather, anyOf: ["rain"]),
-        .match(attribute: .weather, anyOf: ["cold"])
+        .match(attribute: .weather, anyOf: ["cold"]),
       ]),
-      .match(attribute: .scope, anyOf: ["international"])
+      .match(attribute: .scope, anyOf: ["international"]),
     ])
     let expected = """
       all of:
@@ -69,7 +69,7 @@ struct ItemConditionsPrettyPrintTests {
   func topLevelAny() {
     let cond: ItemConditions = .any([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .weather, anyOf: ["cold"])
+      .match(attribute: .weather, anyOf: ["cold"]),
     ])
     let expected = """
       any of:

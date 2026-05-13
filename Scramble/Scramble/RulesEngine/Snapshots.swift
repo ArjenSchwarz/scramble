@@ -14,6 +14,9 @@ nonisolated struct TripTaskRef: Equatable, Hashable, Sendable {
   let pinnedByUser: Bool
   let source: ItemSource
   let isCompleted: Bool
+  /// Phase 3, Decision 7: a user-deleted rule task is inert in the engine
+  /// (skipped in `classifyTaskRefs`, never written to in `flagTasks`).
+  let userDeletedOnThisTrip: Bool
 }
 
 nonisolated struct TripPackingItemRef: Equatable, Hashable, Sendable {

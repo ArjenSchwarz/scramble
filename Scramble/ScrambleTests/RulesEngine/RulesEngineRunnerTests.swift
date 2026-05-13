@@ -9,7 +9,7 @@ import Testing
 struct RulesEngineRunnerTests {
 
   private static func makeContainer() throws -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV1.self)
+    let schema = Schema(versionedSchema: SchemaV2.self)
     let config = ModelConfiguration(
       schema: schema,
       isStoredInMemoryOnly: true,
@@ -115,7 +115,8 @@ struct RulesEngineRunnerTests {
     let pastEnd = calendar.date(byAdding: .day, value: -1, to: today)!
     let futureEnd = calendar.date(byAdding: .day, value: 7, to: today)!
 
-    let past = Trip(name: "Past", startDate: pastEnd, endDate: pastEnd, attributes: Self.rainyAttributes())
+    let past = Trip(
+      name: "Past", startDate: pastEnd, endDate: pastEnd, attributes: Self.rainyAttributes())
     let future = Trip(
       name: "Future", startDate: today, endDate: futureEnd, attributes: Self.rainyAttributes())
     context.insert(past)
@@ -129,10 +130,10 @@ struct RulesEngineRunnerTests {
     #expect(plans.first?.tripID == future.id)
 
     // Past trip has zero rule-driven items.
-    let pastTasks = past.tasks
+    let pastTasks = past.tasks ?? []
     #expect(pastTasks.isEmpty)
     // Future trip got its task.
-    #expect(future.tasks.count == 1)
+    #expect((future.tasks ?? []).count == 1)
   }
 
   @Test("runForAllNonPastTrips: idempotent — second call returns []")
@@ -195,7 +196,7 @@ struct RulesEngineRunnerTests {
 
     let runner = RulesEngineRunner(context: context)
     _ = try runner.runForTrip(trip)
-    let originalTaskID = trip.tasks.first?.id
+    let originalTaskID = trip.tasks?.first?.id
 
     master.name = "Renamed"
     try context.save()

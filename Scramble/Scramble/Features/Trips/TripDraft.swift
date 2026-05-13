@@ -54,6 +54,6 @@ extension TripDraft {
     self.startDate = trip.startDate
     self.endDate = trip.endDate
     self.attributes = trip.attributes
-    self.participantIDs = trip.participants.map(\.id)
+    self.participantIDs = (trip.participants ?? []).map(\.id)
   }
 }

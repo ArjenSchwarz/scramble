@@ -22,6 +22,14 @@
       case phase2RulesFixtureSunTrip = "phase2-rules-fixture-sun-trip"
       case phase2RulesColdLaunch = "phase2-rules-cold-launch"
       case personWithMasterPackingOnly = "person-with-master-packing-only"
+      /// Phase 3: trip currently in `.duringTrip` with one manual task in
+      /// `.duringTrip` and one rule-driven task in `.dayBefore`. The trip
+      /// auto-opens (single qualifying trip; today is mid-trip).
+      case phase3TripWithTasks = "phase3-trip-with-tasks"
+      /// Phase 3: one-day trip (start == end) so `.duringTrip` compresses.
+      case phase3OneDayTrip = "phase3-one-day-trip"
+      /// Phase 3: trip with no participants for the assignee-picker placeholder.
+      case phase3TripNoParticipants = "phase3-trip-no-participants"
     }
 
     static func applyIfRequested(
@@ -90,6 +98,10 @@
         .phase2RulesColdLaunch,
         .personWithMasterPackingOnly:
         seedPhase2(fixture: fixture, in: context, day: day, calendar: calendar)
+      case .phase3TripWithTasks,
+        .phase3OneDayTrip,
+        .phase3TripNoParticipants:
+        seedPhase3(fixture: fixture, in: context, day: day, calendar: calendar)
       }
       try? context.save()
     }
@@ -173,7 +185,74 @@
         let start = calendar.date(byAdding: .day, value: 30, to: day) ?? day
         let end = calendar.date(byAdding: .day, value: 35, to: day) ?? day
         let trip = Trip(name: "Sample Trip", startDate: start, endDate: end)
-        trip.participants.append(person)
+        trip.participants = (trip.participants ?? []) + [person]
+        context.insert(trip)
+      default:
+        break
+      }
+    }
+
+    private static func seedPhase3(
+      fixture: Fixture,
+      in context: ModelContext,
+      day: Date,
+      calendar: Calendar
+    ) {
+      switch fixture {
+      case .phase3TripWithTasks:
+        // Trip currently in `.duringTrip` (start = day-1, end = day+3) with one
+        // rule task in `.dayBefore` and one manual task in `.duringTrip`. The
+        // trip is the single qualifying trip so it auto-opens.
+        let start = calendar.date(byAdding: .day, value: -1, to: day) ?? day
+        let end = calendar.date(byAdding: .day, value: 3, to: day) ?? day
+        let trip = Trip(name: "Active Trip", startDate: start, endDate: end)
+        context.insert(trip)
+
+        let person = Person(name: "Alex", colorKey: "Cyan")
+        context.insert(person)
+        trip.participants = (trip.participants ?? []) + [person]
+
+        let masterTask = MasterTaskItem(
+          name: "Charge devices",
+          phase: .dayBefore,
+          conditions: .always
+        )
+        context.insert(masterTask)
+
+        let ruleTask = TripTask(
+          trip: trip,
+          masterItemID: masterTask.id,
+          name: masterTask.name,
+          phase: .dayBefore,
+          isCompleted: false,
+          source: .rule,
+          currentlyMatchesRules: true,
+          pinnedByUser: false
+        )
+        context.insert(ruleTask)
+
+        let manualTask = TripTask(
+          trip: trip,
+          masterItemID: nil,
+          name: "Check the weather",
+          phase: .duringTrip,
+          isCompleted: false,
+          source: .manual,
+          currentlyMatchesRules: true,
+          pinnedByUser: false
+        )
+        context.insert(manualTask)
+      case .phase3OneDayTrip:
+        // Single-day trip — start == end. `.duringTrip` duration is
+        // max(0, (E-S)-1) = max(0, -1) = 0, so it compresses (Req 3.1).
+        let trip = Trip(name: "Day Trip", startDate: day, endDate: day)
+        context.insert(trip)
+      case .phase3TripNoParticipants:
+        // Trip currently in `.duringTrip` with NO participants. Used to
+        // verify the assignee-picker empty-state placeholder.
+        let start = calendar.date(byAdding: .day, value: -1, to: day) ?? day
+        let end = calendar.date(byAdding: .day, value: 3, to: day) ?? day
+        let trip = Trip(name: "Solo Trip", startDate: start, endDate: end)
         context.insert(trip)
       default:
         break

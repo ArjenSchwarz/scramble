@@ -28,7 +28,9 @@ func apply(plan: Plan, context: ModelContext) throws {
 }
 
 @MainActor
-private func insertAddedTasks(_ masters: [MasterTaskSnapshot], on trip: Trip, context: ModelContext) {
+private func insertAddedTasks(
+  _ masters: [MasterTaskSnapshot], on trip: Trip, context: ModelContext
+) {
   for master in masters {
     let task = TripTask(
       trip: trip,
@@ -93,9 +95,19 @@ private func flagTasks(ids: [UUID], to value: Bool, context: ModelContext) throw
   let fetched = try context.fetch(descriptor)
   let foundIDs = Set(fetched.map(\.id))
   for missing in idSet.subtracting(foundIDs) {
-    modelLogger.info("[RulesEngine.skip-flag-orphan] kind=task id=\(missing, privacy: .public) not found")
+    modelLogger.info(
+      "[RulesEngine.skip-flag-orphan] kind=task id=\(missing, privacy: .public) not found")
   }
   for task in fetched {
+    // Phase 3 / Decision 7: belt-and-braces — if a sync arrival flipped the
+    // deletion flag after the snapshot was captured, do not overwrite the
+    // user's deletion choice.
+    if task.userDeletedOnThisTrip {
+      modelLogger.info(
+        "[RulesEngine.skip-flag-userDeleted] id=\(task.id, privacy: .public) — userDeletedOnThisTrip=true"
+      )
+      continue
+    }
     task.currentlyMatchesRules = value
   }
 }
@@ -108,7 +120,8 @@ private func flagPacking(ids: [UUID], to value: Bool, context: ModelContext) thr
   let fetched = try context.fetch(descriptor)
   let foundIDs = Set(fetched.map(\.id))
   for missing in idSet.subtracting(foundIDs) {
-    modelLogger.info("[RulesEngine.skip-flag-orphan] kind=packing id=\(missing, privacy: .public) not found")
+    modelLogger.info(
+      "[RulesEngine.skip-flag-orphan] kind=packing id=\(missing, privacy: .public) not found")
   }
   for item in fetched {
     item.currentlyMatchesRules = value

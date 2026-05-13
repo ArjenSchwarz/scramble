@@ -9,14 +9,15 @@ final class Trip {
   var endDate: Date = Date.distantPast
   var attributesData: Data = Data()
 
+  // CloudKit-compatible: to-many relationships must be Optional arrays.
   @Relationship(deleteRule: .nullify, inverse: \Person.trips)
-  var participants: [Person] = []
+  var participants: [Person]? = []
 
   @Relationship(deleteRule: .cascade, inverse: \TripTask.trip)
-  var tasks: [TripTask] = []
+  var tasks: [TripTask]? = []
 
   @Relationship(deleteRule: .cascade, inverse: \TripPackingItem.trip)
-  var packingItems: [TripPackingItem] = []
+  var packingItems: [TripPackingItem]? = []
 
   init(
     id: UUID = UUID(),

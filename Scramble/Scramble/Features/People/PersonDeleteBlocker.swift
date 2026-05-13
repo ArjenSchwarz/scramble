@@ -24,7 +24,8 @@ struct PersonDeleteBlocker: Identifiable {
     let tripNames = Set(tripPacking.compactMap { $0.trip?.name })
       .map { $0.isEmpty ? "Untitled trip" : $0 }
       .sorted()
-    let masterNames = masterPacking
+    let masterNames =
+      masterPacking
       .map { $0.name.isEmpty ? "Unnamed item" : $0.name }
       .sorted()
     return PersonDeleteBlocker(

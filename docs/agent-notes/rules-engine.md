@@ -20,6 +20,16 @@ Pin, completion, and engagement state protect items from **demotion** (`toFlagUn
 
 `source == .manual` is the one exception that's symmetric — manual items are invisible to the engine in both directions.
 
+## `userDeletedOnThisTrip` carve-out (Phase 3, Decision 7)
+
+A rule-driven `TripTask` whose user has tapped "Delete" on this trip is **not** removed from the store — it has `userDeletedOnThisTrip = true`. The engine treats such refs as already-handled in both directions:
+
+- `Compute.classifyTaskRefs` guards `!ref.userDeletedOnThisTrip` at the top of the loop, so the ref is never reclassified into `toFlagMatched` or `toFlagUnmatched` regardless of the four-way `(currentlyMatchesRules, master-matches)` quadrant.
+- `Apply.flagTasks` defensively skips records whose `userDeletedOnThisTrip == true` before writing `currentlyMatchesRules`. The Apply-side guard is belt-and-braces against a snapshot-vs-store race (e.g., a sync arrival flips the deletion flag after the snapshot was captured).
+- `referencedMasterIDs(in:)` is **not** changed: deleted refs are already counted as referenced (they have a `masterItemID`), so they correctly suppress duplicate inserts in `toAddTasks`.
+
+The flag is scoped to a single `TripTask` record — deleting on Trip A does not affect Trip B (verified by `PerTripScopeTests`).
+
 ## Compute hardening
 
 - `Dictionary(uniquingKeysWith:)`, not `uniqueKeysWithValues`. A CloudKit sync race can briefly surface two masters with the same UUID; trapping in compute would crash the engine on every re-eval until the duplicate cleared. Tolerated, first-wins.
@@ -65,6 +75,14 @@ The project compiles under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. Value ty
 
 ## What the engine doesn't do (yet)
 
-- `WhyDisclosure` introspection — Phase 3 will add a parallel walk over `ItemConditions` returning matched `.match` clauses (Decision 6).
 - CloudKit sync as a re-evaluation trigger — deferred to the CKShare phase (Decision 4). The scenePhase trigger bounds the cross-device staleness window meanwhile.
 - Background-thread execution — family-scale bounds keep all work on the main actor.
+
+## Explainability (Phase 3)
+
+`WhyDisclosure` introspection landed in Phase 3 as a separate two-piece chain that does **not** live in the engine:
+
+- `Scramble/Scramble/Explainability/WhyResolver.swift` — `@MainActor static func reason(for task: TripTask, context: ModelContext) -> WhyDisclosure.Reason`. Fetches the `MasterTaskItem` by ID, evaluates `master.conditions.evaluate(against: trip.attributes)`, and maps to one of four `.manual / .ruleMasterDeleted / .ruleMatched(text) / .ruleNoLongerMatches` cases.
+- `Scramble/Scramble/Explainability/ConditionsFormatter.swift` — `nonisolated static func format(_ conditions: ItemConditions, against: TripAttributes) -> String`. Walks the conditions tree, intersects per-attribute master-allowed values with trip-selected values, renders via `attributeValueDisplay`, joins with `" or "` within an attribute type and `" + "` across types in `TripAttribute.allCases` order.
+
+Per Decision 8.9, the matched conditions are **computed on demand** by intersecting the master item's current conditions with the trip's current attributes — never snapshotted at task-creation time. The resolver runs on the main actor because `ModelContext.fetch` is `@MainActor`; the formatter is `nonisolated` because it operates on pure value types.
