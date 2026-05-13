@@ -54,7 +54,7 @@ struct ItemConditionsTests {
     let attrs = Self.tripWith(weather: ["rain"], duration: "week")
     let cond: ItemConditions = .all([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .duration, anyOf: ["week"])
+      .match(attribute: .duration, anyOf: ["week"]),
     ])
     #expect(cond.evaluate(against: attrs))
   }
@@ -64,7 +64,7 @@ struct ItemConditionsTests {
     let attrs = Self.tripWith(weather: ["rain"], duration: "weekend")
     let cond: ItemConditions = .all([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .duration, anyOf: ["week"])
+      .match(attribute: .duration, anyOf: ["week"]),
     ])
     #expect(!cond.evaluate(against: attrs))
   }
@@ -74,7 +74,7 @@ struct ItemConditionsTests {
     let attrs = Self.tripWith(weather: ["rain"])
     let cond: ItemConditions = .any([
       .match(attribute: .duration, anyOf: ["week"]),
-      .match(attribute: .weather, anyOf: ["rain"])
+      .match(attribute: .weather, anyOf: ["rain"]),
     ])
     #expect(cond.evaluate(against: attrs))
   }
@@ -84,7 +84,7 @@ struct ItemConditionsTests {
     let attrs = Self.tripWith(weather: ["cold"])
     let cond: ItemConditions = .any([
       .match(attribute: .duration, anyOf: ["week"]),
-      .match(attribute: .weather, anyOf: ["rain"])
+      .match(attribute: .weather, anyOf: ["rain"]),
     ])
     #expect(!cond.evaluate(against: attrs))
   }
@@ -108,8 +108,8 @@ struct ItemConditionsTests {
       .match(attribute: .weather, anyOf: ["rain"]),
       .any([
         .match(attribute: .duration, anyOf: ["week"]),
-        .match(attribute: .duration, anyOf: ["weekend"])
-      ])
+        .match(attribute: .duration, anyOf: ["weekend"]),
+      ]),
     ])
     let first = cond.evaluate(against: attrs)
     let second = cond.evaluate(against: attrs)
@@ -130,7 +130,7 @@ struct ItemConditionsTests {
       TripAttributes(),
       tripWith(weather: ["rain"]),
       tripWith(weather: ["cold"]),
-      tripWith(weather: ["rain", "cold"])
+      tripWith(weather: ["rain", "cold"]),
     ]
   }
 
@@ -159,23 +159,23 @@ struct ItemConditionsTests {
       .always,
       .match(attribute: .weather, anyOf: ["rain"]),
       .match(attribute: .duration, anyOf: ["week", "two-weeks"]),
-      .match(attribute: .scope, anyOf: [])
+      .match(attribute: .scope, anyOf: []),
     ]
     // Depth 2 wrappers
     let depth2All: [ItemConditions] = [
       .all([]),
       .all([.always]),
-      .all(leaves)
+      .all(leaves),
     ]
     let depth2Any: [ItemConditions] = [
       .any([]),
       .any([.always]),
-      .any(leaves)
+      .any(leaves),
     ]
     // Depth 3 wrappers
     let depth3: [ItemConditions] = [
       .all([.any(leaves), .all([.match(attribute: .weather, anyOf: ["cold"])])]),
-      .any([.all(leaves), .match(attribute: .transport, anyOf: ["car"])])
+      .any([.all(leaves), .match(attribute: .transport, anyOf: ["car"])]),
     ]
     return leaves + depth2All + depth2Any + depth3
   }

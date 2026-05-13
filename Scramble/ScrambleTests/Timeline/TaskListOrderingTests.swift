@@ -79,7 +79,7 @@ struct TaskListOrderingTests {
     let inputs = [
       Self.task(name: "beta"),
       Self.task(name: "Alpha"),
-      Self.task(name: "alpha")
+      Self.task(name: "alpha"),
     ]
     let result = TaskListHelpers.sorted(inputs)
     // All three are in the incomplete-matching bucket. Within-bucket sort is
@@ -95,7 +95,7 @@ struct TaskListOrderingTests {
     let inputs = [
       Self.task(name: "Beta"),
       Self.task(name: "Étretat"),
-      Self.task(name: "alpha")
+      Self.task(name: "alpha"),
     ]
     let result = TaskListHelpers.sorted(inputs)
     // localizedCaseInsensitiveCompare places "alpha", "Beta", "Étretat" in that order in en/en-US.
@@ -109,7 +109,7 @@ struct TaskListOrderingTests {
       Self.task(name: "Étretat", completed: false, matches: false),  // bucket 3 (incomplete-unmatching)
       Self.task(name: "Charlie", completed: true, matches: true),  // bucket 2 (completed-matching)
       Self.task(name: "beta", completed: false, matches: true),  // bucket 1 (incomplete-matching)
-      Self.task(name: "Alpha", completed: false, matches: true)  // bucket 1 (incomplete-matching)
+      Self.task(name: "Alpha", completed: false, matches: true),  // bucket 1 (incomplete-matching)
     ]
     let result = TaskListHelpers.sorted(inputs)
     #expect(result.map(\.name) == ["Alpha", "beta", "Charlie", "Étretat", "zebra"])

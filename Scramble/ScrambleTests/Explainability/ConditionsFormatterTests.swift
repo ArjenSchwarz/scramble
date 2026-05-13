@@ -22,7 +22,7 @@ struct ConditionsFormatterTests {
   func andAcrossAttributeTypes() {
     let cond: ItemConditions = .all([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .duration, anyOf: ["week"])
+      .match(attribute: .duration, anyOf: ["week"]),
     ])
     let trip = Self.attrs([(.weather, ["rain"]), (.duration, ["week"])])
     // TripAttribute.allCases order is: duration, transport, scope, weather, purpose
@@ -57,14 +57,14 @@ struct ConditionsFormatterTests {
       .match(attribute: .weather, anyOf: ["rain"]),
       .match(attribute: .scope, anyOf: ["domestic"]),
       .match(attribute: .transport, anyOf: ["car"]),
-      .match(attribute: .duration, anyOf: ["week"])
+      .match(attribute: .duration, anyOf: ["week"]),
     ])
     let trip = Self.attrs([
       (.purpose, ["leisure"]),
       (.weather, ["rain"]),
       (.scope, ["domestic"]),
       (.transport, ["car"]),
-      (.duration, ["week"])
+      (.duration, ["week"]),
     ])
     // Expected order matches TripAttribute.allCases:
     // duration, transport, scope, weather, purpose
@@ -102,7 +102,7 @@ struct ConditionsFormatterTests {
   func allOfTwoMatches() {
     let cond: ItemConditions = .all([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .transport, anyOf: ["car"])
+      .match(attribute: .transport, anyOf: ["car"]),
     ])
     let trip = Self.attrs([(.weather, ["rain"]), (.transport, ["car"])])
     // TripAttribute.allCases puts transport before weather.
@@ -113,7 +113,7 @@ struct ConditionsFormatterTests {
   func anyAcrossTypes() {
     let cond: ItemConditions = .any([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .duration, anyOf: ["week"])
+      .match(attribute: .duration, anyOf: ["week"]),
     ])
     let trip = Self.attrs([(.weather, ["rain"]), (.duration, ["week"])])
     // Both branches contribute distinct attribute types — duration first, then weather.
@@ -124,7 +124,7 @@ struct ConditionsFormatterTests {
   func sameAttributeRepeated() {
     let cond: ItemConditions = .any([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .weather, anyOf: ["snow"])
+      .match(attribute: .weather, anyOf: ["snow"]),
     ])
     let trip = Self.attrs([(.weather, ["rain", "snow"])])
     // Both values match within weather — they are joined by ' or ' under a single group.
@@ -140,7 +140,7 @@ struct ConditionsFormatterTests {
   func partialMatch() {
     let cond: ItemConditions = .all([
       .match(attribute: .weather, anyOf: ["rain"]),
-      .match(attribute: .duration, anyOf: ["week"])
+      .match(attribute: .duration, anyOf: ["week"]),
     ])
     // Trip selects only weather; duration not selected.
     let trip = Self.attrs([(.weather, ["rain"])])

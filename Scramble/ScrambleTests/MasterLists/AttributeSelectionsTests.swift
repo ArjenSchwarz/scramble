@@ -53,7 +53,7 @@ struct AttributeSelectionsTests {
     let expected: ItemConditions = .all([
       .match(attribute: .duration, anyOf: ["short"]),
       .match(attribute: .scope, anyOf: ["international"]),
-      .match(attribute: .weather, anyOf: ["rain"])
+      .match(attribute: .weather, anyOf: ["rain"]),
     ])
     #expect(conds == expected)
   }
@@ -62,7 +62,7 @@ struct AttributeSelectionsTests {
   func fromMultipleAttributes() {
     let cond: ItemConditions = .all([
       .match(attribute: .weather, anyOf: ["cold", "rain"]),
-      .match(attribute: .scope, anyOf: ["international"])
+      .match(attribute: .scope, anyOf: ["international"]),
     ])
     let sel = AttributeSelections.from(cond)
     #expect(sel?.byAttribute[.weather] == Set(["rain", "cold"]))
@@ -174,7 +174,7 @@ struct AttributeSelectionsTests {
 
     // Multi-attribute combinations
     let combos: [(TripAttribute, TripAttribute)] = [
-      (.weather, .scope), (.duration, .transport), (.weather, .purpose)
+      (.weather, .scope), (.duration, .transport), (.weather, .purpose),
     ]
     for (a, b) in combos {
       var s = AttributeSelections.empty

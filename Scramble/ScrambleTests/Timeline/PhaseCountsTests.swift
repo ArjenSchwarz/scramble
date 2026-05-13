@@ -33,7 +33,7 @@ struct PhaseCountsTests {
       Self.task(name: "b", completed: true, matches: true),
       Self.task(name: "c", completed: false, matches: false, pinned: true),
       Self.task(name: "d", completed: false, matches: false),
-      Self.task(name: "e", completed: true, matches: false)
+      Self.task(name: "e", completed: true, matches: false),
     ]
     let counts = TaskListHelpers.counts(tasks)
     // matching-or-pinned: a (matches), b (matches+completed), c (pinned) → total 3, completed 1 (b)
@@ -55,7 +55,7 @@ struct PhaseCountsTests {
   func zeroInactive() {
     let tasks = [
       Self.task(name: "a", matches: true),
-      Self.task(name: "b", matches: false, pinned: true)
+      Self.task(name: "b", matches: false, pinned: true),
     ]
     let counts = TaskListHelpers.counts(tasks)
     #expect(counts.total == 2)
@@ -67,7 +67,7 @@ struct PhaseCountsTests {
   func allCompletedMatching() {
     let tasks = [
       Self.task(name: "a", completed: true, matches: true),
-      Self.task(name: "b", completed: true, matches: true)
+      Self.task(name: "b", completed: true, matches: true),
     ]
     let counts = TaskListHelpers.counts(tasks)
     #expect(counts.total == 2)

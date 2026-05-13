@@ -477,7 +477,7 @@ struct ComputeTests {
       masterTasks: [
         Self.taskMaster(id: Self.masterIDC),
         Self.taskMaster(id: Self.masterIDA),
-        Self.taskMaster(id: Self.masterIDB)
+        Self.taskMaster(id: Self.masterIDB),
       ],
       masterPacking: []
     )
@@ -492,7 +492,7 @@ struct ComputeTests {
       masterPacking: [
         Self.packingMaster(id: Self.masterIDC),
         Self.packingMaster(id: Self.masterIDA),
-        Self.packingMaster(id: Self.masterIDB)
+        Self.packingMaster(id: Self.masterIDB),
       ]
     )
     #expect(plan.toAddPacking.map(\.id) == [Self.masterIDA, Self.masterIDB, Self.masterIDC])
@@ -511,14 +511,14 @@ struct ComputeTests {
       ),
       masterTasks: [Self.taskMaster(id: Self.masterIDA)],
       masterPacking: [
-        Self.packingMaster(id: Self.masterIDB), Self.packingMaster(id: Self.masterIDC)
+        Self.packingMaster(id: Self.masterIDB), Self.packingMaster(id: Self.masterIDC),
       ]
     )
     #expect(
       plan.toFlagUnmatched == [
         TripItemRef(kind: .packing, id: Self.tripItemIDA),
         TripItemRef(kind: .packing, id: Self.tripItemIDB),
-        TripItemRef(kind: .task, id: Self.tripItemIDC)
+        TripItemRef(kind: .task, id: Self.tripItemIDC),
       ])
   }
 

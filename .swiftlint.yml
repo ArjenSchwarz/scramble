@@ -5,6 +5,7 @@ excluded:
 
 disabled_rules:
   - inclusive_language  # "master" is required terminology per the spec (master lists for items/tasks)
+  - trailing_comma      # swift-format owns trailing-comma policy; SwiftLint's rule (in either direction) fights swift-format's heuristic when the last element is itself multi-line.
 
 identifier_name:
   min_length: 1  # allow short names like p1, p2 in test scope

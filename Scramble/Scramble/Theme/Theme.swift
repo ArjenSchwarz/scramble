@@ -41,7 +41,7 @@ nonisolated struct ThemeVariant: Equatable, Sendable {
   /// than there are phases — avoids a crash if a future theme is misconfigured.
   func phaseColour(for phase: Phase) -> Color {
     guard let index = Phase.allCases.firstIndex(of: phase),
-          phaseColours.indices.contains(index)
+      phaseColours.indices.contains(index)
     else { return textSecondary }
     return phaseColours[index]
   }

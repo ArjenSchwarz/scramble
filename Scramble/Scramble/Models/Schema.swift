@@ -19,7 +19,7 @@ nonisolated enum SchemaV1: VersionedSchema {
       MasterTaskItem.self,
       MasterPackingItem.self,
       SchemaV1.TripTask.self,
-      TripPackingItem.self
+      TripPackingItem.self,
     ]
   }
 
@@ -56,7 +56,7 @@ nonisolated enum SchemaV2: VersionedSchema {
       MasterTaskItem.self,
       MasterPackingItem.self,
       SchemaV2.TripTask.self,
-      TripPackingItem.self
+      TripPackingItem.self,
     ]
   }
 
