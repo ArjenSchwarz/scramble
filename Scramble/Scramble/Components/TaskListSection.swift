@@ -43,10 +43,15 @@ struct TaskListSection: View {
         #endif
     }
     .padding(.top, 8)
-    .contentShape(Rectangle())
-    .onTapGesture {
+    .background {
+      // Disclosure-dismiss tap target. Lives on a background layer (behind
+      // task rows and the add button) and is only mounted when there is an
+      // open disclosure, so it can't intercept taps destined for the
+      // checkbox or `DashedAddButton` when no disclosure is open.
       if openDisclosureTaskID != nil {
-        openDisclosureTaskID = nil
+        Color.clear
+          .contentShape(Rectangle())
+          .onTapGesture { openDisclosureTaskID = nil }
       }
     }
     #if DEBUG

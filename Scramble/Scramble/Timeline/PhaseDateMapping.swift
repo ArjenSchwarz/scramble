@@ -12,6 +12,12 @@ import Foundation
 /// `.afterTrip`). `durationDays` returns `-1` for those same phases.
 /// `isCompressed` is true iff the phase is `.duringTrip` with zero duration,
 /// which happens exactly when `endDate - startDate <= 1 day`.
+///
+/// `@MainActor` is required because the functions read `Trip.startDate` and
+/// `Trip.endDate`, and `Trip` is a `@Model` class whose property accessors
+/// are MainActor-isolated by SwiftData's default isolation. If a future
+/// refactor changes the signatures to take `Date` parameters directly, the
+/// annotation can drop and unit tests no longer need `@MainActor`.
 @MainActor
 enum PhaseDateMapping {
 

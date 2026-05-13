@@ -1,5 +1,28 @@
 import SwiftUI
 
+/// Namespace for the explainability panel and its `Reason` enum. The view
+/// (`WhyDisclosureView`) and the resolved reason share this namespace so
+/// `WhyResolver` can produce a `WhyDisclosure.Reason` without depending on
+/// the view layer.
+enum WhyDisclosure {
+  /// Why a given `TripTask` is on this trip. Computed on demand by
+  /// `WhyResolver` and rendered by `WhyDisclosureView`.
+  enum Reason: Equatable, Sendable {
+    /// User added this task manually for this trip.
+    case manual
+    /// The rule that created this task no longer exists (master deleted or
+    /// `masterItemID` is nil).
+    case ruleMasterDeleted
+    /// The rule's master exists and at least one of its conditions currently
+    /// matches the trip's attributes. `conditionsText` is the formatted
+    /// explanation produced by `ConditionsFormatter`.
+    case ruleMatched(conditionsText: String)
+    /// The rule's master exists but no condition currently matches the
+    /// trip's attributes.
+    case ruleNoLongerMatches
+  }
+}
+
 /// Inline explainability panel rendered below a `TaskRow` when its disclosure
 /// is open. Consumes a `WhyDisclosure.Reason` (resolved by `WhyResolver`) and
 /// renders it per UI doc §"Visual treatment — Tasks context":

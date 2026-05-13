@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- PR #3 review follow-ups (iteration 2):
+  - `WhyDisclosure` namespace + `Reason` enum moved from `WhyResolver.swift` to `WhyDisclosure.swift`. The split made sense during the cross-stream load-order workaround but is misleading now that both streams are merged.
+  - `TaskListSection` disclosure-dismiss tap moved from `.onTapGesture` on the VStack to a `Color.clear.onTapGesture` on a `.background { ... }` layer that only mounts when `openDisclosureTaskID != nil`. Prior layout could in principle let the parent gesture compete with `DashedAddButton` and the checkbox; the background-layer pattern keeps button taps and the dismiss target on separate layers and skips the gesture entirely when no disclosure is open.
+  - `WhyResolver.fetchMaster` replaces `try?` with `do/catch + modelLogger.error`. The caller still maps `nil` to `.ruleMasterDeleted` (correct user-facing fallback), but a fetch failure now leaves a breadcrumb instead of silently misreporting "master deleted."
+  - `PhaseDateMapping` keeps `@MainActor` but documents why: the functions read `Trip.startDate` / `Trip.endDate`, and `Trip` is a `@Model` class whose accessors are MainActor-isolated. A future refactor to plain `Date` parameters could drop the annotation.
+
 - PR #3 review follow-ups:
   - `TaskRow.swift` chained two `.opacity()` modifiers that composed multiplicatively (`0.5 × 0.45 = 0.225`), rendering a completed + rule-no-longer-matches row far dimmer than intended. Replaced with a single `rowOpacity` computed property that takes `min(completedFactor, matchFactor)` — the combined state now matches the dimmer of the two single states (0.45), and strikethrough text continues to distinguish completed.
   - `TaskListSection.toggleComplete`, `TaskListSection.delete`, and `TaskForm.save` previously used `try? modelContext.save()`, silently dropping save errors. Switched to `do/catch` with `modelLogger.error(...)` matching the established pattern in `TripPersistence`, `MasterPersistence`, and `PersonEditor`.

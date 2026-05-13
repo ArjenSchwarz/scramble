@@ -1,31 +1,6 @@
 import Foundation
 import SwiftData
 
-/// Namespace for the `WhyDisclosure` view (defined in stream 3, task 16). The
-/// nested `Reason` enum lives here so `WhyResolver` and the future view can
-/// share the same type without forcing a load-order between streams. The
-/// view will extend this empty enum with its own SwiftUI implementation.
-enum WhyDisclosure {}
-
-extension WhyDisclosure {
-  /// Why a given `TripTask` is on this trip. Computed on demand by
-  /// `WhyResolver` and rendered by `WhyDisclosure` (the view).
-  enum Reason: Equatable, Sendable {
-    /// User added this task manually for this trip.
-    case manual
-    /// The rule that created this task no longer exists (master deleted or
-    /// `masterItemID` is nil).
-    case ruleMasterDeleted
-    /// The rule's master exists and at least one of its conditions currently
-    /// matches the trip's attributes. `conditionsText` is the formatted
-    /// explanation produced by `ConditionsFormatter`.
-    case ruleMatched(conditionsText: String)
-    /// The rule's master exists but no condition currently matches the
-    /// trip's attributes.
-    case ruleNoLongerMatches
-  }
-}
-
 /// Resolves the `WhyDisclosure.Reason` for a single `TripTask` against the
 /// current store state.
 ///
@@ -71,6 +46,18 @@ enum WhyResolver {
     let descriptor = FetchDescriptor<MasterTaskItem>(
       predicate: #Predicate { $0.id == id }
     )
-    return (try? context.fetch(descriptor))?.first
+    do {
+      return try context.fetch(descriptor).first
+    } catch {
+      // A fetch failure here (corrupt store, mid-migration schema mismatch)
+      // is indistinguishable from a missing master in the return value. The
+      // caller will surface this as `.ruleMasterDeleted`, which is the best
+      // user-facing fallback, but the actual error is worth logging so the
+      // misleading explanation can be investigated.
+      modelLogger.error(
+        "WhyResolver.fetchMaster failed for \(id, privacy: .public): \(error.localizedDescription, privacy: .public)"
+      )
+      return nil
+    }
   }
 }
