@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 /// Per-phase task content rendered inside an expanded `PhaseRow`. Filters
 /// `trip.tasks` to the phase, drops soft-deleted rule rows

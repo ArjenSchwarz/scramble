@@ -49,7 +49,7 @@ struct TaskRow: View {
           }
 
         if isDisclosureOpen, let reason = resolvedReason {
-          WhyDisclosureView(reason: reason, phaseColour: phaseColour)
+          WhyDisclosureView(reason: reason, style: .tasks(phaseColour: phaseColour))
             #if DEBUG
               .accessibilityIdentifier("tripDetail.whyDisclosure.\(task.name)")
             #endif

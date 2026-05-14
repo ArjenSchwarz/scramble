@@ -18,6 +18,7 @@ struct PhaseRow<Content: View>: View {
   let isCompressed: Bool
   let isPackingPhase: Bool
   let phaseColour: Color
+  var packingSubline: String?
   let onToggle: () -> Void
   @ViewBuilder let content: () -> Content
 
@@ -107,7 +108,8 @@ struct PhaseRow<Content: View>: View {
       phase: phase,
       state: state,
       counts: counts,
-      expandable: expandable
+      expandable: expandable,
+      packingSubline: packingSubline
     )
 
     return VStack(alignment: .leading, spacing: 2) {
@@ -144,7 +146,13 @@ struct PhaseRow<Content: View>: View {
   }
 
   private var sublineText: String {
-    if counts.total == 0 && !isPackingPhase {
+    if let packingSubline {
+      if counts.total == 0 {
+        return packingSubline
+      }
+      return "\(TaskListHelpers.subline(counts)) · \(packingSubline)"
+    }
+    if counts.total == 0 {
       return "Nothing here yet"
     }
     return TaskListHelpers.subline(counts)
@@ -156,7 +164,8 @@ struct PhaseRow<Content: View>: View {
     phase: Phase,
     state: PhaseNodeState,
     counts: PhaseCounts,
-    expandable: Bool
+    expandable: Bool,
+    packingSubline: String?
   ) -> String {
     let stateText: String
     switch state {
@@ -164,10 +173,15 @@ struct PhaseRow<Content: View>: View {
     case .current: stateText = "current"
     case .future: stateText = "future"
     }
-    var label =
-      "\(phase.displayName), \(stateText) phase, \(counts.completed) of \(counts.total) tasks complete"
+    var label = "\(phase.displayName), \(stateText) phase"
+    if counts.total > 0 || packingSubline == nil {
+      label += ", \(counts.completed) of \(counts.total) tasks complete"
+    }
     if counts.inactive > 0 {
       label += ", plus \(counts.inactive) inactive"
+    }
+    if let packingSubline {
+      label += ", \(packingSubline)"
     }
     if expandable {
       label += ", double tap to expand"

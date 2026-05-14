@@ -21,6 +21,8 @@ struct AccordionTimeline: View {
   @Binding var openDisclosureTaskID: UUID?
   let onAddTaskInPhase: (Phase) -> Void
   let onEditTask: (TripTask) -> Void
+  let onOpenPackingSheet: (Person, PackingMode) -> Void
+  @AccessibilityFocusState.Binding var packingSummaryFocus: UUID?
 
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
@@ -70,6 +72,9 @@ struct AccordionTimeline: View {
     let compressed = PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar)
     let packing = phase == .departureDay || phase == .dayBeforeReturn
     let colour = variant.phaseColour(for: phase)
+    let packingMode: PackingMode? =
+      phase == .departureDay ? .pack : (phase == .dayBeforeReturn ? .repack : nil)
+    let packingSubline = packingMode.map { PackingListHelpers.phaseSubline(trip, mode: $0) }
 
     PhaseRow(
       phase: phase,
@@ -79,16 +84,28 @@ struct AccordionTimeline: View {
       isCompressed: compressed,
       isPackingPhase: packing,
       phaseColour: colour,
+      packingSubline: packingSubline,
       onToggle: { toggle(phase: phase, counts: counts, packing: packing, proxy: proxy) },
       content: {
-        TaskListSection(
-          trip: trip,
-          phase: phase,
-          phaseColour: colour,
-          openDisclosureTaskID: $openDisclosureTaskID,
-          onAdd: { onAddTaskInPhase(phase) },
-          onEdit: onEditTask
-        )
+        VStack(alignment: .leading, spacing: 12) {
+          TaskListSection(
+            trip: trip,
+            phase: phase,
+            phaseColour: colour,
+            openDisclosureTaskID: $openDisclosureTaskID,
+            onAdd: { onAddTaskInPhase(phase) },
+            onEdit: onEditTask
+          )
+
+          if let mode = packingMode {
+            PackingSummarySection(
+              trip: trip,
+              mode: mode,
+              onOpenSheet: onOpenPackingSheet,
+              focusOnDismiss: $packingSummaryFocus
+            )
+          }
+        }
       }
     )
   }

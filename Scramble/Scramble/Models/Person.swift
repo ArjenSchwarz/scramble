@@ -28,6 +28,19 @@ final class Person {
 
 extension Person {
   var initial: String { name.firstGraphemeUppercased }
+
+  /// Short-form name derivation per Phase 4 design §"Short-form name
+  /// derivation". Trims whitespace, returns the first space-separated token,
+  /// or the full trimmed name when there is no space, or `"?"` when the name
+  /// is empty/whitespace-only. `nonisolated` because the file inherits
+  /// `MainActor` isolation but this is a pure `String` derivation.
+  nonisolated var shortDisplayName: String {
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let first = trimmed.split(separator: " ").first, !first.isEmpty {
+      return String(first)
+    }
+    return trimmed.isEmpty ? "?" : trimmed
+  }
 }
 
 extension String {
