@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Scramble is a native iOS app (macOS planned later) for trip planning, packing, and shared family coordination via CloudKit. Phase 1 Foundation has landed: SwiftData model + CloudKit-aware container, Theme system + Midnight Atlas variants, two-tab app shell, Trip list/detail scaffold, Trip editor with attributes and inline person creation. Phase content (timeline accordion, rules engine, packing sheet, CKShare invites, notifications) is not yet implemented — see `specs/phase-1-foundation/` for what shipped and `docs/agent-notes/persistence.md` for load-bearing implementation notes.
+Scramble is a native iOS app (macOS planned later) for trip planning, packing, and shared family coordination via CloudKit. Phases 1–4 have landed: SwiftData model + CloudKit-aware container, Theme system + Midnight Atlas variants, two-tab app shell, Trip CRUD with inline person creation, deterministic rules engine + Master Lists UI, timeline accordion + Trip-level Tasks, and the per-person Packing Sheet with pack / repack modes and the `WhyDisclosure` explainability surface. CKShare invites and notifications are not yet implemented — see `specs/phase-1-foundation/` through `specs/phase-4-packing-sheet/` for what shipped and `docs/agent-notes/` (`persistence.md`, `rules-engine.md`, `packing-sheet.md`) for load-bearing implementation notes.
 
 Stack: iOS 26+, Swift 6.0 language mode (Xcode 26 toolchain), SwiftUI, SwiftData, CloudKit (CKShare for per-trip sharing). Bundle ID `me.nore.ig.Scramble`, CloudKit container `iCloud.me.nore.ig.scramble`. Project lives at `Scramble/Scramble.xcodeproj` (nested folder, standard Xcode layout).
 

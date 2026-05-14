@@ -51,6 +51,8 @@ struct PackingSheet: View {
   }
 
   var body: some View {
+    let personItems = PackingListHelpers.itemsForPerson(trip, person: person)
+
     NavigationStack {
       ScrollViewReader { proxy in
         ScrollView {
@@ -69,8 +71,7 @@ struct PackingSheet: View {
 
             ForEach(groups, id: \.self) { group in
               PackingItemGroup(
-                trip: trip,
-                person: person,
+                personItems: personItems,
                 group: group,
                 mode: mode,
                 personColour: personColour,
@@ -79,7 +80,7 @@ struct PackingSheet: View {
                   pendingForm = .edit(item: item)
                 }
               )
-              .id(scrollAnchor(for: group))
+              .id(group.scrollAnchor)
             }
 
             if mode == .pack {
@@ -97,7 +98,7 @@ struct PackingSheet: View {
           .padding(.vertical, 12)
         }
         .task {
-          if let firstAnchor = groups.first.map(scrollAnchor(for:)) {
+          if let firstAnchor = groups.first?.scrollAnchor {
             proxy.scrollTo(firstAnchor, anchor: .top)
           }
           try? await Task.sleep(for: .milliseconds(500))
@@ -136,21 +137,6 @@ struct PackingSheet: View {
       openDisclosureItemID = nil
     } else {
       onDismiss()
-    }
-  }
-
-  private func scrollAnchor(for group: SheetGroup) -> String {
-    "packingSheet.section.\(scrollAnchorRaw(for: group))"
-  }
-
-  private func scrollAnchorRaw(for group: SheetGroup) -> String {
-    switch group {
-    case .stillNeedToPack: return "stillNeedToPack"
-    case .packed: return "packed"
-    case .notBringing: return "notBringing"
-    case .stillInSuitcase: return "stillInSuitcase"
-    case .backInSuitcase: return "backInSuitcase"
-    case .leftBehind: return "leftBehind"
     }
   }
 }
@@ -233,8 +219,7 @@ private struct PackingSheetHeader: View {
 /// `PackingListHelpers.sorted`, and renders the section header plus a row
 /// per item. Empty groups render the header only (Req 3.2).
 private struct PackingItemGroup: View {
-  let trip: Trip
-  let person: Person
+  let personItems: [TripPackingItem]
   let group: SheetGroup
   let mode: PackingMode
   let personColour: Color
@@ -247,7 +232,7 @@ private struct PackingItemGroup: View {
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
-    let items = visibleItems
+    let items = PackingListHelpers.sorted(personItems.filter(group.matches))
 
     VStack(alignment: .leading, spacing: 8) {
       Text(group.headerTitle)
@@ -269,23 +254,6 @@ private struct PackingItemGroup: View {
           onEdit: { onEdit(item) }
         )
       }
-    }
-  }
-
-  private var visibleItems: [TripPackingItem] {
-    let all = (trip.packingItems ?? []).filter { $0.person?.id == person.id }
-    let filtered = all.filter(matches)
-    return PackingListHelpers.sorted(filtered)
-  }
-
-  private func matches(_ item: TripPackingItem) -> Bool {
-    switch group {
-    case .stillNeedToPack: return item.state == .unpacked
-    case .packed: return item.state == .packed
-    case .notBringing: return item.state == .excluded
-    case .stillInSuitcase: return item.state == .packed
-    case .backInSuitcase: return item.state == .repacked
-    case .leftBehind: return item.state == .unpacked || item.state == .excluded
     }
   }
 

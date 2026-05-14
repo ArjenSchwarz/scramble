@@ -41,6 +41,31 @@ enum SheetGroup: Sendable {
     case .leftBehind: return "Left behind"
     }
   }
+
+  /// `ScrollViewReader` anchor id for this section. Doubles as the
+  /// `accessibilityIdentifier` suffix for the section header in UI tests.
+  var scrollAnchor: String {
+    switch self {
+    case .stillNeedToPack: return "packingSheet.section.stillNeedToPack"
+    case .packed: return "packingSheet.section.packed"
+    case .notBringing: return "packingSheet.section.notBringing"
+    case .stillInSuitcase: return "packingSheet.section.stillInSuitcase"
+    case .backInSuitcase: return "packingSheet.section.backInSuitcase"
+    case .leftBehind: return "packingSheet.section.leftBehind"
+    }
+  }
+
+  /// Predicate selecting items that belong in this section.
+  func matches(_ item: TripPackingItem) -> Bool {
+    switch self {
+    case .stillNeedToPack: return item.state == .unpacked
+    case .packed: return item.state == .packed
+    case .notBringing: return item.state == .excluded
+    case .stillInSuitcase: return item.state == .packed
+    case .backInSuitcase: return item.state == .repacked
+    case .leftBehind: return item.state == .unpacked || item.state == .excluded
+    }
+  }
 }
 
 /// Single row inside the `PackingSheet`. Mirrors `TaskRow`'s structure with
@@ -112,13 +137,22 @@ struct PackingItemRow: View {
         }
       }
     }
+    .contextMenu {
+      if !group.isReadOnly {
+        Button {
+          onEdit()
+        } label: {
+          Label("Edit", systemImage: "pencil")
+        }
+      }
+    }
     .accessibilityElement(children: .combine)
     .accessibilityLabel(accessibilityLabel)
     .accessibilityAction(named: Text("Why is this here?")) { onLongPress() }
     .modifier(EditAccessibilityAction(enabled: !group.isReadOnly, onEdit: onEdit))
     .modifier(
       SkipRestoreAccessibilityAction(
-        label: skipRestoreLabel,
+        label: inlineActionLabel,
         onAction: onSkipOrRestore
       )
     )
@@ -201,15 +235,6 @@ struct PackingItemRow: View {
       }
       .buttonStyle(.plain)
       .accessibilityLabel(label)
-      .contextMenu {
-        if !group.isReadOnly {
-          Button {
-            onEdit()
-          } label: {
-            Label("Edit", systemImage: "pencil")
-          }
-        }
-      }
     }
   }
 
@@ -273,10 +298,6 @@ struct PackingItemRow: View {
     case .notBringing: return "Restore"
     case .stillInSuitcase, .backInSuitcase, .leftBehind: return nil
     }
-  }
-
-  private var skipRestoreLabel: String? {
-    inlineActionLabel
   }
 
   /// Title of the section the item moves to when the checkbox is tapped, used

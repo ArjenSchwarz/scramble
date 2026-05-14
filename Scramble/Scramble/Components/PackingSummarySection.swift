@@ -23,6 +23,7 @@ struct PackingSummarySection: View {
   var body: some View {
     let variant = theme.variant(for: colorScheme)
     let participants = sortedParticipants
+    let countsByPerson = PackingListHelpers.countsByPerson(trip)
 
     VStack(alignment: .leading, spacing: 4) {
       if participants.isEmpty {
@@ -34,7 +35,8 @@ struct PackingSummarySection: View {
         ForEach(participants, id: \.id) { person in
           PackingSummaryRow(
             person: person,
-            counts: PackingListHelpers.counts(for: person, in: trip),
+            counts: countsByPerson[person.id]
+              ?? PackingCounts(toPack: 0, packed: 0, repacked: 0, excluded: 0),
             mode: mode,
             focusOnDismiss: $focusOnDismiss,
             onOpen: { onOpenSheet(person, mode) }

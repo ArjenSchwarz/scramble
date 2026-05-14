@@ -6,7 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Phase 4 — Packing Sheet pre-push review fixes:
+  - `PackingListHelpers.phaseSubline` rewritten as a single pass over `trip.packingItems` filtered by a `Set<UUID>` of participant ids, avoiding the O(participants × packingItems) fan-out from the per-participant `counts(for:in:)` loop.
+  - Added `PackingListHelpers.countsByPerson(_:)` returning `[UUID: PackingCounts]` in one pass; `PackingSummarySection.body` calls it once and looks up per row instead of calling `counts(for:in:)` inside `ForEach`.
+  - `PackingSheet.body` pre-filters `itemsForPerson` once and passes the array to each `PackingItemGroup`, eliminating three full re-scans of `trip.packingItems` per body evaluation.
+  - `SheetGroup` gained `scrollAnchor: String` and `matches(_:)` properties; removed the duplicate `scrollAnchor(for:)` / `scrollAnchorRaw(for:)` helpers and the inline group-predicate switch from `PackingSheet`.
+  - `PackingItemRow` `.contextMenu` for Edit hoisted from the trailing button to the row level so Edit is available consistently in repack mode (the trailing button is absent there).
+  - Removed redundant `skipRestoreLabel` pass-through computed property in `PackingItemRow`.
+
 ### Added
+
+- `docs/agent-notes/packing-sheet.md` capturing the Phase 4 module's load-bearing decisions: single-pass count helpers, save-failure UX divergence from `TaskForm`, `.task(id: Set<UUID>)` participant-removal watcher, 500ms VoiceOver focus handoff, `WhyDisclosure.Style` migration, and the engine invariants Phase 4 depends on.
+- `specs/phase-4-packing-sheet/implementation.md` — three-level (beginner / intermediate / expert) explanation of the feature with a completeness assessment against the spec.
+- `specs/phase-4-packing-sheet/pre-push-review.html` — self-contained pre-push review artifact with commits, per-file diffs, review findings, and decisions.
 
 - Phase 4 — Packing Sheet implementation:
   - `PackingListHelpers` (`Scramble/Timeline/PackingListHelpers.swift`) — `PackingMode`, `PackingCounts`, and pure helpers for `counts(for:in:)`, `summaryStatus`, `progressRatio`, `phaseSubline`, and `sorted` (active-first then case-insensitive name with id tiebreak).

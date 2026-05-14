@@ -87,19 +87,50 @@ nonisolated enum PackingListHelpers {
   /// `"{S} to repack"` summed across participants. Caller composes the leading
   /// " · " when a tasks clause precedes it.
   static func phaseSubline(_ trip: Trip, mode: PackingMode) -> String {
-    let participants = trip.participants ?? []
+    let participantIDs = Set((trip.participants ?? []).map(\.id))
     var sum = 0
-    for person in participants {
-      let counts = counts(for: person, in: trip)
-      switch mode {
-      case .pack: sum += counts.toPack
-      case .repack: sum += counts.packed
+    for item in trip.packingItems ?? [] {
+      guard let personID = item.person?.id, participantIDs.contains(personID) else { continue }
+      switch (mode, item.state) {
+      case (.pack, .unpacked): sum += 1
+      case (.repack, .packed): sum += 1
+      default: break
       }
     }
     if sum == 0 {
       return mode == .pack ? "packing ready" : "all back in"
     }
     return mode == .pack ? "\(sum) to pack" : "\(sum) to repack"
+  }
+
+  /// Per-person counts for every participant on `trip` in a single pass. Used
+  /// by `PackingSummarySection` to avoid an O(participants × packingItems)
+  /// fan-out where one pass suffices.
+  static func countsByPerson(_ trip: Trip) -> [UUID: PackingCounts] {
+    let participantIDs = Set((trip.participants ?? []).map(\.id))
+    var toPack: [UUID: Int] = [:]
+    var packed: [UUID: Int] = [:]
+    var repacked: [UUID: Int] = [:]
+    var excluded: [UUID: Int] = [:]
+    for item in trip.packingItems ?? [] {
+      guard let personID = item.person?.id, participantIDs.contains(personID) else { continue }
+      switch item.state {
+      case .unpacked: toPack[personID, default: 0] += 1
+      case .packed: packed[personID, default: 0] += 1
+      case .repacked: repacked[personID, default: 0] += 1
+      case .excluded: excluded[personID, default: 0] += 1
+      }
+    }
+    var result: [UUID: PackingCounts] = [:]
+    for id in participantIDs {
+      result[id] = PackingCounts(
+        toPack: toPack[id] ?? 0,
+        packed: packed[id] ?? 0,
+        repacked: repacked[id] ?? 0,
+        excluded: excluded[id] ?? 0
+      )
+    }
+    return result
   }
 
   /// Sort items per Req 3.8 / 4.7: active-before-dimmed, then case-insensitive
