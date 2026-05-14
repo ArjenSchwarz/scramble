@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Phase 4 — Packing Sheet spec under `specs/phase-4-packing-sheet/`:
+  - `requirements.md` — 10 requirement groups covering the per-person packing summary block on `departureDay` / `dayBeforeReturn`, the `PackingSheet` bottom sheet with pack and repack modes, manual-item creation, item renaming, `WhyDisclosure` reuse with a person-coloured variant, dimmed rendering for unmatched-non-pinned items, save-failure UX preserving form input, sheet-on-sheet manual-add presentation, participant-removal auto-dismiss, Reduce Motion / VoiceOver / external-keyboard accessibility coverage, and three rules-engine invariants Phase 4 depends on.
+  - `design.md` — architecture, components, error handling, and testing strategy. `WhyDisclosureView` migrates to a `Style` enum (`.tasks` / `.packing`); `WhyResolver` gains an `@MainActor` overload for `TripPackingItem`; new `PackingListHelpers`, `PackingSummarySection`, `PackingItemRow`, `PackingSheet`, and `PackingItemForm`. `.task(id: Set<UUID>)` keying for participant-removal watcher avoids spurious re-fires from SwiftData relationship re-orderings. `@AccessibilityFocusState` with a 500ms post-appear delay drives VoiceOver focus handoff; auto-dismiss on participant removal falls back to `UIAccessibility.Notification.layoutChanged`. No schema change — `TripPackingItem` already carries every needed field.
+  - `decision_log.md` — 9 Enhanced Nygard ADRs: spec naming; `.large`-only detent (resolves Phase 1 / UI doc open question 1); skip-as-only-removal-mechanism with the Decision 5 interaction; rename-only edit affordance; dimmed items count in progress; no schema bump; no pin/unpin UI in Phase 4; `WhyDisclosure` does not surface master-name divergence after a trip-level rename; manual-item form is sheet-on-sheet.
+  - `tasks.md` — 15 TDD-paired tasks across 4 streams with full `blocked_by` dependency graph, ready for parallel execution via `rune next --stream N --claim …`.
+
 ### Fixed
 
 - PR #3 review follow-ups (iteration 4):
