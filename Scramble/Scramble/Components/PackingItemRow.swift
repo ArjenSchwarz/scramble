@@ -176,11 +176,6 @@ struct PackingItemRow: View {
         resolvedReason = WhyResolver.reason(for: item, context: modelContext)
       }
     }
-    .onChange(of: item.name) { _, _ in
-      if isDisclosureOpen {
-        resolvedReason = WhyResolver.reason(for: item, context: modelContext)
-      }
-    }
   }
 
   // MARK: - Subviews
@@ -188,17 +183,15 @@ struct PackingItemRow: View {
   @ViewBuilder
   private func checkbox(variant: ThemeVariant) -> some View {
     if group.isReadOnly {
-      ZStack {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .strokeBorder(
-            variant.textSecondary,
-            style: StrokeStyle(lineWidth: 1.5, dash: [3, 3])
-          )
-          .frame(width: 24, height: 24)
-      }
-      .frame(width: 44, height: 44)
-      .contentShape(Rectangle())
-      .accessibilityHidden(true)
+      RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .strokeBorder(
+          variant.textSecondary,
+          style: StrokeStyle(lineWidth: 1.5, dash: [3, 3])
+        )
+        .frame(width: 24, height: 24)
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+        .accessibilityHidden(true)
     } else {
       Button(action: handleCheckboxTap) {
         ZStack {

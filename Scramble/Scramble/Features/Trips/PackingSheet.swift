@@ -7,14 +7,24 @@ import os
 #endif
 
 /// Sheet presentation identity for `PackingSheet`. Bound to
-/// `TripDetailView.packingSheetState` via `.sheet(item:)`. `id` keys on the
-/// person so SwiftUI uses the same sheet instance when re-presenting for the
-/// same person across re-renders.
+/// `TripDetailView.packingSheetState` via `.sheet(item:)`. The identity
+/// includes both person and mode so SwiftUI dismisses-and-replaces correctly
+/// if the same person is opened in a different mode (defensive: the
+/// one-at-a-time accordion already prevents two packing phases from being
+/// open simultaneously, but the identity should not depend on that).
 struct PackingSheetState: Identifiable {
   let person: Person
   let mode: PackingMode
 
-  var id: UUID { person.id }
+  var id: String {
+    let modeKey: String = {
+      switch mode {
+      case .pack: return "pack"
+      case .repack: return "repack"
+      }
+    }()
+    return "\(person.id.uuidString)|\(modeKey)"
+  }
 }
 
 /// Per-person packing surface presented from a participant row inside the
