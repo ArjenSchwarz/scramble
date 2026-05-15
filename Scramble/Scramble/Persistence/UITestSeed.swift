@@ -41,7 +41,7 @@
       /// unpacked/excluded items. Used by repack-mode UI tests covering the
       /// "Left behind" group, read-only checkboxes, and `WhyDisclosure` on
       /// read-only rows.
-      case phase4PackModeTripRepack = "phase4-repack-mode-trip"
+      case phase4RepackModeTrip = "phase4-repack-mode-trip"
     }
 
     static func applyIfRequested(
@@ -115,7 +115,7 @@
         .phase3TripNoParticipants:
         seedPhase3(fixture: fixture, in: context, day: day, calendar: calendar)
       case .phase4PackModeTrip,
-        .phase4PackModeTripRepack:
+        .phase4RepackModeTrip:
         seedPhase4(fixture: fixture, in: context, day: day, calendar: calendar)
       }
       try? context.save()
@@ -385,7 +385,7 @@
             pinnedByUser: false
           )
         )
-      case .phase4PackModeTripRepack:
+      case .phase4RepackModeTrip:
         // Trip on `.dayBeforeReturn` (start == today-3, end == today+1). Two
         // participants with a mix of states populating the three repack-mode
         // groups: still-in-suitcase (`.packed`), back-in-suitcase

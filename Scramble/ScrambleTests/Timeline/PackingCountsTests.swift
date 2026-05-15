@@ -175,4 +175,41 @@ struct PackingCountsTests {
     let countsB = PackingListHelpers.counts(for: person, in: tripB)
     #expect(countsB.packed == 1)
   }
+
+  // MARK: - countsByPerson matches per-person counts(for:in:)
+
+  @Test("countsByPerson agrees with per-person counts(for:in:) across a multi-person trip")
+  func countsByPersonMatchesPerPersonOverload() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let trip = Trip(name: "T", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let alice = Person(name: "Alice", colorKey: "blue")
+    let bob = Person(name: "Bob", colorKey: "green")
+    let cara = Person(name: "Cara", colorKey: "purple")
+    context.insert(alice)
+    context.insert(bob)
+    context.insert(cara)
+    trip.participants = [alice, bob, cara]
+
+    // Alice: 2 unpacked, 1 packed.
+    context.insert(TripPackingItem(trip: trip, person: alice, name: "a1", state: .unpacked))
+    context.insert(TripPackingItem(trip: trip, person: alice, name: "a2", state: .unpacked))
+    context.insert(TripPackingItem(trip: trip, person: alice, name: "a3", state: .packed))
+    // Bob: 1 packed, 2 repacked, 1 excluded.
+    context.insert(TripPackingItem(trip: trip, person: bob, name: "b1", state: .packed))
+    context.insert(TripPackingItem(trip: trip, person: bob, name: "b2", state: .repacked))
+    context.insert(TripPackingItem(trip: trip, person: bob, name: "b3", state: .repacked))
+    context.insert(TripPackingItem(trip: trip, person: bob, name: "b4", state: .excluded))
+    // Cara: zero items — must still produce an all-zero entry.
+    try context.save()
+
+    let byPerson = PackingListHelpers.countsByPerson(trip)
+    for person in [alice, bob, cara] {
+      let expected = PackingListHelpers.counts(for: person, in: trip)
+      let actual = byPerson[person.id]
+      #expect(actual == expected, "Mismatch for \(person.name)")
+    }
+    #expect(byPerson.count == 3)
+  }
 }

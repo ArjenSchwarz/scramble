@@ -129,7 +129,11 @@ struct PackingSheet: View {
     .presentationDetents([.large])
     .presentationDragIndicator(.visible)
     .task(id: participantIDSignature) {
-      if !participantIDSignature.contains(person.id) {
+      // Capture once so the id-driven re-evaluation and the body check
+      // always observe the same snapshot, independent of any in-flight
+      // SwiftData mutation that might land between the two reads.
+      let signature = participantIDSignature
+      if !signature.contains(person.id) {
         onDismiss()
       }
     }
