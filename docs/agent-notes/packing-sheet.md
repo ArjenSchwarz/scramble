@@ -4,7 +4,7 @@ The per-person packing surface presented from the Departure and Day-before-retur
 
 ## Files
 
-- `Scramble/Scramble/Timeline/PackingListHelpers.swift` — `PackingMode`, `PackingCounts`, and the pure helpers (`counts`, `countsByPerson`, `summaryStatus`, `progressRatio`, `phaseSubline`, `sorted`, `itemsForPerson`). All `nonisolated` value-type helpers; no `@MainActor` because they only read SwiftData relationship arrays.
+- `Scramble/Scramble/Timeline/PackingListHelpers.swift` — `PackingMode`, `PackingCounts`, and the helpers (`counts`, `countsByPerson`, `summaryStatus`, `progressRatio`, `phaseSubline`, `sorted`, `itemsForPerson`). The enum is `@MainActor` because the helpers traverse SwiftData `@Model` relationship arrays (`trip.packingItems`, `trip.participants`) whose ownership is tied to the main `ModelContext`. `PackingMode` and `PackingCounts` are `nonisolated` value types.
 - `Scramble/Scramble/Components/PackingSummarySection.swift` — `PackingSummarySection`, `PackingSummaryRow`, and the private `PackingProgressBar`. Rendered inside the Departure / Day-before-return phase content slot, below `TaskListSection`.
 - `Scramble/Scramble/Components/PackingItemRow.swift` — Single row inside the sheet plus the file-scope `SheetGroup` enum (referenced from both `PackingItemRow` and `PackingSheet`). The enum carries its own `headerTitle`, `scrollAnchor`, `matches(_:)`, and `isReadOnly`.
 - `Scramble/Scramble/Features/Trips/PackingSheet.swift` — `PackingSheet`, `PackingSheetState`, and the private `PackingSheetHeader` and `PackingItemGroup`.
