@@ -21,8 +21,10 @@ nonisolated struct PackingCounts: Sendable, Equatable {
 
 /// Pure helpers used by `PackingSummarySection`, `PackingSheet`, and
 /// `AccordionTimeline`. Mirrors the shape of `TaskListHelpers` but operates
-/// over `TripPackingItem`.
-nonisolated enum PackingListHelpers {
+/// over `TripPackingItem`. `@MainActor` because the helpers traverse
+/// SwiftData `@Model` collections (`trip.packingItems`, `trip.participants`)
+/// whose ownership is tied to the main `ModelContext`.
+@MainActor enum PackingListHelpers {
 
   /// Items belonging to `person` on `trip`, unfiltered by group/state.
   static func itemsForPerson(_ trip: Trip, person: Person) -> [TripPackingItem] {

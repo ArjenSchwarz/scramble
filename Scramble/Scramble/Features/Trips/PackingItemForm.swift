@@ -31,7 +31,6 @@ struct PackingItemForm: View {
   let onCancel: () -> Void
 
   @Environment(\.modelContext) private var modelContext
-  @Environment(\.dismiss) private var dismiss
 
   @State private var name: String = ""
   @State private var inlineError: String?
@@ -63,7 +62,6 @@ struct PackingItemForm: View {
         ToolbarItem(placement: .topBarLeading) {
           Button("Cancel") {
             onCancel()
-            dismiss()
           }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -107,7 +105,6 @@ struct PackingItemForm: View {
         try Self.performEdit(item: item, name: name, context: modelContext)
       }
       onSave()
-      dismiss()
     } catch {
       modelLogger.error(
         "[PackingSheet.save-failed]: \(error.localizedDescription, privacy: .public)"
