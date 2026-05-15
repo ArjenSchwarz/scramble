@@ -21,29 +21,55 @@ enum WhyDisclosure {
     /// trip's attributes.
     case ruleNoLongerMatches
   }
+
+  /// Visual treatment for `WhyDisclosureView`. Tasks render with a phase-tinted
+  /// background and 1pt border; packing rows render with a softer person-tinted
+  /// background and no border (Phase 4 design §"Integration with WhyDisclosure").
+  nonisolated enum Style: Sendable {
+    case tasks(phaseColour: Color)
+    case packing(personColour: Color)
+
+    var resolvedAppearance: ResolvedAppearance {
+      switch self {
+      case .tasks(let phaseColour):
+        return ResolvedAppearance(tint: phaseColour, backgroundOpacity: 0.08, borderOpacity: 0.20)
+      case .packing(let personColour):
+        return ResolvedAppearance(tint: personColour, backgroundOpacity: 0.06, borderOpacity: nil)
+      }
+    }
+  }
+
+  /// Snapshot of the resolved appearance values driven by `Style`. Exposed
+  /// `nonisolated` so unit tests can assert the mapping table without
+  /// instantiating SwiftUI.
+  nonisolated struct ResolvedAppearance: Sendable, Equatable {
+    let tint: Color
+    let backgroundOpacity: Double
+    /// `nil` when no border should be drawn (packing variant).
+    let borderOpacity: Double?
+  }
 }
 
-/// Inline explainability panel rendered below a `TaskRow` when its disclosure
-/// is open. Consumes a `WhyDisclosure.Reason` (resolved by `WhyResolver`) and
-/// renders it per UI doc §"Visual treatment — Tasks context":
-/// - Background: phase colour at 8% opacity
-/// - Border:     1pt at phase colour at 20% opacity
-/// - Header:     9pt heavy uppercase "WHY?" in phase colour
-/// - Body:       per-`Reason` sentence in primary text
+/// Inline explainability panel rendered below a `TaskRow` (or a packing item
+/// row) when its disclosure is open. Consumes a `WhyDisclosure.Reason`
+/// (resolved by `WhyResolver`) and renders it per UI doc §"Visual treatment":
+/// - Tasks context:   phase colour at 8% bg, 20% border, phase-coloured WHY?
+/// - Packing context: person colour at 6% bg, no border, person-coloured WHY?
 struct WhyDisclosureView: View {
   let reason: WhyDisclosure.Reason
-  let phaseColour: Color
+  let style: WhyDisclosure.Style
 
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
+    let appearance = style.resolvedAppearance
 
     VStack(alignment: .leading, spacing: 4) {
       Text("WHY?")
         .font(.system(size: 9, weight: .heavy))
-        .foregroundStyle(phaseColour)
+        .foregroundStyle(appearance.tint)
 
       Text(bodyText)
         .font(.footnote)
@@ -55,12 +81,17 @@ struct WhyDisclosureView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(
       RoundedRectangle(cornerRadius: 8, style: .continuous)
-        .fill(phaseColour.opacity(0.08))
+        .fill(appearance.tint.opacity(appearance.backgroundOpacity))
     )
-    .overlay(
+    .overlay(borderOverlay(appearance: appearance))
+  }
+
+  @ViewBuilder
+  private func borderOverlay(appearance: WhyDisclosure.ResolvedAppearance) -> some View {
+    if let borderOpacity = appearance.borderOpacity {
       RoundedRectangle(cornerRadius: 8, style: .continuous)
-        .strokeBorder(phaseColour.opacity(0.20), lineWidth: 1)
-    )
+        .strokeBorder(appearance.tint.opacity(borderOpacity), lineWidth: 1)
+    }
   }
 
   private var bodyText: String {

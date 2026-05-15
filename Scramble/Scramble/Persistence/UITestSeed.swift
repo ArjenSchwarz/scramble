@@ -30,6 +30,18 @@
       case phase3OneDayTrip = "phase3-one-day-trip"
       /// Phase 3: trip with no participants for the assignee-picker placeholder.
       case phase3TripNoParticipants = "phase3-trip-no-participants"
+      /// Phase 4: trip currently on `.departureDay` (today == start, end ==
+      /// today+5) with two participants and a mix of packing item states. Used
+      /// by pack-mode UI tests covering the summary block, sheet groups,
+      /// checkbox toggle, Skip/Restore, manual add, dimmed-row counting, and
+      /// `WhyDisclosure` for rule-driven items.
+      case phase4PackModeTrip = "phase4-pack-mode-trip"
+      /// Phase 4: trip currently on `.dayBeforeReturn` (today == end-1, start
+      /// == today-3) with two participants and a mix of packed/repacked/
+      /// unpacked/excluded items. Used by repack-mode UI tests covering the
+      /// "Left behind" group, read-only checkboxes, and `WhyDisclosure` on
+      /// read-only rows.
+      case phase4RepackModeTrip = "phase4-repack-mode-trip"
     }
 
     static func applyIfRequested(
@@ -102,6 +114,9 @@
         .phase3OneDayTrip,
         .phase3TripNoParticipants:
         seedPhase3(fixture: fixture, in: context, day: day, calendar: calendar)
+      case .phase4PackModeTrip,
+        .phase4RepackModeTrip:
+        seedPhase4(fixture: fixture, in: context, day: day, calendar: calendar)
       }
       try? context.save()
     }
@@ -254,6 +269,225 @@
         let end = calendar.date(byAdding: .day, value: 3, to: day) ?? day
         let trip = Trip(name: "Solo Trip", startDate: start, endDate: end)
         context.insert(trip)
+      default:
+        break
+      }
+    }
+
+    // swiftlint:disable:next function_body_length
+    private static func seedPhase4(
+      fixture: Fixture,
+      in context: ModelContext,
+      day: Date,
+      calendar: Calendar
+    ) {
+      switch fixture {
+      case .phase4PackModeTrip:
+        // Trip on `.departureDay` (today == start, end == today+5). Two
+        // participants, each with a mix of packing item states. Includes a
+        // dimmed (`currentlyMatchesRules == false`, `pinnedByUser == false`)
+        // row to exercise the dimmed-counts path. Single qualifying trip so
+        // it auto-opens; `.departureDay` auto-expands per Phase 3 rules.
+        let start = day
+        let end = calendar.date(byAdding: .day, value: 5, to: day) ?? day
+        let trip = Trip(name: "Beach Trip", startDate: start, endDate: end)
+        context.insert(trip)
+
+        let arjen = Person(name: "Arjen", colorKey: "Cyan")
+        context.insert(arjen)
+        trip.participants = (trip.participants ?? []) + [arjen]
+
+        let sam = Person(name: "Sam", colorKey: "Red")
+        context.insert(sam)
+        trip.participants = (trip.participants ?? []) + [sam]
+
+        // Master item used by the rule-driven "Toothbrush" entry; gives
+        // `WhyDisclosureView` a `.ruleMatched` reason to render.
+        let masterToothbrush = MasterPackingItem(
+          name: "Toothbrush",
+          person: arjen,
+          conditions: .always
+        )
+        context.insert(masterToothbrush)
+
+        // Arjen — unpacked, packed (rule-driven), excluded, dimmed-packed.
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: arjen,
+            masterItemID: nil,
+            name: "Sunscreen",
+            state: .unpacked,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: arjen,
+            masterItemID: masterToothbrush.id,
+            name: "Toothbrush",
+            state: .packed,
+            source: .rule,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: arjen,
+            masterItemID: nil,
+            name: "Book",
+            state: .excluded,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: arjen,
+            masterItemID: nil,
+            name: "Stale Item",
+            state: .packed,
+            source: .rule,
+            currentlyMatchesRules: false,
+            pinnedByUser: false
+          )
+        )
+
+        // Sam — one unpacked, one packed.
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: sam,
+            masterItemID: nil,
+            name: "Sandals",
+            state: .unpacked,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: sam,
+            masterItemID: nil,
+            name: "Hat",
+            state: .packed,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+      case .phase4RepackModeTrip:
+        // Trip on `.dayBeforeReturn` (start == today-3, end == today+1). Two
+        // participants with a mix of states populating the three repack-mode
+        // groups: still-in-suitcase (`.packed`), back-in-suitcase
+        // (`.repacked`), left-behind (`.unpacked` ∪ `.excluded`).
+        let start = calendar.date(byAdding: .day, value: -3, to: day) ?? day
+        let end = calendar.date(byAdding: .day, value: 1, to: day) ?? day
+        let trip = Trip(name: "Mountain Trip", startDate: start, endDate: end)
+        context.insert(trip)
+
+        let arjen = Person(name: "Arjen", colorKey: "Cyan")
+        context.insert(arjen)
+        trip.participants = (trip.participants ?? []) + [arjen]
+
+        let sam = Person(name: "Sam", colorKey: "Red")
+        context.insert(sam)
+        trip.participants = (trip.participants ?? []) + [sam]
+
+        // Master item for the rule-driven "Boots" entry so a `WhyDisclosure`
+        // long-press on a left-behind row renders a real reason.
+        let masterBoots = MasterPackingItem(
+          name: "Boots",
+          person: arjen,
+          conditions: .always
+        )
+        context.insert(masterBoots)
+
+        // Arjen — packed (still-in-suitcase), repacked (back-in-suitcase),
+        // unpacked + excluded (left-behind, including a rule-driven one).
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: arjen,
+            masterItemID: nil,
+            name: "Jacket",
+            state: .packed,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: arjen,
+            masterItemID: nil,
+            name: "Gloves",
+            state: .repacked,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: arjen,
+            masterItemID: masterBoots.id,
+            name: "Boots",
+            state: .unpacked,
+            source: .rule,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: arjen,
+            masterItemID: nil,
+            name: "Old Map",
+            state: .excluded,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+
+        // Sam — one packed, one repacked.
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: sam,
+            masterItemID: nil,
+            name: "Compass",
+            state: .packed,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
+        context.insert(
+          TripPackingItem(
+            trip: trip,
+            person: sam,
+            masterItemID: nil,
+            name: "Camera",
+            state: .repacked,
+            source: .manual,
+            currentlyMatchesRules: true,
+            pinnedByUser: false
+          )
+        )
       default:
         break
       }

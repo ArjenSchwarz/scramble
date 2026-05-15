@@ -2,6 +2,10 @@ import SwiftData
 import SwiftUI
 import os
 
+#if canImport(UIKit)
+  import UIKit
+#endif
+
 @MainActor struct TripDetailView: View {
   let trip: Trip
   let today: Date
@@ -18,6 +22,9 @@ import os
   @State private var expandedPhase: Phase?
   @State private var openDisclosureTaskID: UUID?
   @State private var pendingForm: TaskFormPresentation?
+  @State private var packingSheetState: PackingSheetState?
+  @State private var lastOpenedPackingPerson: Person?
+  @AccessibilityFocusState private var packingSummaryFocus: UUID?
 
   private var calendar: Calendar { Calendar.current }
 
@@ -56,7 +63,12 @@ import os
             },
             onEditTask: { task in
               pendingForm = .edit(task: task)
-            }
+            },
+            onOpenPackingSheet: { person, mode in
+              lastOpenedPackingPerson = person
+              packingSheetState = PackingSheetState(person: person, mode: mode)
+            },
+            packingSummaryFocus: $packingSummaryFocus
           )
         }
         .padding(.vertical, 16)
@@ -111,6 +123,14 @@ import os
         onCancel: { pendingForm = nil }
       )
     }
+    .sheet(item: $packingSheetState, onDismiss: handlePackingSheetDismiss) { state in
+      PackingSheet(
+        trip: trip,
+        person: state.person,
+        mode: state.mode,
+        onDismiss: { packingSheetState = nil }
+      )
+    }
     .sheet(isPresented: $showEditor) {
       TripEditorView(mode: .edit(trip), focusAttribute: editAttributeFocus) { draft in
         let orphans = TripPersistence.apply(draft, to: trip, in: modelContext)
@@ -137,6 +157,20 @@ import os
     #if DEBUG
       .background { inspectionMarkers }
     #endif
+  }
+
+  private func handlePackingSheetDismiss() {
+    guard let person = lastOpenedPackingPerson else { return }
+    let participantIDs = (trip.participants ?? []).map(\.id)
+    if participantIDs.contains(person.id) {
+      packingSummaryFocus = person.id
+    } else {
+      packingSummaryFocus = nil
+      #if canImport(UIKit)
+        UIAccessibility.post(notification: .layoutChanged, argument: nil)
+      #endif
+    }
+    lastOpenedPackingPerson = nil
   }
 
   #if DEBUG

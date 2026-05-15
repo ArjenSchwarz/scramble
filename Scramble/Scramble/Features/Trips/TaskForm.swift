@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 /// Sheet presentation identity for `TaskForm`, used by
 /// `TripDetailView`'s `.sheet(item:)`. `.add` carries the phase + trip the

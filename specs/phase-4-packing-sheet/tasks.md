@@ -1,0 +1,187 @@
+---
+references:
+    - specs/phase-4-packing-sheet/requirements.md
+    - specs/phase-4-packing-sheet/design.md
+    - specs/phase-4-packing-sheet/decision_log.md
+---
+# Phase 4 — Packing Sheet
+
+- [x] 1. Write failing tests: PackingListHelpers and Person.shortDisplayName <!-- id:x4xzvcu -->
+  - New ScrambleTests/Timeline/PackingCountsTests.swift covering counts(for:in:) over fixtures: empty participants, all states populated, only excluded, zero items
+  - New ScrambleTests/Timeline/PackingStatusTests.swift covering all branches of summaryStatus for pack and repack including 'No items' vs '—' disambiguation
+  - New ScrambleTests/Timeline/PackingProgressRatioTests.swift covering ratio 0.0 on zero denominator and 1.0 only when every counted item is in goal state
+  - New ScrambleTests/Timeline/PackingPhaseSublineTests.swift covering all branches of phaseSubline including 'packing ready' / 'all back in' / '{S} to pack'
+  - New ScrambleTests/Timeline/PackingListHelpersSortedTests.swift covering active-before-dimmed then case-insensitive name then id tiebreak
+  - New ScrambleTests/Timeline/PackingSummaryDimmedCountsTests.swift confirming dimmed items still count in totals
+  - New ScrambleTests/Models/PersonShortDisplayNameTests.swift covering 'Arjen', 'Mary Jane Watson', '', '   ', single-CJK-character and multi-character-CJK names
+  - All suites use Swift Testing
+  - Stream: 1
+  - Requirements: [1.3](requirements.md#1.3), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [1.6](requirements.md#1.6), [1.10](requirements.md#1.10), [3.8](requirements.md#3.8), [4.7](requirements.md#4.7), [5.1](requirements.md#5.1)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Models/TripPackingItem.swift, Scramble/Scramble/Models/Person.swift
+
+- [x] 2. Implement PackingMode, PackingCounts, PackingListHelpers, Person.shortDisplayName <!-- id:x4xzvcv -->
+  - New Scramble/Scramble/Timeline/PackingListHelpers.swift containing nonisolated enum PackingMode { case pack, repack }, nonisolated struct PackingCounts (toPack/packed/repacked/excluded: Int), and nonisolated enum PackingListHelpers with static funcs itemsForPerson / counts(for:in:) / summaryStatus / progressRatio / phaseSubline / sorted
+  - sorted comparator uses localizedCaseInsensitiveCompare for tiebreak
+  - Add Person.shortDisplayName computed property to Scramble/Scramble/Models/Person.swift using space-split with full-name fallback
+  - Blocked-by: x4xzvcu (Write failing tests: PackingListHelpers and Person.shortDisplayName)
+  - Stream: 1
+  - Requirements: [1.3](requirements.md#1.3), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [1.6](requirements.md#1.6), [1.10](requirements.md#1.10), [3.8](requirements.md#3.8), [4.7](requirements.md#4.7), [5.1](requirements.md#5.1)
+  - References: specs/phase-4-packing-sheet/design.md
+
+- [x] 3. Write failing tests: WhyResolver packing overload <!-- id:x4xzvcw -->
+  - New ScrambleTests/Explainability/WhyResolverPackingTests.swift mirroring WhyResolverTests structure
+  - Cover all four Reason branches for TripPackingItem: manual; rule with nil masterItemID; rule with masterItemID not in store; rule with matching conditions; rule with non-matching conditions
+  - Use in-memory ModelContainer
+  - Blocked-by: x4xzvcv (Implement PackingMode, PackingCounts, PackingListHelpers, Person.shortDisplayName)
+  - Stream: 1
+  - Requirements: [7.4](requirements.md#7.4), [7.5](requirements.md#7.5), [7.6](requirements.md#7.6), [7.7](requirements.md#7.7), [7.9](requirements.md#7.9)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Explainability/WhyResolver.swift
+
+- [x] 4. Implement WhyResolver packing overload <!-- id:x4xzvcx -->
+  - Add @MainActor static func reason(for item: TripPackingItem, context: ModelContext) -> WhyDisclosure.Reason to Scramble/Scramble/Explainability/WhyResolver.swift
+  - Private fetchMaster overload for MasterPackingItem (returns nil on throw with logged error)
+  - Same four-branch decision tree as the TripTask overload
+  - Blocked-by: x4xzvcw (Write failing tests: WhyResolver packing overload)
+  - Stream: 1
+  - Requirements: [7.4](requirements.md#7.4), [7.5](requirements.md#7.5), [7.6](requirements.md#7.6), [7.7](requirements.md#7.7), [7.9](requirements.md#7.9)
+  - References: specs/phase-4-packing-sheet/design.md
+
+- [x] 5. Write WhyDisclosureView Style mapping tests <!-- id:x4xzvcy -->
+  - New ScrambleTests/Explainability/WhyDisclosureStyleTests.swift
+  - Verify .tasks(phaseColour:) produces 8% background + 20% border + phase-coloured WHY? header
+  - Verify .packing(personColour:) produces 6% background + no border + person-coloured WHY? header
+  - Snapshot a Style→ResolvedAppearance value (no pixel comparison) following Phase 3 colour-key debug marker pattern
+  - Stream: 2
+  - Requirements: [7.4](requirements.md#7.4), [7.5](requirements.md#7.5), [7.6](requirements.md#7.6), [7.7](requirements.md#7.7), [7.8](requirements.md#7.8)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Explainability/WhyDisclosure.swift
+
+- [x] 6. Migrate WhyDisclosureView to Style enum and update TaskRow caller <!-- id:x4xzvcz -->
+  - Add enum WhyDisclosure.Style { case tasks(phaseColour: Color); case packing(personColour: Color) } to Scramble/Scramble/Explainability/WhyDisclosure.swift
+  - Replace WhyDisclosureView(reason:, phaseColour:) initializer with WhyDisclosureView(reason:, style:)
+  - Internal style→(tint, backgroundOpacity, borderOpacity?) mapping per design table
+  - Migrate TaskRow.swift's single call site to .tasks(phaseColour:)
+  - Re-run Phase 3 WhyDisclosure UI tests (testLongPressOpensWhyDisclosure / testOnlyOneDisclosureOpenAtATime / testTapElsewhereDismissesDisclosure) and confirm they pass
+  - Blocked-by: x4xzvcy (Write WhyDisclosureView Style mapping tests)
+  - Stream: 2
+  - Requirements: [7.4](requirements.md#7.4), [7.5](requirements.md#7.5), [7.6](requirements.md#7.6), [7.7](requirements.md#7.7), [7.8](requirements.md#7.8)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Components/TaskRow.swift
+
+- [x] 7. Implement PackingProgressBar and PackingSummaryRow + PackingSummarySection <!-- id:x4xzvd0 -->
+  - New Scramble/Scramble/Components/PackingSummarySection.swift containing PackingSummarySection, PackingSummaryRow, and private PackingProgressBar
+  - Bar: 3pt height, 2pt radius, track at 12% person-colour, fill at full person-colour for ratio in [0,1) and checkColour at exactly 1.0
+  - Row layout: 26pt PersonAvatar(active), name, bar, status label, trailing chevron, 44pt min height
+  - Tap fires onOpen + soft-impact UIImpactFeedbackGenerator
+  - VoiceOver label built by private accessibilityLabel helper covering 'no items' and '{N} of {D} {packed|repacked}' branches with 'double tap to open packing sheet' suffix
+  - Section ordered by Person.name case-insensitive then id
+  - Empty trip.participants renders single non-interactive 'No participants yet — add people on the trip details screen' row
+  - Accepts @AccessibilityFocusState.Binding<UUID?> for focus restoration
+  - Blocked-by: x4xzvcv (Implement PackingMode, PackingCounts, PackingListHelpers, Person.shortDisplayName)
+  - Stream: 3
+  - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [1.3](requirements.md#1.3), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [1.6](requirements.md#1.6), [1.7](requirements.md#1.7), [1.8](requirements.md#1.8), [1.9](requirements.md#1.9), [9.1](requirements.md#9.1), [9.4](requirements.md#9.4), [9.7](requirements.md#9.7)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Components/PersonAvatar.swift, Scramble/Scramble/Components/DashedAddButton.swift
+
+- [x] 8. Implement PackingItemRow <!-- id:x4xzvd1 -->
+  - New Scramble/Scramble/Components/PackingItemRow.swift
+  - Layout: checkbox or dashed placeholder (24pt) leading, name + italic condition tags + inline WhyDisclosureView, inline Skip/Restore Button (44pt min hit target with explicit .accessibilityLabel) trailing
+  - Checkbox colours per design: pack-active uses person 67% / check solid; repack-active uses check 67% / check solid; read-only groups use dashed border + textSecondary
+  - Light-impact haptic on toggle
+  - Body long-press attached to name+tags region only with light-impact haptic
+  - .contextMenu attached to trailing region with Edit (active groups only)
+  - .swipeActions trailing with Edit (active groups only)
+  - WhyResolver cache invalidation on .onChange of isDisclosureOpen, item.trip?.attributesData, item.currentlyMatchesRules, item.name
+  - rowOpacity = 0.5 when !currentlyMatchesRules && !pinnedByUser else 1.0
+  - .accessibilityAction rotor entries for 'Why is this here?', 'Edit', and 'Skip' or 'Restore' (shared handler with inline button)
+  - Read-only rows append 'left behind' / 'not bringing' to accessibility label
+  - UIAccessibility.post(.announcement, …) after toggle commits with 'Moved to {target group}'
+  - Blocked-by: x4xzvcx (Implement WhyResolver packing overload), x4xzvcz (Migrate WhyDisclosureView to Style enum and update TaskRow caller)
+  - Stream: 3
+  - Requirements: [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.5](requirements.md#3.5), [3.6](requirements.md#3.6), [3.7](requirements.md#3.7), [3.9](requirements.md#3.9), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5), [4.8](requirements.md#4.8), [6.1](requirements.md#6.1), [6.5](requirements.md#6.5), [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.4](requirements.md#7.4), [7.5](requirements.md#7.5), [7.6](requirements.md#7.6), [7.7](requirements.md#7.7), [7.8](requirements.md#7.8), [7.9](requirements.md#7.9), [7.10](requirements.md#7.10), [8.1](requirements.md#8.1), [9.2](requirements.md#9.2), [9.3](requirements.md#9.3), [9.4](requirements.md#9.4), [9.6](requirements.md#9.6), [9.8](requirements.md#9.8)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Components/TaskRow.swift
+
+- [x] 9. Write failing tests: PackingItemForm save semantics <!-- id:x4xzvd2 -->
+  - New ScrambleTests/Features/Trips/PackingFormSaveTests.swift
+  - .add inserts TripPackingItem with documented field values including source=.manual, state=.unpacked, currentlyMatchesRules=true, pinnedByUser=false, masterItemID=nil and trimmed name
+  - .edit updates name only and leaves source/masterItemID/currentlyMatchesRules/pinnedByUser unchanged
+  - Save throws on .add → form retains entered name and item is NOT inserted (use a probe to fail save)
+  - Save throws on .edit → modelContext.rollback() is called and item.name is restored
+  - Submit disabled when trimmed name is empty
+  - 200-char cap enforced at input
+  - Uses Swift Testing with in-memory ModelContainer
+  - Blocked-by: x4xzvcv (Implement PackingMode, PackingCounts, PackingListHelpers, Person.shortDisplayName)
+  - Stream: 3
+  - Requirements: [5.3](requirements.md#5.3), [5.4](requirements.md#5.4), [5.5](requirements.md#5.5), [5.6](requirements.md#5.6), [5.7](requirements.md#5.7), [6.2](requirements.md#6.2), [6.3](requirements.md#6.3), [6.4](requirements.md#6.4), [8.4](requirements.md#8.4)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Features/Trips/TaskForm.swift
+
+- [x] 10. Implement PackingItemForm <!-- id:x4xzvd3 -->
+  - New Scramble/Scramble/Features/Trips/PackingItemForm.swift
+  - Mode enum: .add(person: Person, trip: Trip) / .edit(item: TripPackingItem)
+  - Single TextField for name (200-char cap via .onChange)
+  - No assignee picker (active person implied); no conditions field
+  - Save button disabled when trimmed empty; Cancel discards
+  - On .add save: insert TripPackingItem(source:.manual, name: trimmed, person:, trip:, state:.unpacked, currentlyMatchesRules: true, pinnedByUser: false, masterItemID: nil)
+  - On .edit save: set item.name = trimmed
+  - On save throw: log [PackingSheet.save-failed] via modelLogger.error, keep form open with inline error 'Couldn't save — try again.', for .edit call modelContext.rollback() to restore prior name
+  - Does NOT use @Query
+  - Blocked-by: x4xzvd2 (Write failing tests: PackingItemForm save semantics)
+  - Stream: 3
+  - Requirements: [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.4](requirements.md#5.4), [5.5](requirements.md#5.5), [5.6](requirements.md#5.6), [5.7](requirements.md#5.7), [6.2](requirements.md#6.2), [6.3](requirements.md#6.3), [8.4](requirements.md#8.4)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Features/Trips/TaskForm.swift
+
+- [x] 11. Implement PackingSheet and PackingSheetHeader <!-- id:x4xzvd4 -->
+  - New Scramble/Scramble/Features/Trips/PackingSheet.swift containing PackingSheet, PackingSheetState, and private PackingSheetHeader + private SheetGroup enum + private PackingItemGroup
+  - .presentationDetents([.large]) + .presentationDragIndicator(.visible)
+  - Body: NavigationStack { ScrollViewReader { ScrollView { LazyVStack { Header, 3× PackingItemGroup, DashedAddButton (pack only) } } } }
+  - Each PackingItemGroup section header has .id(group.scrollAnchor); on appear .task: scrollTo first group with anchor .top, sleep 500ms then headerFocused = true
+  - Participant-removal watcher uses .task(id: Set<UUID> of participant ids) and calls onDismiss when active person no longer in set
+  - PackingSheetHeader reads trip and person directly (no closures) and computes counter via PackingListHelpers.counts
+  - Counter shows '{packed}/{packed+unpacked} packed' (pack) or '{repacked}/{packed+repacked} repacked' (repack)
+  - Close button bound to .keyboardShortcut(.escape); close action branches on openDisclosureItemID — if non-nil dismisses disclosure, else calls onDismiss
+  - PackingItemGroup filters per-person items by group predicate, sorts via PackingListHelpers.sorted, renders empty header when group empty
+  - Pack-mode add affordance label uses person.shortDisplayName
+  - Presents PackingItemForm via inner .sheet(item: $pendingForm)
+  - Blocked-by: x4xzvd0 (Implement PackingProgressBar and PackingSummaryRow + PackingSummarySection), x4xzvd1 (Implement PackingItemRow), x4xzvd3 (Implement PackingItemForm)
+  - Stream: 3
+  - Requirements: [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.3](requirements.md#2.3), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5), [2.6](requirements.md#2.6), [2.7](requirements.md#2.7), [2.8](requirements.md#2.8), [2.9](requirements.md#2.9), [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [4.1](requirements.md#4.1), [4.6](requirements.md#4.6), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [9.7](requirements.md#9.7), [9.9](requirements.md#9.9), [10.2](requirements.md#10.2), [10.3](requirements.md#10.3)
+  - References: specs/phase-4-packing-sheet/design.md
+
+- [x] 12. Extend PhaseRow with packing subline parameter <!-- id:x4xzvd5 -->
+  - Modify Scramble/Scramble/Components/PhaseRow.swift to accept optional packingSubline: String? parameter
+  - When packingSubline is non-nil compose subline as '{tasks clause} · {packing clause}' when tasks present, just '{packing clause}' otherwise
+  - Preserve existing fixedSize wrapping
+  - Update phase accessibility label (Phase 3 Req 10.1) to include packing clause when present
+  - Blocked-by: x4xzvcv (Implement PackingMode, PackingCounts, PackingListHelpers, Person.shortDisplayName)
+  - Stream: 3
+  - Requirements: [1.10](requirements.md#1.10)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Components/PhaseRow.swift
+
+- [x] 13. Branch AccordionTimeline content for packing phases and add onOpenPackingSheet callback <!-- id:x4xzvd6 -->
+  - Modify Scramble/Scramble/Features/Trips/AccordionTimeline.swift to add let onOpenPackingSheet: (Person, PackingMode) -> Void parameter
+  - In row(for:variant:proxy:) compute packingSubline via PackingListHelpers.phaseSubline only for .departureDay/.dayBeforeReturn and pass to PhaseRow
+  - In the content @ViewBuilder for those two phases render TaskListSection followed by PackingSummarySection(trip:, mode: .pack or .repack, onOpenSheet: onOpenPackingSheet)
+  - Do not introduce a PackingPhaseContent wrapper view
+  - All other phases unchanged
+  - Blocked-by: x4xzvd0 (Implement PackingProgressBar and PackingSummaryRow + PackingSummarySection), x4xzvd4 (Implement PackingSheet and PackingSheetHeader), x4xzvd5 (Extend PhaseRow with packing subline parameter)
+  - Stream: 3
+  - Requirements: [1.1](requirements.md#1.1), [1.7](requirements.md#1.7), [1.10](requirements.md#1.10), [2.6](requirements.md#2.6)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Features/Trips/AccordionTimeline.swift
+
+- [x] 14. Write UI tests for packing summary block, sheet, accessibility, and concurrency scenarios <!-- id:x4xzvd7 -->
+  - Extend Scramble/ScrambleUITests/ with: testPackingSummaryRendersInDeparturePhase, testTappingSummaryRowOpensSheet, testPackModeCheckboxTogglesState, testSkipMovesItemToNotBringing, testRestoreReverses, testRepackOpensFromDayBeforeReturn, testLeftBehindRowIsReadOnly, testLeftBehindRowLongPressShowsWhy, testAddManualItemAppearsInUnpacked, testRenameViaSwipe, testWhyDisclosurePackingMatched, testWhyDisclosurePersonColouredBackground, testSheetDismissOnParticipantRemoval, testDimmedItemCountsInProgressBar, testSheetCounterIncludesDimmed, testEscapeDismissesSheet, testEscapeDismissesDisclosureFirst, testPhaseSublineCombined, testInnerFormSwipeDownKeepsPackingSheet, testManualAddSaveFailureKeepsFormOpen, testParticipantRemovalDismissalLandsLayoutChanged, testParticipantReorderDoesNotDismiss, testConcurrentEngineFlagDuringToggle
+  - New accessibility IDs: tripDetail.packingSummary.{personId}, packingSheet.header, packingSheet.counter, packingSheet.itemRow.{itemName}, packingSheet.addItemButton, packingSheet.whyDisclosure.{itemName}, packingSheet.section.{groupRaw}
+  - Reuse existing -uitest seed args and -parallel-testing-worker-count 1 setting
+  - Blocked-by: x4xzvd4 (Implement PackingSheet and PackingSheetHeader), x4xzvd6 (Branch AccordionTimeline content for packing phases and add onOpenPackingSheet callback)
+  - Stream: 4
+  - Requirements: [1.1](requirements.md#1.1), [1.7](requirements.md#1.7), [1.10](requirements.md#1.10), [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.6](requirements.md#2.6), [2.7](requirements.md#2.7), [2.8](requirements.md#2.8), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.5](requirements.md#3.5), [3.6](requirements.md#3.6), [3.9](requirements.md#3.9), [4.1](requirements.md#4.1), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.8](requirements.md#5.8), [6.1](requirements.md#6.1), [7.1](requirements.md#7.1), [7.4](requirements.md#7.4), [7.10](requirements.md#7.10), [8.1](requirements.md#8.1), [8.4](requirements.md#8.4), [8.5](requirements.md#8.5), [9.1](requirements.md#9.1), [9.4](requirements.md#9.4), [9.7](requirements.md#9.7), [9.8](requirements.md#9.8), [9.9](requirements.md#9.9), [10.2](requirements.md#10.2)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/ScrambleUITests/
+
+- [x] 15. Wire PackingSheet into TripDetailView with onDismiss focus restoration <!-- id:x4xzvd8 -->
+  - Modify Scramble/Scramble/Features/Trips/TripDetailView.swift to add @State private var packingSheetState: PackingSheetState?
+  - Pass onOpenPackingSheet closure to AccordionTimeline that sets packingSheetState
+  - Add @AccessibilityFocusState binding keyed by UUID? for summary-row focus
+  - Add .sheet(item: $packingSheetState, onDismiss: { … }) presenting PackingSheet
+  - onDismiss closure: if originating person still in trip.participants set focus binding to person.id, else set binding to nil and post UIAccessibility.Notification.layoutChanged
+  - Make all UI tests from task 14 pass
+  - Blocked-by: x4xzvd7 (Write UI tests for packing summary block, sheet, accessibility, and concurrency scenarios)
+  - Stream: 4
+  - Requirements: [2.2](requirements.md#2.2), [2.8](requirements.md#2.8), [9.7](requirements.md#9.7)
+  - References: specs/phase-4-packing-sheet/design.md, Scramble/Scramble/Features/Trips/TripDetailView.swift
