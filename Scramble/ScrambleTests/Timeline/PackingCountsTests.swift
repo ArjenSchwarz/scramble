@@ -11,7 +11,7 @@ struct PackingCountsTests {
   // MARK: - Container helper
 
   private static func makeContainer() throws -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV2.self)
+    let schema = Schema(versionedSchema: SchemaV3.self)
     let config = ModelConfiguration(
       schema: schema,
       isStoredInMemoryOnly: true,

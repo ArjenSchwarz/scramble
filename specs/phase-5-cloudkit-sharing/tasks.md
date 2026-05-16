@@ -18,7 +18,7 @@ references:
 
 ## Schema + Stage A migration
 
-- [ ] 2. Write SchemaV3 plan-shape tests <!-- id:vzlf7fq -->
+- [x] 2. Write SchemaV3 plan-shape tests <!-- id:vzlf7fq -->
   - SchemaV3MigrationTests asserts AppMigrationPlan.schemas includes V3, stages includes V2->V3, lightweight + custom stage typing
   - Mirrors SchemaV2MigrationTests pattern from docs/agent-notes/persistence.md
   - Blocked-by: vzlf7fp (Build CKSyncEngine validation harness)
@@ -26,7 +26,7 @@ references:
   - Requirements: [2.1](requirements.md#2.1)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 3. Implement SchemaV3 entities and additive fields <!-- id:vzlf7fr -->
+- [x] 3. Implement SchemaV3 entities and additive fields <!-- id:vzlf7fr -->
   - In Models/Schema.swift add SchemaV3 with TripPersonSnapshot, TripZoneState, MigrationJournalEntry
   - Add new V3 fields with new names (additive; deprecated V2 fields kept until V4): Trip.participantSnapshots, Trip.tripZoneID, Trip.ckRecordSystemFields, TripTask.ckRecordSystemFields, TripPackingItem.personSnapshot, TripPackingItem.ckRecordSystemFields
   - Update typealias TripTask to point at V3 versions where needed
@@ -36,7 +36,7 @@ references:
   - Requirements: [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.5](requirements.md#2.5)
   - References: specs/phase-5-cloudkit-sharing/design.md, docs/agent-notes/persistence.md
 
-- [ ] 4. Write Stage A custom migration tests <!-- id:vzlf7fs -->
+- [x] 4. Write Stage A custom migration tests <!-- id:vzlf7fs -->
   - SchemaV3MigrationStageTests seeds V2-shaped in-memory store with Trip + Person + TripPackingItem
   - Asserts TripPersonSnapshot inserted, Trip.participantSnapshots populated, TripPackingItem.personSnapshot set, deprecated V2 fields untouched
   - Idempotent on second run (no duplicate snapshots)
@@ -45,7 +45,7 @@ references:
   - Requirements: [2.1](requirements.md#2.1), [2.2](requirements.md#2.2)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 5. Implement Stage A custom MigrationStage <!-- id:vzlf7ft -->
+- [x] 5. Implement Stage A custom MigrationStage <!-- id:vzlf7ft -->
   - In Persistence/Migrations/SchemaV3MigrationStage.swift
   - Custom MigrationStage in AppMigrationPlan; seeds TripPersonSnapshot from existing Person references and rewires TripPackingItem.personSnapshot
   - Idempotent: skip if snapshot already exists for (trip, personID) pair
