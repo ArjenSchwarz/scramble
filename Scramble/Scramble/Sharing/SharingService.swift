@@ -25,6 +25,14 @@ protocol SharingService: AnyObject {
   /// local cleanup of the trip's records.
   func leaveShare(forTrip tripID: UUID) async throws
 
+  /// Owner-side trip deletion (Req 1.4). Tears down the trip's
+  /// `TripZoneState`, clears pending uploads, and queues the
+  /// `CKRecordZone` deletion on the private engine. The caller is
+  /// responsible for removing the `Trip` record itself from the globals
+  /// container — Phase 5 still routes trip CRUD through the globals
+  /// store while the cross-container relocation is in progress.
+  func deleteOwnedTrip(forTrip tripID: UUID) async throws
+
   /// Current participants for the trip's share, including pending invitees
   /// (Req 7.1). The display-name fallback chain
   /// (display name → email → "Invited participant") is applied here so

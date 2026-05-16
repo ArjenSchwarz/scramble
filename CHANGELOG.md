@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `Scramble/Scramble/Sharing/SharingService.swift` — new `deleteOwnedTrip(forTrip:)` protocol method (Req 1.4) so the Trip Detail delete handler can tear down the trip's `TripZoneState` and queue the `CKRecordZone` deletion on the private engine alongside the local `Trip` delete. `CloudKitSharingService`, `FakeSharingService`, and `UITestSharingService` all implement it.
+- `Scramble/Scramble/Features/Trips/TripDetailView.swift` — participant-mode action menu (Req 6.5) that surfaces a "Leave Share" affordance and calls `SharingService.leaveShare(forTrip:)`. Trip Detail dismisses on success; failures surface via the existing toast helper. Adds a second `confirmationDialog` describing the eventual-consistency behaviour.
+- `specs/phase-5-cloudkit-sharing/implementation.md` — three-level explanation (beginner / intermediate / expert) of Phase 5's CloudKit sharing pipeline plus a Completeness Assessment mapping the 13 requirement clusters to fully / partially / missing.
+
+### Changed
+
+- `Scramble/Scramble/Features/Trips/TripDetailView.swift` — owner trip delete now calls `SharingService.deleteOwnedTrip(forTrip:)` after the local delete completes, fixing the missing zone deletion path (Req 1.4). Share toolbar visibility now treats a `nil` `ownerIdentity` as ownership so brand-new trips (no `TripZoneState` yet) show the Share affordance per Req 5.1; participant trips always carry an `.otherUser` zone state so they remain excluded.
+- `Scramble/Scramble/Sharing/CloudKitSharingService.swift` — `makeShareParticipant` now returns "Loading…" instead of "Invited participant" for pending invitations whose display name and email are still being fetched (Req 7.8). The Req 7.1 terminal fallback ("Invited participant") is preserved for non-pending states.
+- `Scramble/Scramble/Sharing/TripSyncEngine.swift` — three CloudKit-hot-path efficiency cleanups: (1) `apply(deletedRecordIDs:)` uses predicate-scoped fetches per record type instead of a `_ in true` fetch over every model; (2) `scope(for:)` parses the trip ID out of the zone name and predicate-scopes the `TripZoneState` lookup; (3) `cacheSentSystemFields` switches on `record.recordType` so only the matching model class is fetched.
+- `CLAUDE.md` — Project status updated to reflect Phase 5 landing (CloudKit sharing infra, `SchemaV3`, dual containers, `TripSyncEngine`, `CloudKitSharingService`, Share toolbar + Participants section, silent-push routing, release-prep checklist).
+
 - Phase 5 — UI + release-prep (tasks 30–36):
   - `Scramble/Scramble/Features/Trips/ShareToolbarButton.swift` — Trip Detail trailing toolbar item. Visible only when the current user owns the trip's zone (`SharingService.ownerIdentity == .currentUser`). Calls `createShare(forTrip:)` and mounts `UICloudSharingControllerRepresentable` in a sheet; errors surface via a `TransientToast`.
   - `Scramble/Scramble/Features/Trips/ParticipantsSection.swift` — Trip Detail Participants section between the chip row and the timeline. Async-loads `[ShareParticipant]` from the sharing service; renders pending vs accepted via an inline acceptance label; owner-side rows wrap a manage-button labeled `"Manage <displayName>"` and tap-presents `UICloudSharingController`; participant-side rows are plain read-only content (Req 7.4). Pending-name placeholder updates without user interaction once the name resolves (Req 7.8).

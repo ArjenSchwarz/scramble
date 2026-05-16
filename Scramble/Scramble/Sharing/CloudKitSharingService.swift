@@ -98,6 +98,28 @@ final class CloudKitSharingService: SharingService {
     try cleanupLocalState(forTrip: tripID)
   }
 
+  // MARK: - deleteOwnedTrip
+
+  /// Tear down the tripsLocal-side bookkeeping for an owner-deleted trip
+  /// and ask the private engine to remove the CK zone. The Trip record
+  /// itself lives in the globals container in Phase 5; the view layer
+  /// removes it from there separately.
+  func deleteOwnedTrip(forTrip tripID: UUID) async throws {
+    let descriptor = FetchDescriptor<TripZoneState>(
+      predicate: #Predicate { $0.tripID == tripID }
+    )
+    let zoneStates = try context.fetch(descriptor)
+    for state in zoneStates {
+      let zoneID = TripZoneStateRecordTranslator.zoneID(for: state)
+      syncEngine.privateEngine?.state.add(
+        pendingDatabaseChanges: [.deleteZone(zoneID)]
+      )
+      state.pendingUploadFlags = Data()
+      context.delete(state)
+    }
+    try context.save()
+  }
+
   /// Trip-deletion ordering (design § "Trip-deletion ordering"): clear
   /// dirty flags, then packing items / tasks, then snapshots, then the
   /// trip itself, then the zone state. Done in one transaction.
@@ -151,18 +173,15 @@ final class CloudKitSharingService: SharingService {
     return share.participants.map(Self.makeShareParticipant)
   }
 
-  /// Apply Req 7.1's display-name fallback:
-  /// `displayName → email → "Invited participant"`. The pending /
-  /// accepted distinction comes from `acceptanceStatus`.
+  /// Apply Req 7.1's display-name fallback (`displayName → email →
+  /// "Invited participant"`) together with Req 7.8's in-flight
+  /// placeholder: while CloudKit is still resolving the identity for a
+  /// pending invite, show `"Loading…"` rather than the terminal
+  /// "Invited participant" string.
   static func makeShareParticipant(_ participant: CKShare.Participant) -> ShareParticipant {
     let identity = participant.userIdentity
     let lookup = identity.lookupInfo
     let formattedName = identity.nameComponents.flatMap(personNameDisplayName)
-    let displayName: String = {
-      if let formattedName { return formattedName }
-      if let email = lookup?.emailAddress, !email.isEmpty { return email }
-      return "Invited participant"
-    }()
     let acceptance: ShareParticipant.AcceptanceState = {
       switch participant.acceptanceStatus {
       case .pending: return .pending
@@ -171,6 +190,14 @@ final class CloudKitSharingService: SharingService {
       case .unknown: return .unknown
       @unknown default: return .unknown
       }
+    }()
+    let displayName: String = {
+      if let formattedName { return formattedName }
+      if let email = lookup?.emailAddress, !email.isEmpty { return email }
+      // Identity not yet resolved. Treat pending invitations as
+      // in-flight (Req 7.8) and accepted-but-unresolved as the Req 7.1
+      // terminal fallback.
+      return acceptance == .pending ? "Loading…" : "Invited participant"
     }()
     return ShareParticipant(
       id: identity.userRecordID?.recordName ?? UUID().uuidString,

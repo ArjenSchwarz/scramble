@@ -108,6 +108,22 @@ final class FakeSharingService: SharingService {
     bus.publish(.zoneRemoved(zoneID: zoneID), to: oppositeRole)
   }
 
+  /// Records owner-side trip deletion intent so tests can assert that
+  /// the trip's CK zone deletion was queued.
+  private(set) var deletedTripIDs: [UUID] = []
+
+  func deleteOwnedTrip(forTrip tripID: UUID) async throws {
+    if let error = pendingError {
+      pendingError = nil
+      throw error
+    }
+    deletedTripIDs.append(tripID)
+    shares.removeValue(forKey: tripID)
+    ownerIdentities.removeValue(forKey: tripID)
+    let zoneID = Self.zoneID(for: tripID, ownerName: CKCurrentUserDefaultName)
+    bus.publish(.zoneRemoved(zoneID: zoneID), to: oppositeRole)
+  }
+
   func participants(forTrip tripID: UUID) async throws -> [ShareParticipant] {
     if let error = pendingError {
       pendingError = nil

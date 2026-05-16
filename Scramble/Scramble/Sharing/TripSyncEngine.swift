@@ -198,28 +198,31 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
   func apply(deletedRecordIDs: [CKRecord.ID]) throws {
     for recordID in deletedRecordIDs {
       guard let id = UUID(uuidString: recordID.recordName) else { continue }
-      try deleteIfPresent(Trip.self, id: id)
-      try deleteIfPresent(TripTask.self, id: id)
-      try deleteIfPresent(TripPackingItem.self, id: id)
-      try deleteIfPresent(TripPersonSnapshot.self, id: id)
-    }
-    try context.save()
-  }
-
-  private func deleteIfPresent<T: PersistentModel>(_ type: T.Type, id: UUID) throws {
-    let descriptor = FetchDescriptor<T>(predicate: #Predicate<T> { _ in true })
-    let all = try context.fetch(descriptor)
-    for model in all {
-      if let trip = model as? Trip, trip.id == id {
+      if let trip = try context.fetch(
+        FetchDescriptor<Trip>(predicate: #Predicate { $0.id == id })
+      ).first {
         context.delete(trip)
-      } else if let task = model as? TripTask, task.id == id {
+        continue
+      }
+      if let task = try context.fetch(
+        FetchDescriptor<TripTask>(predicate: #Predicate { $0.id == id })
+      ).first {
         context.delete(task)
-      } else if let item = model as? TripPackingItem, item.id == id {
+        continue
+      }
+      if let item = try context.fetch(
+        FetchDescriptor<TripPackingItem>(predicate: #Predicate { $0.id == id })
+      ).first {
         context.delete(item)
-      } else if let snapshot = model as? TripPersonSnapshot, snapshot.id == id {
+        continue
+      }
+      if let snapshot = try context.fetch(
+        FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { $0.id == id })
+      ).first {
         context.delete(snapshot)
       }
     }
+    try context.save()
   }
 
   // MARK: - Self-origination tracking
@@ -266,14 +269,13 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
   /// decide which engine handles it. Defaults to `.private` for unknown
   /// zones (owner-side new-trip case).
   func scope(for zoneID: CKRecordZone.ID) -> CKDatabase.Scope {
-    let descriptor = FetchDescriptor<TripZoneState>()
-    let states = (try? context.fetch(descriptor)) ?? []
-    let match = states.first { state in
-      let candidate = TripZoneStateRecordTranslator.zoneID(for: state)
-      return candidate == zoneID
-    }
-    if match?.zoneScope == "shared" { return .shared }
-    return .private
+    guard let tripID = ZoneMigrationCoordinator.parseTripID(from: zoneID.zoneName)
+    else { return .private }
+    let descriptor = FetchDescriptor<TripZoneState>(
+      predicate: #Predicate { $0.tripID == tripID }
+    )
+    let match = (try? context.fetch(descriptor))?.first
+    return match?.zoneScope == "shared" ? .shared : .private
   }
 
   func engine(for scope: CKDatabase.Scope) -> CKSyncEngine? {
@@ -435,25 +437,26 @@ extension TripSyncEngine: CKSyncEngineDelegate {
 
   private func cacheSentSystemFields(of record: CKRecord) throws {
     guard let id = UUID(uuidString: record.recordID.recordName) else { return }
-    if let trip = try context.fetch(
-      FetchDescriptor<Trip>(predicate: #Predicate { $0.id == id })
-    ).first {
-      trip.ckRecordSystemFields = encodeSystemFields(of: record)
-    }
-    if let task = try context.fetch(
-      FetchDescriptor<TripTask>(predicate: #Predicate { $0.id == id })
-    ).first {
-      task.ckRecordSystemFields = encodeSystemFields(of: record)
-    }
-    if let item = try context.fetch(
-      FetchDescriptor<TripPackingItem>(predicate: #Predicate { $0.id == id })
-    ).first {
-      item.ckRecordSystemFields = encodeSystemFields(of: record)
-    }
-    if let snapshot = try context.fetch(
-      FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { $0.id == id })
-    ).first {
-      snapshot.ckRecordSystemFields = encodeSystemFields(of: record)
+    let encoded = encodeSystemFields(of: record)
+    switch record.recordType {
+    case TripRecordTranslator.recordType:
+      try context.fetch(
+        FetchDescriptor<Trip>(predicate: #Predicate { $0.id == id })
+      ).first?.ckRecordSystemFields = encoded
+    case TripTaskRecordTranslator.recordType:
+      try context.fetch(
+        FetchDescriptor<TripTask>(predicate: #Predicate { $0.id == id })
+      ).first?.ckRecordSystemFields = encoded
+    case TripPackingItemRecordTranslator.recordType:
+      try context.fetch(
+        FetchDescriptor<TripPackingItem>(predicate: #Predicate { $0.id == id })
+      ).first?.ckRecordSystemFields = encoded
+    case TripPersonSnapshotRecordTranslator.recordType:
+      try context.fetch(
+        FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { $0.id == id })
+      ).first?.ckRecordSystemFields = encoded
+    default:
+      break
     }
   }
 }
