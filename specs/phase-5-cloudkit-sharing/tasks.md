@@ -57,7 +57,7 @@ references:
 
 ## Sync infrastructure
 
-- [ ] 6. Define SharingService protocol and DTOs <!-- id:vzlf7fu -->
+- [x] 6. Define SharingService protocol and DTOs <!-- id:vzlf7fu -->
   - In Sharing/SharingService.swift: protocol + AcceptedShareResult + ShareParticipant + OwnerIdentity
   - Interface-only task; tests come with implementations
   - Blocked-by: vzlf7ft (Implement Stage A custom MigrationStage)
@@ -65,7 +65,7 @@ references:
   - Requirements: [12.1](requirements.md#12.1)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 7. Wire ModelStore to provide globals + tripsLocal containers <!-- id:vzlf7fv -->
+- [x] 7. Wire ModelStore to provide globals + tripsLocal containers <!-- id:vzlf7fv -->
   - Extend Persistence/ModelStore.swift to construct two ModelContainers: globals (cloudKitDatabase: .private) and tripsLocal (cloudKitDatabase: .none)
   - Update EnvironmentProbe wiring so tests get in-memory variants of both
   - Both containers mounted at app start
@@ -74,7 +74,7 @@ references:
   - Requirements: [3.1](requirements.md#3.1), [3.4](requirements.md#3.4)
   - References: specs/phase-5-cloudkit-sharing/design.md, docs/agent-notes/persistence.md
 
-- [ ] 8. Write CKRecord translator tests <!-- id:vzlf7fw -->
+- [x] 8. Write CKRecord translator tests <!-- id:vzlf7fw -->
   - One test class per entity translator in Sharing/Translators/
   - Cover: UUID-relationship encoding (personSnapshot stored as personSnapshotID String); system-fields preservation across roundtrip; 256 KB Codable-blob size cap throws translator error; enum raw-string bridging; non-Optional default fill on absent record fields
   - Blocked-by: vzlf7fu (Define SharingService protocol and DTOs), vzlf7fv (Wire ModelStore to provide globals + tripsLocal containers)
@@ -82,7 +82,7 @@ references:
   - Requirements: [2.5](requirements.md#2.5), [3.5](requirements.md#3.5)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 9. Implement CKRecord translators <!-- id:vzlf7fx -->
+- [x] 9. Implement CKRecord translators <!-- id:vzlf7fx -->
   - In Sharing/Translators/: TripRecordTranslator, TripTaskRecordTranslator, TripPackingItemRecordTranslator, TripPersonSnapshotRecordTranslator, TripZoneStateRecordTranslator
   - All conform to RecordRepresentable with toRecord(existing:) and from(_:into:)
   - Relationships as UUID record fields, not CKRecord.Reference
@@ -91,7 +91,7 @@ references:
   - Requirements: [2.5](requirements.md#2.5), [3.2](requirements.md#3.2), [3.5](requirements.md#3.5), [8.1](requirements.md#8.1), [8.2](requirements.md#8.2)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 10. Write LocalWriteHook tests <!-- id:vzlf7fy -->
+- [x] 10. Write LocalWriteHook tests <!-- id:vzlf7fy -->
   - In Sharing/LocalWriteHookTests.swift
   - Insert/change/delete on tripsLocal models flips correct dirty bits in TripZoneState.pendingUploadFlags
   - Calls context.save once per commit
@@ -101,7 +101,7 @@ references:
   - Requirements: [8.5](requirements.md#8.5)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 11. Implement LocalWriteHook <!-- id:vzlf7fz -->
+- [x] 11. Implement LocalWriteHook <!-- id:vzlf7fz -->
   - In Sharing/LocalWriteHook.swift
   - Single chokepoint: inspects context.insertedModels/changedModels/deletedModels, updates TripZoneState, calls save, notifies TripSyncEngine
   - All trip-data writes go through commit(_:); direct context.save outside the hook is forbidden
@@ -110,7 +110,7 @@ references:
   - Requirements: [8.5](requirements.md#8.5)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 12. Write FakeSharingService tests <!-- id:vzlf7g0 -->
+- [x] 12. Write FakeSharingService tests <!-- id:vzlf7g0 -->
   - In Sharing/FakeSharingServiceTests.swift
   - Two-side bus delivers events from one endpoint to the other with controllable delay (bus.deliveryDelay)
   - Share creation + acceptance lifecycle observable from both sides
@@ -120,7 +120,7 @@ references:
   - Requirements: [12.1](requirements.md#12.1), [12.2](requirements.md#12.2), [12.3](requirements.md#12.3)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 13. Implement FakeSharingService with two-side bus <!-- id:vzlf7g1 -->
+- [x] 13. Implement FakeSharingService with two-side bus <!-- id:vzlf7g1 -->
   - In Sharing/FakeSharingService.swift (test target ScrambleTests)
   - final class connecting two TripSyncEngine-shaped fake endpoints in-process
   - Imperative test hooks: simulateAcceptance, triggerZoneChange, simulateError, set deliveryDelay
@@ -129,7 +129,7 @@ references:
   - Requirements: [12.1](requirements.md#12.1), [12.2](requirements.md#12.2)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 14. Write TripSyncEngine tests <!-- id:vzlf7g2 -->
+- [x] 14. Write TripSyncEngine tests <!-- id:vzlf7g2 -->
   - nextRecordZoneChangeBatch builds CKRecords from dirty TripZoneState entries via translators
   - handleEvent translates fetched records into tripsLocal writes via translators
   - events stream emits zoneChanged with isSelfOriginated correctly populated for self-sent events
@@ -139,7 +139,7 @@ references:
   - Requirements: [8.4](requirements.md#8.4), [9.1](requirements.md#9.1), [9.2](requirements.md#9.2)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 15. Implement TripSyncEngine <!-- id:vzlf7g3 -->
+- [x] 15. Implement TripSyncEngine <!-- id:vzlf7g3 -->
   - In Sharing/TripSyncEngine.swift
   - Wraps two CKSyncEngine instances (privateEngine on .private DB, sharedEngine on .shared DB) with delegate methods
   - events: AsyncStream<TripSyncEvent>
@@ -150,7 +150,7 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.2](requirements.md#9.2), [9.3](requirements.md#9.3), [9.5](requirements.md#9.5)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 16. Write CloudKitSharingService share lifecycle tests <!-- id:vzlf7g4 -->
+- [x] 16. Write CloudKitSharingService share lifecycle tests <!-- id:vzlf7g4 -->
   - All tested via FakeSharingService
   - createShare uses CKShare(recordZoneID:); save submitted via CKSyncEngine.State.add(pendingRecordZoneChanges:) with record ID; resolves on sentRecordZoneChanges confirmation
   - acceptShare calls CKContainer.accept then sharedEngine.fetchChanges (no .saveZone)
@@ -162,7 +162,7 @@ references:
   - Requirements: [1.1](requirements.md#1.1), [1.5](requirements.md#1.5), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.5](requirements.md#5.5), [6.1](requirements.md#6.1), [6.5](requirements.md#6.5), [7.1](requirements.md#7.1), [7.8](requirements.md#7.8), [10.1](requirements.md#10.1), [10.4](requirements.md#10.4)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 17. Implement CloudKitSharingService <!-- id:vzlf7g5 -->
+- [x] 17. Implement CloudKitSharingService <!-- id:vzlf7g5 -->
   - In Sharing/CloudKitSharingService.swift
   - Production impl wrapping CKContainer + UICloudSharingController + TripSyncEngine
   - Includes UICloudSharingControllerRepresentable in Sharing/UICloudSharingControllerRepresentable.swift (UIViewControllerRepresentable wrapper)

@@ -30,7 +30,8 @@ struct ScrambleApp: App {
     WindowGroup {
       RootView()
         .environment(\.theme, .midnightAtlas)
+        .environment(\.tripsLocalContainer, ModelStore.containers.tripsLocal)
     }
-    .modelContainer(ModelStore.shared)
+    .modelContainer(ModelStore.containers.globals)
   }
 }
