@@ -14,6 +14,8 @@ import os
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.sharingService) private var sharingService
+  @Environment(\.rulesLastEvaluatedTracker) private var rulesLastEvaluatedTracker
 
   @State private var showEditor = false
   @State private var editAttributeFocus: TripAttribute?
@@ -43,9 +45,18 @@ import os
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
+    let ownerIdentity = sharingService?.ownerIdentity(forTrip: trip.id)
+    let isParticipantOnShared: Bool = {
+      if case .otherUser = ownerIdentity { return true }
+      return false
+    }()
+    let isOwnerOfShared: Bool = {
+      if case .currentUser = ownerIdentity { return true }
+      return false
+    }()
 
     VStack(spacing: 0) {
-      header(variant: variant)
+      header(variant: variant, isParticipantOnShared: isParticipantOnShared)
         .background(variant.surface)
 
       Divider()
@@ -53,6 +64,13 @@ import os
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
           chipRow(variant: variant)
+          if let sharingService, ownerIdentity != nil {
+            ParticipantsSection(
+              trip: trip,
+              isOwner: isOwnerOfShared,
+              sharingService: sharingService
+            )
+          }
           AccordionTimeline(
             trip: trip,
             today: today,
@@ -74,9 +92,15 @@ import os
         .padding(.vertical, 16)
       }
     }
+    .environment(\.isParticipantViewingSharedTrip, isParticipantOnShared)
     .background(variant.surface.opacity(0.3))
     .toolbar(.hidden, for: .tabBar)
     .toolbar {
+      if isOwnerOfShared, let sharingService {
+        ToolbarItem(placement: .topBarTrailing) {
+          ShareToolbarButton(trip: trip, sharingService: sharingService)
+        }
+      }
       ToolbarItem(placement: .topBarTrailing) {
         Menu {
           Button {
@@ -207,7 +231,7 @@ import os
     }
   #endif
 
-  private func header(variant: ThemeVariant) -> some View {
+  private func header(variant: ThemeVariant, isParticipantOnShared: Bool) -> some View {
     VStack(alignment: .leading, spacing: 6) {
       Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
         .font(.title2.weight(.semibold))
@@ -230,6 +254,13 @@ import os
       .font(.caption)
       .foregroundStyle(variant.textSecondary)
 
+      if let lastEvaluated = lastEvaluatedTime(when: isParticipantOnShared) {
+        Text(rulesLastEvaluatedText(lastEvaluated))
+          .font(.caption)
+          .foregroundStyle(variant.textSecondary)
+          .accessibilityIdentifier("tripDetail.rulesLastEvaluated")
+      }
+
       let participants = trip.participants ?? []
       if !participants.isEmpty {
         HStack(spacing: -6) {
@@ -243,6 +274,21 @@ import os
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal)
     .padding(.vertical, 12)
+  }
+
+  /// Returns the last-evaluated timestamp to render in the participant
+  /// subline, or `nil` when the line should be omitted (owner-viewed,
+  /// no tracker available, or no event yet observed).
+  private func lastEvaluatedTime(when isParticipantOnShared: Bool) -> Date? {
+    guard isParticipantOnShared else { return nil }
+    return rulesLastEvaluatedTracker?.time(forTrip: trip.id)
+  }
+
+  private func rulesLastEvaluatedText(_ date: Date) -> String {
+    let formatter = RelativeDateTimeFormatter()
+    formatter.unitsStyle = .full
+    let relative = formatter.localizedString(for: date, relativeTo: .now)
+    return "Rules last evaluated \(relative)"
   }
 
   private func chipRow(variant: ThemeVariant) -> some View {

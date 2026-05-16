@@ -74,13 +74,25 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
   }
 
   /// Parse the database scope out of a CloudKit silent-push payload.
-  /// Falls back to `.public` (treated as "unhandled") when the
-  /// notification is malformed.
+  /// `databaseScope` lives on the concrete `CKNotification` subclasses
+  /// (`CKDatabaseNotification`, `CKRecordZoneNotification`,
+  /// `CKQueryNotification`) rather than the base class, so we walk the
+  /// subclass hierarchy and return `.public` (treated as "unhandled")
+  /// when the notification is missing or unrecognised.
   @MainActor
   static func databaseScope(from userInfo: [AnyHashable: Any]) -> CKDatabase.Scope {
     guard
       let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
     else { return .public }
-    return notification.databaseScope
+    if let db = notification as? CKDatabaseNotification {
+      return db.databaseScope
+    }
+    if let zone = notification as? CKRecordZoneNotification {
+      return zone.databaseScope
+    }
+    if let query = notification as? CKQueryNotification {
+      return query.databaseScope
+    }
+    return .public
   }
 }

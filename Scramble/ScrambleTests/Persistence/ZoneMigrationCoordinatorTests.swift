@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import CloudKit
 import Foundation
 import SwiftData
@@ -551,11 +552,11 @@ struct ZoneMigrationCoordinatorTests {
   @Test(
     "PBT — partial-failure-then-retry sequences converge to a terminal state",
     arguments: [
-      [true],                  // single success
-      [false],                 // single failure (terminal but not completed)
-      [false, true],           // failure then retry to success
-      [false, false, true],    // two failures then success
-      [true, false],           // success then unrelated failure has no effect
+      [true],  // single success
+      [false],  // single failure (terminal but not completed)
+      [false, true],  // failure then retry to success
+      [false, false, true],  // two failures then success
+      [true, false],  // success then unrelated failure has no effect
     ] as [[Bool]]
   )
   func pbtConvergenceOverFailureRetrySequences(sequence: [Bool]) throws {
@@ -602,7 +603,8 @@ struct ZoneMigrationCoordinatorTests {
     let journals = try context.fetch(FetchDescriptor<MigrationJournalEntry>())
     #expect(journals.count == 1, "No duplicate entries created across the sequence")
     let final = try #require(journals.first)
-    let isTerminal = final.state == .completed || final.state == .failed
+    let isTerminal =
+      final.state == .completed || final.state == .failed
       || final.state == .stageBInProgress
     #expect(isTerminal, "Each sequence reaches a defined state")
     if lastIsSuccess {

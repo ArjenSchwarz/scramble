@@ -297,7 +297,7 @@ references:
 
 ## UI + release-prep
 
-- [ ] 30. Write Share affordance + Participants section UI tests <!-- id:vzlf7gi -->
+- [x] 30. Write Share affordance + Participants section UI tests <!-- id:vzlf7gi -->
   - In ScrambleUITests
   - Share toolbar button visible only when current user is owner; hidden for participants
   - Participants section pending vs accepted distinction visible; display-name fallback chain (display name -> email -> Invited participant)
@@ -307,7 +307,7 @@ references:
   - Requirements: [5.1](requirements.md#5.1), [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.4](requirements.md#7.4), [7.7](requirements.md#7.7), [7.8](requirements.md#7.8), [10.2](requirements.md#10.2), [10.3](requirements.md#10.3)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 31. Implement Share toolbar button + Participants section <!-- id:vzlf7gj -->
+- [x] 31. Implement Share toolbar button + Participants section <!-- id:vzlf7gj -->
   - Views/TripDetail/ShareToolbarButton.swift: Trip Detail header trailing toolbar item; matches existing toolbar style
   - Views/TripDetail/ParticipantsSection.swift: between header and timeline; renders [ShareParticipant]; tap opens UICloudSharingControllerRepresentable for owners; static for participants
   - Pending-name placeholder updates without user interaction once name resolves
@@ -317,7 +317,7 @@ references:
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.6](requirements.md#5.6), [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.4](requirements.md#7.4), [7.7](requirements.md#7.7), [7.8](requirements.md#7.8), [8.9](requirements.md#8.9), [10.2](requirements.md#10.2), [10.3](requirements.md#10.3)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 32. Write tests for participant-side WhyDisclosure hide + Rules last evaluated subline <!-- id:vzlf7gk -->
+- [x] 32. Write tests for participant-side WhyDisclosure hide + Rules last evaluated subline <!-- id:vzlf7gk -->
   - WhyDisclosure: assert affordance not present in layout when masterItemID does not resolve in participant globals zone
   - Rules last evaluated: subline contains Rules last evaluated {relative-time} only when current user is participant on a shared trip; updates whenever owner-side engine run is observed via TripSyncEngine.events
   - Owner-viewed trips omit the line
@@ -326,7 +326,7 @@ references:
   - Requirements: [3.3](requirements.md#3.3), [8.8](requirements.md#8.8)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 33. Implement WhyDisclosure participant hide + Rules last evaluated subline <!-- id:vzlf7gl -->
+- [x] 33. Implement WhyDisclosure participant hide + Rules last evaluated subline <!-- id:vzlf7gl -->
   - Update Views/Common/WhyDisclosure.swift to hide affordance entirely (no view rendered) when masterItemID resolution fails
   - Append Rules last evaluated {relative-time} clause to existing Trip Detail header subline component for participant-viewed shared trips
   - Use Phase 1 RelativeDateFormatter; clause omitted on owner-viewed trips
@@ -335,7 +335,7 @@ references:
   - Requirements: [3.3](requirements.md#3.3), [8.8](requirements.md#8.8)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 34. Write tests for MigrationRetryBanner + Trip List Syncing badge <!-- id:vzlf7gm -->
+- [x] 34. Write tests for MigrationRetryBanner + Trip List Syncing badge <!-- id:vzlf7gm -->
   - MigrationRetryBanner: one row per .failed MigrationJournalEntry; tap re-runs Stage B for that trip
   - Trip List Syncing badge shown for trips whose journal is .stageBInProgress; cleared on .completed
   - Blocked-by: vzlf7g7 (Implement ZoneMigrationCoordinator)
@@ -343,7 +343,7 @@ references:
   - Requirements: [4.4](requirements.md#4.4), [4.8](requirements.md#4.8)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 35. Implement MigrationRetryBanner + Trip List Syncing badge <!-- id:vzlf7gn -->
+- [x] 35. Implement MigrationRetryBanner + Trip List Syncing badge <!-- id:vzlf7gn -->
   - Views/TripList/MigrationRetryBanner.swift: inline banner above trip rows for .failed entries; tap retries Stage B (calls into ZoneMigrationCoordinator)
   - Add Syncing badge to existing TripRow for .stageBInProgress entries
   - Blocked-by: vzlf7gm (Write tests for MigrationRetryBanner + Trip List Syncing badge)
@@ -351,7 +351,7 @@ references:
   - Requirements: [4.4](requirements.md#4.4), [4.8](requirements.md#4.8)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 36. Add CloudKit production schema promotion checklist to release-prep <!-- id:vzlf7go -->
+- [x] 36. Add CloudKit production schema promotion checklist to release-prep <!-- id:vzlf7go -->
   - Append to docs/release-prep.md (or create the file) an explicit checklist item to promote new CloudKit record types and zone topology introduced by SchemaV3 from Development to Production via the CloudKit Dashboard
   - Item must be present in the release-prep checklist that runs before TestFlight or App Store releases
   - Blocked-by: vzlf7fr (Implement SchemaV3 entities and additive fields)

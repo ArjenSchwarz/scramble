@@ -125,7 +125,8 @@ struct TripFlagSyncTests {
 
     let stored = try #require(try context.fetch(FetchDescriptor<TripTask>()).first)
     #expect(stored.pinnedByUser == true, "Pin must survive a non-owner-applied engine pass")
-    #expect(stored.currentlyMatchesRules == true,
+    #expect(
+      stored.currentlyMatchesRules == true,
       "Pinned items are never dimmed by the engine even when their rules don't match")
   }
 

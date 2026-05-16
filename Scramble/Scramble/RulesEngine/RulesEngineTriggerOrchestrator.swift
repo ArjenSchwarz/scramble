@@ -18,20 +18,31 @@ import Foundation
 @MainActor
 final class RulesEngineTriggerOrchestrator {
   let run: (UUID) -> Void
+  let tracker: RulesLastEvaluatedTracker?
+  let now: () -> Date
 
-  init(run: @escaping (UUID) -> Void) {
+  init(
+    run: @escaping (UUID) -> Void,
+    tracker: RulesLastEvaluatedTracker? = nil,
+    now: @escaping () -> Date = { .now }
+  ) {
     self.run = run
+    self.tracker = tracker
+    self.now = now
   }
 
   /// Apply a single `TripSyncEvent`. Self-originated `.zoneChanged`
   /// events are dropped per the design's echo-suppression rule; remote
   /// ones trigger `run(tripID)` after parsing the trip ID from the
-  /// zone name (`trip-<uuid>`).
+  /// zone name (`trip-<uuid>`), and update the
+  /// `RulesLastEvaluatedTracker` so participant-viewed Trip Detail
+  /// can surface the "Rules last evaluated" subline (Req 8.8).
   func handle(event: TripSyncEvent) {
     switch event {
     case .zoneChanged(let zoneID, _, let isSelfOriginated):
       guard !isSelfOriginated else { return }
       guard let tripID = parseTripID(from: zoneID.zoneName) else { return }
+      tracker?.record(tripID: tripID, at: now())
       run(tripID)
     case .recordsFetched, .shareAccepted, .zoneRemoved, .error:
       break

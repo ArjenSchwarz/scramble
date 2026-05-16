@@ -38,7 +38,8 @@ struct SnapshotMaintenanceTests {
     person.colorKey = "violet"
     try context.save()
 
-    try SnapshotMaintenance.propagatePersonEdit(person, in: context, ownerIdentity: { _ in .currentUser })
+    try SnapshotMaintenance.propagatePersonEdit(
+      person, in: context, ownerIdentity: { _ in .currentUser })
 
     #expect(snap1.name == "Alicia")
     #expect(snap1.colourID == "violet")
@@ -67,7 +68,8 @@ struct SnapshotMaintenanceTests {
     person.name = "Alicia"
     try context.save()
 
-    try SnapshotMaintenance.propagatePersonEdit(person, in: context, ownerIdentity: { _ in .currentUser })
+    try SnapshotMaintenance.propagatePersonEdit(
+      person, in: context, ownerIdentity: { _ in .currentUser })
 
     let flags = PendingUploadFlags.decode(zoneState.pendingUploadFlags)
     #expect(flags.dirtyRecordNames.contains(snapshot.id.uuidString))

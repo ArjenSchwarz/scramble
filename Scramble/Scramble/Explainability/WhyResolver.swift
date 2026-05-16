@@ -18,18 +18,28 @@ import os
 @MainActor
 enum WhyResolver {
 
-  static func reason(for task: TripTask, context: ModelContext) -> WhyDisclosure.Reason {
+  /// Resolves the `WhyDisclosure.Reason` for a `TripTask`. When
+  /// `hideOnUnresolvedMaster == true` (participant-side shared trip,
+  /// Req 3.3), a rule-driven item whose master cannot be found in the
+  /// current globals zone returns `nil` so the affordance is hidden from
+  /// the layout. Owner-viewed trips pass `false` and continue to return
+  /// `.ruleMasterDeleted` in the same situation.
+  static func reason(
+    for task: TripTask,
+    context: ModelContext,
+    hideOnUnresolvedMaster: Bool = false
+  ) -> WhyDisclosure.Reason? {
     if task.source == .manual {
       return .manual
     }
 
     guard let masterID = task.masterItemID else {
-      return .ruleMasterDeleted
+      return hideOnUnresolvedMaster ? nil : .ruleMasterDeleted
     }
 
     let master: MasterTaskItem? = fetchMaster(id: masterID, context: context)
     guard let master else {
-      return .ruleMasterDeleted
+      return hideOnUnresolvedMaster ? nil : .ruleMasterDeleted
     }
 
     let attributes = task.trip?.attributes ?? TripAttributes()
@@ -42,18 +52,22 @@ enum WhyResolver {
     return .ruleNoLongerMatches
   }
 
-  static func reason(for item: TripPackingItem, context: ModelContext) -> WhyDisclosure.Reason {
+  static func reason(
+    for item: TripPackingItem,
+    context: ModelContext,
+    hideOnUnresolvedMaster: Bool = false
+  ) -> WhyDisclosure.Reason? {
     if item.source == .manual {
       return .manual
     }
 
     guard let masterID = item.masterItemID else {
-      return .ruleMasterDeleted
+      return hideOnUnresolvedMaster ? nil : .ruleMasterDeleted
     }
 
     let master: MasterPackingItem? = fetchMaster(id: masterID, context: context)
     guard let master else {
-      return .ruleMasterDeleted
+      return hideOnUnresolvedMaster ? nil : .ruleMasterDeleted
     }
 
     let attributes = item.trip?.attributes ?? TripAttributes()

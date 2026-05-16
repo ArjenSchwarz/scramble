@@ -4,13 +4,30 @@ import os
 
 @MainActor struct TripListView: View {
   @Query(sort: \Trip.startDate, order: .forward) private var allTrips: [Trip]
+  @Query(
+    filter: #Predicate<MigrationJournalEntry> {
+      $0.stateRaw == "stageBInProgress"
+    }
+  )
+  private var inProgressJournals: [MigrationJournalEntry]
+  @Query(
+    filter: #Predicate<MigrationJournalEntry> {
+      $0.stateRaw == "failed"
+    }
+  )
+  private var failedJournals: [MigrationJournalEntry]
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.zoneMigrationCoordinator) private var zoneMigrationCoordinator
 
   @State private var showCreateEditor = false
   @State private var previousExpanded = false
   @State private var toastMessage: String?
+
+  private var syncingTripIDs: Set<UUID> {
+    Set(inProgressJournals.map(\.tripID))
+  }
 
   private var calendar: Calendar { Calendar.current }
   private var today: Date { calendar.startOfDay(for: .now) }
@@ -31,6 +48,20 @@ import os
     let variant = theme.variant(for: colorScheme)
 
     List {
+      if !failedJournals.isEmpty {
+        Section {
+          MigrationRetryBanner { tripID in
+            do {
+              try zoneMigrationCoordinator?.retry(tripID: tripID)
+            } catch {
+              toastMessage = "Retry failed — try again later."
+            }
+          }
+        }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+      }
+
       Section("Active") {
         if activeTrips.isEmpty {
           Text("No active trips yet")
@@ -40,7 +71,7 @@ import os
         } else {
           ForEach(activeTrips) { trip in
             NavigationLink(value: trip) {
-              TripRow(trip: trip)
+              TripRow(trip: trip, isSyncing: syncingTripIDs.contains(trip.id))
             }
           }
         }
@@ -54,7 +85,7 @@ import os
         Section("Previous", isExpanded: $previousExpanded) {
           ForEach(previousTrips) { trip in
             NavigationLink(value: trip) {
-              TripRow(trip: trip)
+              TripRow(trip: trip, isSyncing: syncingTripIDs.contains(trip.id))
             }
           }
         }
@@ -91,11 +122,23 @@ import os
 
 private struct TripRow: View {
   let trip: Trip
+  let isSyncing: Bool
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
-      Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
-        .font(.headline)
+      HStack(spacing: 8) {
+        Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
+          .font(.headline)
+        if isSyncing {
+          Text("Syncing…")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Color.blue))
+            .accessibilityIdentifier("tripRow.syncingBadge")
+        }
+      }
 
       Text(formatTripDateRange(start: trip.startDate, end: trip.endDate))
         .font(.subheadline)
