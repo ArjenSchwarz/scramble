@@ -182,6 +182,12 @@ nonisolated enum SchemaV3: VersionedSchema {
   /// V3 — journal of in-progress and completed Stage B (per-trip zone)
   /// migrations. Read on launch to resume `.stageBInProgress` rows;
   /// preserved as audit data after `.completed` (Decision 10).
+  ///
+  /// Completion correlation (design § "Stage B"): a trip's entry is
+  /// `.completed` when (a) every expected record ID has appeared in
+  /// cumulative `sentRecordNames`, AND (b) `zoneSaved == true`. The
+  /// expected/sent fields are JSON-encoded `Set<String>` blobs so the
+  /// columns stay Optional (Core Data 1570 rule on iOS 26.4).
   @Model
   final class MigrationJournalEntry {
     var tripID: UUID = UUID()
@@ -189,17 +195,92 @@ nonisolated enum SchemaV3: VersionedSchema {
     var errorMessage: String?
     var updatedAt: Date = Date.distantPast
 
+    /// JSON-encoded `Set<String>` of record names expected to upload for
+    /// this trip's zone migration. Captured at Stage B start so resume
+    /// can re-evaluate completion against a stable set.
+    var expectedRecordNamesData: Data?
+
+    /// JSON-encoded `Set<String>` of record names confirmed sent across
+    /// `sentRecordZoneChanges` events. Grows monotonically until
+    /// matches `expectedRecordNames`.
+    var sentRecordNamesData: Data?
+
+    /// Whether the zone-save event for this trip's zone succeeded.
+    /// Stored as Optional `Bool` so SwiftData's automatic column
+    /// inference can add the column to V2-era stores at first V3 open
+    /// without tripping the Core Data 1570 validation path.
+    var zoneSavedFlag: Bool?
+
     init(
       tripID: UUID = UUID(),
       stateRaw: String = "",
       errorMessage: String? = nil,
-      updatedAt: Date = .distantPast
+      updatedAt: Date = .distantPast,
+      expectedRecordNamesData: Data? = nil,
+      sentRecordNamesData: Data? = nil,
+      zoneSavedFlag: Bool? = nil
     ) {
       self.tripID = tripID
       self.stateRaw = stateRaw
       self.errorMessage = errorMessage
       self.updatedAt = updatedAt
+      self.expectedRecordNamesData = expectedRecordNamesData
+      self.sentRecordNamesData = sentRecordNamesData
+      self.zoneSavedFlag = zoneSavedFlag
     }
+  }
+}
+
+// MARK: - MigrationJournalEntry bridges
+
+/// Stage B lifecycle states stored in `MigrationJournalEntry.stateRaw`.
+/// `.pending` means the trip has been queued for Stage B but the
+/// coordinator has not yet started the upload; `MigrationGate` blocks the
+/// UI while any entry is in this state. The other three are terminal or
+/// in-progress states the coordinator transitions through.
+enum MigrationStageState: String, Sendable {
+  case pending
+  case stageBInProgress
+  case completed
+  case failed
+}
+
+extension MigrationJournalEntry {
+  var state: MigrationStageState {
+    get { MigrationStageState(rawValue: stateRaw) ?? .pending }
+    set { stateRaw = newValue.rawValue }
+  }
+
+  var expectedRecordNames: Set<String> {
+    get {
+      guard let data = expectedRecordNamesData, !data.isEmpty else { return [] }
+      return (try? JSONDecoder().decode(Set<String>.self, from: data)) ?? []
+    }
+    set {
+      expectedRecordNamesData = (try? JSONEncoder().encode(newValue)) ?? Data()
+    }
+  }
+
+  var sentRecordNames: Set<String> {
+    get {
+      guard let data = sentRecordNamesData, !data.isEmpty else { return [] }
+      return (try? JSONDecoder().decode(Set<String>.self, from: data)) ?? []
+    }
+    set {
+      sentRecordNamesData = (try? JSONEncoder().encode(newValue)) ?? Data()
+    }
+  }
+
+  var zoneSaved: Bool {
+    get { zoneSavedFlag ?? false }
+    set { zoneSavedFlag = newValue }
+  }
+
+  /// True when every expected record name has been confirmed sent AND the
+  /// zone-save event has succeeded — the design's completion correlation.
+  var isStageBComplete: Bool {
+    zoneSaved && !expectedRecordNames.isEmpty
+      && expectedRecordNames.isSubset(of: sentRecordNames)
   }
 }
 

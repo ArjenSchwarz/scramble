@@ -142,18 +142,121 @@ Lives in the test target only. Two endpoints (one `.owner`, one
 - **PendingUploadFlags is `{dirty: Set<String>, deleted: Set<String>}`**
   not a bitset. Marking dirty clears the deleted entry and vice versa.
 
-## Open Phase 5 work (not yet implemented)
+## Stage B + lifecycle (Phase 5 tasks 18–29)
 
-- Stage B `ZoneMigrationCoordinator` (tasks 18–23) — the per-trip
-  default-zone → trip-zone data move driven by `TripSyncEngine`. This
-  is what actually populates `tripsLocal` from existing data.
-- `MigrationGate` + Stage A → engine startup ordering (tasks 24+).
-- Share-acceptance entry point in `AppDelegate` (task 26).
-- Trip Detail UI surfaces — `ShareToolbarButton`, `ParticipantsSection`,
-  `MigrationRetryBanner` (tasks 28–32).
-- Snapshot maintenance routines (tasks 33–35).
+Stage B coordinator, engine ownership gate, snapshot maintenance,
+trip deletion, remote-notification routing, and the launch wiring
+have all landed. Files:
 
-The current scaffolding lets these later tasks land without rebuilding
-the persistence split or the sync engine; the production
-`CloudKitSharingService` is wired into `TripSyncEngine` and ready to
-serve once `MigrationGate` releases the UI.
+- `Scramble/Scramble/Persistence/Migrations/ZoneMigrationCoordinator.swift` —
+  two-phase API. `enqueueAll()` inserts `.pending`
+  `MigrationJournalEntry` rows for trips without a `TripZoneState`;
+  `runStageB()` transitions them to `.stageBInProgress`, inserts the
+  `TripZoneState`, marks every expected record dirty in
+  `pendingUploadFlags`, persists the expected record-name set on the
+  journal, and signals the `ZoneMigrationDriver` to save the zone +
+  queue uploads. Event handlers
+  (`handleZoneSaved` / `handleRecordsSaved` / `handleRecordsFailed`)
+  drive each journal row to a terminal state. `retry(tripID:)`
+  re-runs `.failed` entries. Skipped entirely when
+  `isCloudAvailable()` returns false.
+- `ZoneMigrationDriver` protocol — test seam over
+  `CKSyncEngine.State.add(...)`. Production wiring is
+  `TripSyncEngineZoneMigrationDriver`.
+- `Models/Schema.swift` — `MigrationJournalEntry` gained
+  `expectedRecordNamesData`, `sentRecordNamesData`, and
+  `zoneSavedFlag` (all Optional so SwiftData column inference is
+  safe). New `MigrationStageState` enum + bridge properties
+  (`state`, `expectedRecordNames`, `sentRecordNames`, `zoneSaved`,
+  `isStageBComplete`).
+- `Scramble/Scramble/RulesEngine/RulesEngineRunner.swift` — gained
+  the optional `ownerIdentity: (UUID) -> OwnerIdentity?` closure.
+  `runForTrip` and `runForAllNonPastTrips` skip trips owned by
+  `.otherUser` (`nil` and `.currentUser` both run). Default closure
+  returns `nil` so Phase 1 call sites keep working.
+- `Scramble/Scramble/RulesEngine/RulesEngineTriggerOrchestrator.swift` —
+  bridges `TripSyncEngine.events` to the rules engine. `.zoneChanged`
+  with `isSelfOriginated == true` is dropped (echo guard); remote
+  changes are routed to `RulesEngineRunner.runForTrip` for the
+  matching trip.
+- `Scramble/Scramble/Sharing/SnapshotMaintenance.swift` —
+  `propagatePersonEdit` (Person → snapshot fan-out, owner-only),
+  `handleRosterRemoval` (flip `isRosterMember=false` + delete when no
+  referrers), `handlePackingItemDeletion` (delete non-roster
+  snapshots when their last item is removed), and `sweep`
+  (defence-in-depth periodic cleanup). Referrer counting walks
+  `TripPackingItem` directly because the snapshot ↔ packing-item
+  inverse was dropped in V3 to avoid the SwiftData cascade panic
+  (persistence note).
+- `Scramble/Scramble/Sharing/TripDeletion.swift` —
+  `TripDeletion.delete(tripID:in:zoneDeleter:)` runs the reverse
+  cascade (`pendingUploadFlags → packing items → tasks → snapshots
+  → trip → TripZoneState`) in one transaction. Owner-scope deletes
+  also queue `deleteZone` via `TripSyncEngineZoneDeleter`.
+  Participant-side leaves pass `zoneDeleter: nil` because
+  `CloudKitSharingService.leaveShare` already deletes the
+  shared-DB zone.
+- `Scramble/Scramble/App/AppDelegate.swift` —
+  `UIApplicationDelegate` adapter. `userDidAcceptCloudKitShareWith`
+  forwards to `SharingService.acceptShare`;
+  `didReceiveRemoteNotification:fetchCompletionHandler:` dispatches
+  to `RemoteNotificationRouter`. Both dependencies are pulled from
+  `AppDelegate.environment`, which `ScrambleApp.init` sets at launch.
+- `Scramble/Scramble/App/RemoteNotificationRouter.swift` —
+  policy object that switches on `CKDatabase.Scope` and calls the
+  matching engine's `fetchChanges()`. Returns
+  `UIBackgroundFetchResult` for the UIKit completion handler.
+  Production fetcher is `TripSyncEngineNotificationFetcher`.
+- `Scramble/Scramble/App/MigrationGate.swift` — launch-blocking
+  splash view. Runs `enqueueAll() + runStageB()` once Stage A is
+  done, then starts the sync engine + event observer (skipped in
+  test / UI-test / preview branches), then mounts the wrapped
+  content.
+- `Scramble/Scramble/Persistence/SharingServiceEnvironmentKey.swift` —
+  `\.sharingService` environment carrier (Optional; `nil` for
+  previews / tests).
+- `Scramble/Scramble/ScrambleApp.swift` — constructs every Phase 5
+  collaborator (sync engine, sharing service, coordinator, router,
+  trigger orchestrator), wires `AppDelegate.environment`, wraps
+  `RootView` in `MigrationGate`, and injects
+  `\.sharingService` into the view environment. The cold-launch
+  `RulesEngineRunner` now passes `service.ownerIdentity(forTrip:)`
+  through to the gate.
+
+## Tests (ScrambleTests)
+
+- `Persistence/ZoneMigrationCoordinatorTests.swift` — happy path,
+  ownership gate, resume after kill, retry, parameterised PBT
+  scenarios (idempotence, convergence over failure/retry
+  sequences, resume totality across every journal state).
+- `RulesEngine/RulesEngineOwnershipGateTests.swift` — engine
+  no-ops for `.otherUser` trips, runs for `.currentUser` / `nil`,
+  fan-out filters by ownership, orchestrator drops self-originated
+  events and only fires for properly-formed zone names.
+- `Sharing/SnapshotMaintenanceTests.swift` — every cleanup
+  trigger plus the ownership gate.
+- `Sharing/TripFlagSyncTests.swift` — `pinnedByUser` and
+  `userDeletedOnThisTrip` survive translator round-trip; engine
+  preserves pinned items even when their rules no longer match.
+- `Sharing/TripDeletionTests.swift` — reverse-cascade ordering,
+  zone deletion enqueued on owner-side only, idempotent against a
+  missing trip.
+- `Sharing/RemoteNotificationRoutingTests.swift` — `.private`,
+  `.shared`, `.public`, and fetcher-failure paths return the
+  right `UIBackgroundFetchResult`.
+
+## Conventions reminder
+
+- `MigrationJournalEntry.state` is the canonical surface; never
+  read `stateRaw` directly outside `Schema.swift`.
+- `ZoneMigrationCoordinator` event handlers (`handleZoneSaved`,
+  `handleRecordsSaved`, `handleRecordsFailed`) are the **only**
+  way to drive a journal row past `.stageBInProgress`. Don't
+  mutate `state` from view code.
+- `TripDeletion.delete(...)` is the canonical owner-side trip
+  removal path. Direct `context.delete(trip)` from CRUD code
+  bypasses the engine's zone-delete enqueue and leaves the
+  remote zone live.
+- `RulesEngineRunner`'s `ownerIdentity` closure treats `nil` as
+  "current user owns" — Phase 1 legacy trips without a
+  `TripZoneState` keep receiving engine runs.

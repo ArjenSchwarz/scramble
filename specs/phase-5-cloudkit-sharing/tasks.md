@@ -175,7 +175,7 @@ references:
 
 ## Stage B + engine + lifecycle
 
-- [ ] 18. Write Stage B coordinator tests with PBT <!-- id:vzlf7g6 -->
+- [x] 18. Write Stage B coordinator tests with PBT <!-- id:vzlf7g6 -->
   - In Persistence/Migrations/ZoneMigrationCoordinatorTests.swift against FakeSharingService
   - Happy path; resume after kill mid-migration; concurrent-device convergence (deterministic zone naming, CKSyncEngine handles record dedup); signed-out skip; failure + retry surfaces banner
   - PBT (Swift Testing parameterised) for: idempotence (run twice -> same end state), convergence (any partial-failure sequence reaches terminal), resume totality
@@ -184,7 +184,7 @@ references:
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5), [4.6](requirements.md#4.6), [4.7](requirements.md#4.7), [4.8](requirements.md#4.8), [4.9](requirements.md#4.9), [11.3](requirements.md#11.3)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 19. Implement ZoneMigrationCoordinator <!-- id:vzlf7g7 -->
+- [x] 19. Implement ZoneMigrationCoordinator <!-- id:vzlf7g7 -->
   - In Persistence/Migrations/ZoneMigrationCoordinator.swift
   - Per trip: insert MigrationJournalEntry(.stageBInProgress); compute deterministic zoneID trip-<uuid>; insert TripZoneState; instruct privateEngine.state.add to saveZone + add expected record IDs as pending changes; trigger sendChanges
   - Completion correlation: track expected record-ID set on journal; .completed when all expected IDs in cumulative savedRecords AND state.pendingRecordZoneChanges no longer contains any of them AND zone-save event succeeded
@@ -195,7 +195,7 @@ references:
   - Requirements: [1.2](requirements.md#1.2), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5), [4.6](requirements.md#4.6), [4.7](requirements.md#4.7), [4.9](requirements.md#4.9)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 20. Write engine ownership gate + echo suppression tests <!-- id:vzlf7g8 -->
+- [x] 20. Write engine ownership gate + echo suppression tests <!-- id:vzlf7g8 -->
   - In Engine/RulesEngineOwnershipGateTests.swift
   - Engine no-op for non-owned trips on every existing trigger (trip created, attribute edited, master item edited, app launch)
   - Master-item edit fan-out filtered to owner-owned trips only
@@ -207,7 +207,7 @@ references:
   - Requirements: [8.3](requirements.md#8.3), [8.4](requirements.md#8.4), [8.5](requirements.md#8.5), [8.6](requirements.md#8.6)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 21. Implement engine ownership gate + new CloudKit-received-change trigger <!-- id:vzlf7g9 -->
+- [x] 21. Implement engine ownership gate + new CloudKit-received-change trigger <!-- id:vzlf7g9 -->
   - Add ownership guard at rules engine entry point: guard sharingService.ownerIdentity(for: trip.id) == .currentUser else { return }
   - Subscribe rules engine trigger orchestrator to TripSyncEngine.events; filter isSelfOriginated; route .zoneChanged for owner-owned trips to engine
   - Master-item edit fan-out filters by ownership before scheduling work
@@ -217,7 +217,7 @@ references:
   - Requirements: [8.3](requirements.md#8.3), [8.4](requirements.md#8.4), [8.5](requirements.md#8.5), [8.6](requirements.md#8.6)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 22. Write snapshot maintenance tests <!-- id:vzlf7ga -->
+- [x] 22. Write snapshot maintenance tests <!-- id:vzlf7ga -->
   - In Sharing/SnapshotMaintenanceTests.swift
   - Person edit on owner device propagates to TripPersonSnapshot across all owned trips with that person; all dirty-flagged for upload
   - Roster removal cleanup: remove Person from trip.participantSnapshots; if no TripPackingItem references the snapshot, snapshot deleted in same transaction
@@ -228,7 +228,7 @@ references:
   - Requirements: [2.3](requirements.md#2.3), [2.4](requirements.md#2.4)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 23. Implement SnapshotMaintenance <!-- id:vzlf7gb -->
+- [x] 23. Implement SnapshotMaintenance <!-- id:vzlf7gb -->
   - In Sharing/SnapshotMaintenance.swift
   - Person->snapshot propagation: triggered on Person changes in globals; updates name/colourID/initialSource on each snapshot; flags for upload via LocalWriteHook
   - Three cleanup triggers: roster removal, packing-item deletion, post-engine-run sweep
@@ -238,7 +238,7 @@ references:
   - Requirements: [2.3](requirements.md#2.3), [2.4](requirements.md#2.4)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 24. Write trip-global flag sync + deletion ordering tests <!-- id:vzlf7gc -->
+- [x] 24. Write trip-global flag sync + deletion ordering tests <!-- id:vzlf7gc -->
   - TripFlagSyncTests: pinnedByUser and userDeletedOnThisTrip toggles by any member propagate via fake events; engine respects them as trip-global
   - TripDeletionTests: owner-side trip deletion order is packing items -> tasks -> snapshots -> trip -> TripZoneState; no orphaned snapshots; one transaction
   - Blocked-by: vzlf7g3 (Implement TripSyncEngine)
@@ -246,7 +246,7 @@ references:
   - Requirements: [8.7](requirements.md#8.7)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 25. Implement trip-global flag handling + deletion path <!-- id:vzlf7gd -->
+- [x] 25. Implement trip-global flag handling + deletion path <!-- id:vzlf7gd -->
   - Translator preserves flag values across roundtrip; LWW per attribute via translator
   - Trip-deletion routine in Trip CRUD follows documented reverse-cascade order in one transaction
   - Owner-deletion deletes the CKRecordZone via privateEngine.state.add(pendingDatabaseChanges: [.deleteZone(zoneID)])
@@ -255,7 +255,7 @@ references:
   - Requirements: [1.4](requirements.md#1.4), [8.7](requirements.md#8.7)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 26. Write remote-notification routing tests <!-- id:vzlf7ge -->
+- [x] 26. Write remote-notification routing tests <!-- id:vzlf7ge -->
   - In App/RemoteNotificationRoutingTests.swift
   - CKNotification with .private databaseScope routes to privateEngine.fetchChanges()
   - .shared databaseScope routes to sharedEngine.fetchChanges()
@@ -265,7 +265,7 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.3](requirements.md#9.3)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 27. Implement AppDelegate (UIApplicationDelegateAdaptor) <!-- id:vzlf7gf -->
+- [x] 27. Implement AppDelegate (UIApplicationDelegateAdaptor) <!-- id:vzlf7gf -->
   - In App/AppDelegate.swift
   - application(_:userDidAcceptCloudKitShareWith:) routes metadata to SharingService.acceptShare
   - application(_:didReceiveRemoteNotification:fetchCompletionHandler:) branches on notification.databaseScope and calls fetchChanges() on the appropriate engine
@@ -274,7 +274,7 @@ references:
   - Requirements: [6.1](requirements.md#6.1), [9.1](requirements.md#9.1), [9.3](requirements.md#9.3)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 28. Implement MigrationGate root wrapper <!-- id:vzlf7gg -->
+- [x] 28. Implement MigrationGate root wrapper <!-- id:vzlf7gg -->
   - In App/MigrationGate.swift
   - Full-screen view that blocks UI while any MigrationJournalEntry.state == .pending (Stage A still pending for any trip)
   - Releases when Stage A complete for all trips; Stage B continues in background
@@ -285,7 +285,7 @@ references:
   - Requirements: [4.3](requirements.md#4.3), [4.8](requirements.md#4.8), [11.1](requirements.md#11.1), [11.3](requirements.md#11.3)
   - References: specs/phase-5-cloudkit-sharing/design.md
 
-- [ ] 29. Wire ScrambleApp to use AppDelegate + MigrationGate <!-- id:vzlf7gh -->
+- [x] 29. Wire ScrambleApp to use AppDelegate + MigrationGate <!-- id:vzlf7gh -->
   - In App/ScrambleApp.swift
   - Add UIApplicationDelegateAdaptor
   - Wrap root scene in MigrationGate
