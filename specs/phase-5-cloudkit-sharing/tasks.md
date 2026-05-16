@@ -8,7 +8,7 @@ references:
 
 ## Validation gate
 
-- [ ] 1. Build CKSyncEngine validation harness <!-- id:vzlf7fp -->
+- [x] 1. Build CKSyncEngine validation harness <!-- id:vzlf7fp -->
   - Throwaway XCTest in ScrambleTests: create private CKSyncEngine, create custom zone, create CKShare(recordZoneID:), verify share record reaches CloudKit
   - Manual second-device step: accept share, verify shared CKSyncEngine fetches the records
   - Pass/fail decides whether Decision 13 stands or fallback to raw CKDatabase is needed
