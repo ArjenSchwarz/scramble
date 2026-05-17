@@ -235,6 +235,15 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
       FetchDescriptor<Trip>(predicate: #Predicate { ids.contains($0.id) })
     )
     let foundTripIDs = Set(trips.map(\.id))
+    // `Trip.participantSnapshots` uses `.nullify` (V3 cascade-traversal
+    // workaround for iOS 26.4), so deleting the trip alone leaves the
+    // snapshot rows behind. Walk each trip's snapshot collection and
+    // remove them explicitly before the trip is deleted.
+    for trip in trips {
+      for snapshot in trip.participantSnapshots ?? [] {
+        context.delete(snapshot)
+      }
+    }
     for trip in trips { context.delete(trip) }
 
     let remaining = ids.subtracting(foundTripIDs)

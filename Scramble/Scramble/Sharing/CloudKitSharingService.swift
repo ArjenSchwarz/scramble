@@ -75,32 +75,46 @@ final class CloudKitSharingService: SharingService {
 
   func acceptShare(_ metadata: CKShare.Metadata) async throws -> AcceptedShareResult {
     _ = try await container.accept(metadata)
-    let sharedEngine = syncEngine.sharedEngine
-    sharedEngine?.state.add(pendingDatabaseChanges: [
+    // The CloudKit acceptance has already landed server-side. If the
+    // shared engine hasn't been started yet (acceptance arrived during
+    // the migration splash), skip the explicit fetch: `automaticallySync`
+    // = true means the engine will pull the new zone once `start()`
+    // completes. Surfacing this in the log keeps the gap visible.
+    guard let sharedEngine = syncEngine.sharedEngine else {
+      modelLogger.info(
+        "[CloudKitSharingService] acceptShare received before sharedEngine started; relying on automaticallySync to catch up"
+      )
+      let owner = metadata.ownerIdentity
+      return AcceptedShareResult(
+        zoneID: metadata.share.recordID.zoneID,
+        ownerDisplayName: Self.resolveOwnerDisplayName(from: owner)
+      )
+    }
+    sharedEngine.state.add(pendingDatabaseChanges: [
       .saveZone(CKRecordZone(zoneID: metadata.share.recordID.zoneID))
     ])
-    try await sharedEngine?.fetchChanges()
-    // Prefer the display name CloudKit resolved; fall back to email; only
-    // leave `nil` when CloudKit has no human-readable identifier yet (the
-    // raw `userRecordID.recordName` is an opaque `_abc123…` string and is
-    // not safe to surface in UI per Req 7.1).
-    let owner = metadata.ownerIdentity
-    let ownerDisplayName: String? = {
-      if let components = owner.nameComponents {
-        let formatted = Self.personNameFormatter
-          .string(from: components)
-          .trimmingCharacters(in: .whitespaces)
-        if !formatted.isEmpty { return formatted }
-      }
-      if let email = owner.lookupInfo?.emailAddress, !email.isEmpty {
-        return email
-      }
-      return nil
-    }()
+    try await sharedEngine.fetchChanges()
     return AcceptedShareResult(
       zoneID: metadata.share.recordID.zoneID,
-      ownerDisplayName: ownerDisplayName
+      ownerDisplayName: Self.resolveOwnerDisplayName(from: metadata.ownerIdentity)
     )
+  }
+
+  /// Prefer the display name CloudKit resolved; fall back to email; only
+  /// return `nil` when CloudKit has no human-readable identifier yet (the
+  /// raw `userRecordID.recordName` is an opaque `_abc123…` string and is
+  /// not safe to surface in UI per Req 7.1).
+  private static func resolveOwnerDisplayName(from owner: CKUserIdentity) -> String? {
+    if let components = owner.nameComponents {
+      let formatted = personNameFormatter
+        .string(from: components)
+        .trimmingCharacters(in: .whitespaces)
+      if !formatted.isEmpty { return formatted }
+    }
+    if let email = owner.lookupInfo?.emailAddress, !email.isEmpty {
+      return email
+    }
+    return nil
   }
 
   // MARK: - leaveShare
