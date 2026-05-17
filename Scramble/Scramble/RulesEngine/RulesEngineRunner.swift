@@ -5,12 +5,37 @@ import os
 @MainActor
 struct RulesEngineRunner {
   let context: ModelContext
+  /// Phase 5 ownership gate (Decision 3 / Req 8.3). Returns the trip's
+  /// CloudKit-owner identity so the runner can skip trips owned by other
+  /// users. `nil` is treated as "current user owns" so Phase 1 legacy
+  /// trips (no `TripZoneState` yet) continue to receive engine runs.
+  let ownerIdentity: (UUID) -> OwnerIdentity?
+
+  init(
+    context: ModelContext,
+    ownerIdentity: @escaping (UUID) -> OwnerIdentity? = { _ in nil }
+  ) {
+    self.context = context
+    self.ownerIdentity = ownerIdentity
+  }
 
   @discardableResult
   func runForTrip(_ trip: Trip) throws -> Plan {
+    guard isOwned(trip) else { return Self.emptyPlan(for: trip.id) }
     let masterTasks = try fetchMasterTaskSnapshots()
     let masterPacking = try fetchMasterPackingSnapshots()
     return try runForTrip(trip, masterTasks: masterTasks, masterPacking: masterPacking)
+  }
+
+  /// Empty plan returned when the ownership gate blocks an engine run.
+  static func emptyPlan(for tripID: UUID) -> Plan {
+    Plan(
+      tripID: tripID,
+      toAddTasks: [],
+      toAddPacking: [],
+      toFlagUnmatched: [],
+      toFlagMatched: []
+    )
   }
 
   @discardableResult
@@ -30,6 +55,7 @@ struct RulesEngineRunner {
     let masterPacking = try fetchMasterPackingSnapshots()
     var plans: [Plan] = []
     for trip in trips {
+      guard isOwned(trip) else { continue }
       do {
         let plan = try runForTrip(trip, masterTasks: masterTasks, masterPacking: masterPacking)
         plans.append(plan)
@@ -58,6 +84,15 @@ struct RulesEngineRunner {
     )
     try apply(plan: plan, context: context)
     return plan
+  }
+
+  private func isOwned(_ trip: Trip) -> Bool {
+    switch ownerIdentity(trip.id) {
+    case .otherUser:
+      return false
+    case .currentUser, nil:
+      return true
+    }
   }
 
   private func fetchMasterTaskSnapshots() throws -> [MasterTaskSnapshot] {

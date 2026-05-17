@@ -147,4 +147,55 @@ struct ModelStoreEnvironmentTests {
     )
     #expect(ModelStore.strategy(probe: probe) == .inMemory(reason: .unitTest))
   }
+
+  // MARK: - Phase 5 dual-container API
+
+  @Test("Globals config: unit-test env → in-memory, no CloudKit")
+  func globalsConfigInTestEnv() {
+    let probe = EnvironmentProbe(
+      environment: ["XCTestConfigurationFilePath": "/tmp/x.xctestconfig"],
+      arguments: []
+    )
+    let config = ModelStore.globalsConfiguration(probe: probe)
+    #expect(config.isStoredInMemoryOnly)
+    #expect(config.cloudKitContainerIdentifier == nil)
+  }
+
+  @Test("Globals config: production → CloudKit private with bundled identifier")
+  func globalsConfigProduction() {
+    let probe = EnvironmentProbe(environment: [:], arguments: [])
+    let config = ModelStore.globalsConfiguration(probe: probe)
+    #expect(config.isStoredInMemoryOnly == false)
+    #expect(config.cloudKitContainerIdentifier == "iCloud.me.nore.ig.scramble")
+  }
+
+  @Test("TripsLocal config: unit-test env → in-memory, no CloudKit")
+  func tripsLocalConfigInTestEnv() {
+    let probe = EnvironmentProbe(
+      environment: ["XCTestConfigurationFilePath": "/tmp/x.xctestconfig"],
+      arguments: []
+    )
+    let config = ModelStore.tripsLocalConfiguration(probe: probe)
+    #expect(config.isStoredInMemoryOnly)
+    #expect(config.cloudKitContainerIdentifier == nil)
+  }
+
+  @Test("TripsLocal config: production → on-disk, no CloudKit (CKSyncEngine drives sync)")
+  func tripsLocalConfigProduction() {
+    let probe = EnvironmentProbe(environment: [:], arguments: [])
+    let config = ModelStore.tripsLocalConfiguration(probe: probe)
+    #expect(config.isStoredInMemoryOnly == false)
+    #expect(config.cloudKitContainerIdentifier == nil)
+  }
+
+  @MainActor
+  @Test("makeContainers builds both containers in test env")
+  func makeContainersInTestEnv() {
+    let probe = EnvironmentProbe(
+      environment: ["XCTestConfigurationFilePath": "/tmp/x.xctestconfig"],
+      arguments: []
+    )
+    let containers = ModelStore.makeContainers(probe: probe)
+    #expect(containers.globals !== containers.tripsLocal)
+  }
 }

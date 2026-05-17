@@ -59,7 +59,7 @@ struct PackingFormSaveTests {
   /// a local `let` for the duration of the test — SwiftData crashes if the
   /// container deallocates while a `ModelContext` is in use.
   private static func makeContainer() throws -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV2.self)
+    let schema = Schema(versionedSchema: SchemaV3.self)
     let config = ModelConfiguration(
       schema: schema,
       isStoredInMemoryOnly: true,

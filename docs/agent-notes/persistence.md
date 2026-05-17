@@ -2,8 +2,9 @@
 
 ## Files
 
-- `Scramble/Scramble/Models/Schema.swift` — `SchemaV1` (pre-Phase-3 frozen) and `SchemaV2` (current — adds `TripTask.assigneePersonID` + `TripTask.userDeletedOnThisTripRaw`), `AppMigrationPlan` with a single `.lightweight` stage `V1 → V2`, `typealias TripTask = SchemaV2.TripTask`, and shared `modelLogger`.
-- `Scramble/Scramble/Models/{Trip,Person,MasterTaskItem,MasterPackingItem,TripPackingItem}.swift` — `@Model` entities with Codable-bridge extensions for `attributes`, `conditions`, `phase`, `source`, `state`. `TripTask` now lives inside `Schema.swift` (both V1 and V2 variants).
+- `Scramble/Scramble/Models/Schema.swift` — `SchemaV1` (pre-Phase-3 frozen), `SchemaV2` (Phase 3 — `TripTask.assigneePersonID` + `TripTask.userDeletedOnThisTripRaw` added), `SchemaV3` (Phase 5 — adds `TripPersonSnapshot`, `TripZoneState`, `MigrationJournalEntry` plus `Trip.participantSnapshots`/`tripZoneID`/`ckRecordSystemFields`, `TripPackingItem.personSnapshot`/`ckRecordSystemFields`, and `TripTask.ckRecordSystemFields`). `AppMigrationPlan` runs `.lightweight V1 → V2` then `.custom V2 → V3` (whose `didMigrate` calls `SchemaV3MigrationStage.backfillSnapshots(in:)`). Top-level `TripTask` is the single class shared by V2 and V3 — see "Why TripTask is no longer forked" below. `typealias TripPersonSnapshot = SchemaV3.TripPersonSnapshot` and similar for `TripZoneState`/`MigrationJournalEntry`.
+- `Scramble/Scramble/Persistence/Migrations/SchemaV3MigrationStage.swift` — Phase 5 Stage A custom step. Backfills `TripPersonSnapshot` rows from V2 `Trip.participants` and links `TripPackingItem.personSnapshot`. Idempotent and offline-safe (no CloudKit).
+- `Scramble/Scramble/Models/{Trip,Person,MasterTaskItem,MasterPackingItem,TripPackingItem}.swift` — `@Model` entities with Codable-bridge extensions for `attributes`, `conditions`, `state`, `source`. `Trip` and `TripPackingItem` carry the V3 additive fields directly; `TripTask` now lives inside `Schema.swift` as a single top-level class.
 - `Scramble/Scramble/Persistence/EnvironmentProbe.swift` — value type wrapping `environment` + `arguments`; `production` reads `ProcessInfo.processInfo`. Branches: `isTest`, `isUITestHost`, `isPreview`.
 - `Scramble/Scramble/Persistence/ModelStore.swift` — `@MainActor enum`. `shared` evaluates `makeContainer(probe: .production)` once. `configuration(probe:)` is `nonisolated` and unit-tested.
 
@@ -36,12 +37,27 @@ CloudKit does not support the `.deny` delete rule, so `Person.tripPackingItems` 
 ## Versioned schema policy
 
 - Phase 3 (Decision 11) established versioned schemas as policy going forward. Each schema change — additive or not — gets a new `SchemaV<N>` and an explicit `MigrationStage` in `AppMigrationPlan`, even when SwiftData would tolerate in-place edits.
-- `TripTask` is the first model with V1 and V2 variants. Other models (`Trip`, `Person`, `MasterTaskItem`, `MasterPackingItem`, `TripPackingItem`) are referenced from both versions but are unchanged.
-- Each `VersionedSchema.models` array must list its own model references; `MigrationStage.lightweight` compares metadata between versions, so if both versions point at the same Swift type there is no diff and the migration is a no-op.
+- `SchemaV1.TripTask` is the only forked variant in the binary; from V2 onwards `TripTask` is a single top-level `@Model`. Other models (`Trip`, `Person`, `MasterTaskItem`, `MasterPackingItem`, `TripPackingItem`) are top-level and referenced by V1/V2/V3.
+- Each `VersionedSchema.models` array must list every entity its model graph reaches via relationships. Phase 5: top-level `Trip` declares `participantSnapshots: [TripPersonSnapshot]?`, so V1.models and V2.models must include `SchemaV3.TripPersonSnapshot.self` (otherwise SwiftData crashes during schema construction). Pre-V3 stores leave the snapshot table empty.
+- `MigrationStage.lightweight` compares metadata between versions; if both versions point at the same Swift type there is no diff and the migration is a no-op for that entity. The V2 → V3 lightweight diff is metadata-identical for `Trip`/`TripTask`/`TripPackingItem`. SwiftData's automatic column inference adds the V3 fields to V2-era stores at first open because every new column is `Optional` with a `nil` default.
 
-## SchemaV2 migration test deferral
+## Why TripTask is no longer forked (Phase 5 update)
 
-- `SchemaV2MigrationTests` verifies plan shape (`schemas`, `stages`, lightweight stage typing) but **does not** perform a real on-disk V1→V2 round-trip. Two `@Model` types named `TripTask` cannot coexist in the same test process: SwiftData resolves entity-class lookup by class name, so seeding a `SchemaV1.TripTask` store and re-opening with `SchemaV2.TripTask` in one binary collides. The functional check (new fields default correctly on migrated rows) is exercised indirectly via fresh-V2 inserts in other tests. If a regression in the migration step ever ships, it will surface on first launch against an existing on-device store rather than in CI.
+Phase 3 froze `SchemaV1.TripTask` as a separate class so the V1 → V2 lightweight diff was a real diff. Phase 5 was originally written the same way (a frozen `SchemaV2.TripTask` alongside a new `SchemaV3.TripTask` carrying `ckRecordSystemFields`), but two `@Model` types with the same simple name `"TripTask"` coexisting in one test process panics SwiftData's cascade traversal on iOS 26.4. The crash is order-dependent — `cascadeTripToTasks` (Trip-with-tasks delete + save) deterministically traps in suite mode while passing in isolation — but cascade-traversal panics in SwiftData internals are not safely workaroundable from the model side.
+
+The compromise: `TripTask` is a single top-level class shared by V2 and V3. The V2 → V3 lightweight diff for `TripTask` becomes metadata-identical (no-op), and SwiftData adds the new `ckRecordSystemFields` column on first V3 open via Core Data's automatic column inference. This is safe because the column is `Optional` with `nil` default. `SchemaV1.TripTask` remains forked so the V1 → V2 lightweight diff has real columns to add (`assigneePersonID`, `userDeletedOnThisTripRaw`).
+
+If a future schema bump needs a non-additive column change on `TripTask`, the forked-class trick is no longer available. Options at that point: (a) gain coverage by switching to a `MigrationStage.custom` that hand-writes the column transition, (b) defer the change until Apple's resolution of the iOS 26.4 cascade panic, or (c) accept that one-process tests can't exercise both old and new shapes simultaneously and isolate the migration test.
+
+## SchemaV3 + Stage A migration test deferral
+
+- `SchemaV3MigrationTests` verifies plan shape (`schemas` includes V3, `stages` declares V2→V3 custom) and V3-default behaviour against a V3 container. It does not exercise on-disk V2 → V3 round-trip.
+- `SchemaV3MigrationStageTests` exercises `SchemaV3MigrationStage.backfillSnapshots(in:)` directly against a V3 container seeded with V2-shaped data (trips with `participants` set, packing items with `person` set, no V3 snapshot rows). This is the production code path the `.custom` `didMigrate` closure calls — it just runs against a V3-shaped store created in-memory rather than a freshly-migrated one.
+- `SchemaV2MigrationTests` is now a single plan-shape assertion. The Phase-3 `freshV2RecordsDefaultCorrectly` test was removed because it constructed a `SchemaV2` container in the same process as Phase-5 tests using V3 containers — see "Why TripTask is no longer forked" above. The defaults that test verified are now covered by the equivalent `SchemaV3MigrationTests` checks.
+
+## Trip.participantSnapshots is one-way (no inverse)
+
+`Trip.participantSnapshots` is declared as `@Relationship(deleteRule: .nullify) var participantSnapshots: [TripPersonSnapshot]? = []` — no `inverse:` keypath. The companion `TripPersonSnapshot.trip` is a one-way `@Relationship var trip: Trip?`. The two are not paired; setting one does not auto-update the other. The design (Decision 7) called for a paired cascade, but SwiftData's cascade traversal on iOS 26.4 panics when the trip-deletion path reaches the snapshot ↔ packing-item nullify chain — the same crash class that drove the `TripTask` consolidation above. Snapshot lifetime is therefore enforced by the snapshot-maintenance routine and an explicit trip-deletion sweep instead of relying on the relationship rule. Code that needs the back-collection on `Trip` can use `participantSnapshots` for reads but must maintain both sides on writes.
 
 ## Test environment detection
 

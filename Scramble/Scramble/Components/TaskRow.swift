@@ -26,6 +26,7 @@ struct TaskRow: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.isParticipantViewingSharedTrip) private var isParticipantViewingSharedTrip
   @State private var resolvedReason: WhyDisclosure.Reason?
 
   var body: some View {
@@ -98,24 +99,40 @@ struct TaskRow: View {
     #endif
     .onChange(of: isDisclosureOpen) { _, open in
       if open {
-        resolvedReason = WhyResolver.reason(for: task, context: modelContext)
+        resolvedReason = WhyResolver.reason(
+          for: task,
+          context: modelContext,
+          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
+        )
       } else {
         resolvedReason = nil
       }
     }
     .onChange(of: task.trip?.attributesData) { _, _ in
       if isDisclosureOpen {
-        resolvedReason = WhyResolver.reason(for: task, context: modelContext)
+        resolvedReason = WhyResolver.reason(
+          for: task,
+          context: modelContext,
+          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
+        )
       }
     }
     .onChange(of: task.currentlyMatchesRules) { _, _ in
       if isDisclosureOpen {
-        resolvedReason = WhyResolver.reason(for: task, context: modelContext)
+        resolvedReason = WhyResolver.reason(
+          for: task,
+          context: modelContext,
+          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
+        )
       }
     }
     .onChange(of: task.name) { _, _ in
       if isDisclosureOpen {
-        resolvedReason = WhyResolver.reason(for: task, context: modelContext)
+        resolvedReason = WhyResolver.reason(
+          for: task,
+          context: modelContext,
+          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
+        )
       }
     }
   }

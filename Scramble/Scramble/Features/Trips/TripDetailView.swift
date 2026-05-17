@@ -14,10 +14,13 @@ import os
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.modelContext) private var modelContext
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.sharingService) private var sharingService
+  @Environment(\.rulesLastEvaluatedTracker) private var rulesLastEvaluatedTracker
 
   @State private var showEditor = false
   @State private var editAttributeFocus: TripAttribute?
   @State private var showDeleteConfirmation = false
+  @State private var showLeaveConfirmation = false
   @State private var toastMessage: String?
   @State private var expandedPhase: Phase?
   @State private var openDisclosureTaskID: UUID?
@@ -43,9 +46,20 @@ import os
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
+    let ownerIdentity = sharingService?.ownerIdentity(forTrip: trip.id)
+    let isParticipantOnShared: Bool = {
+      if case .otherUser = ownerIdentity { return true }
+      return false
+    }()
+    // Phase 5: locally-created trips have no `TripZoneState` until
+    // either Stage B or `createShare` inserts one, so a nil identity is
+    // treated as ownership for the share/manage affordances (Req 5.1).
+    // Participant trips always carry a `TripZoneState` with `.otherUser`,
+    // so they are reliably excluded.
+    let isOwnerOfShared = sharingService != nil && !isParticipantOnShared
 
     VStack(spacing: 0) {
-      header(variant: variant)
+      header(variant: variant, isParticipantOnShared: isParticipantOnShared)
         .background(variant.surface)
 
       Divider()
@@ -53,6 +67,13 @@ import os
       ScrollView {
         VStack(alignment: .leading, spacing: 24) {
           chipRow(variant: variant)
+          if let sharingService, isOwnerOfShared || isParticipantOnShared {
+            ParticipantsSection(
+              trip: trip,
+              isOwner: isOwnerOfShared,
+              sharingService: sharingService
+            )
+          }
           AccordionTimeline(
             trip: trip,
             today: today,
@@ -74,22 +95,37 @@ import os
         .padding(.vertical, 16)
       }
     }
+    .environment(\.isParticipantViewingSharedTrip, isParticipantOnShared)
     .background(variant.surface.opacity(0.3))
     .toolbar(.hidden, for: .tabBar)
     .toolbar {
+      if isOwnerOfShared, let sharingService {
+        ToolbarItem(placement: .topBarTrailing) {
+          ShareToolbarButton(trip: trip, sharingService: sharingService)
+        }
+      }
       ToolbarItem(placement: .topBarTrailing) {
         Menu {
-          Button {
-            editAttributeFocus = nil
-            showEditor = true
-          } label: {
-            Label("Edit", systemImage: "pencil")
-          }
+          if !isParticipantOnShared {
+            Button {
+              editAttributeFocus = nil
+              showEditor = true
+            } label: {
+              Label("Edit", systemImage: "pencil")
+            }
 
-          Button(role: .destructive) {
-            showDeleteConfirmation = true
-          } label: {
-            Label("Delete Trip", systemImage: "trash")
+            Button(role: .destructive) {
+              showDeleteConfirmation = true
+            } label: {
+              Label("Delete Trip", systemImage: "trash")
+            }
+          } else {
+            Button(role: .destructive) {
+              showLeaveConfirmation = true
+            } label: {
+              Label("Leave Share", systemImage: "person.crop.circle.badge.minus")
+            }
+            .accessibilityIdentifier("tripDetail.leaveShareButton")
           }
         } label: {
           Image(systemName: "ellipsis.circle")
@@ -103,18 +139,25 @@ import os
       titleVisibility: .visible
     ) {
       Button("Delete \(trip.name.isEmpty ? "trip" : trip.name)", role: .destructive) {
-        modelContext.delete(trip)
-        do {
-          try modelContext.save()
-          dismiss()
-        } catch {
-          modelContext.rollback()
-          toastMessage = "Delete failed — try again."
-        }
+        deleteTrip()
       }
       Button("Cancel", role: .cancel) {}
     } message: {
       Text("This will permanently remove the trip and all its data.")
+    }
+    .confirmationDialog(
+      "Leave this trip?",
+      isPresented: $showLeaveConfirmation,
+      titleVisibility: .visible
+    ) {
+      Button("Leave \(trip.name.isEmpty ? "trip" : trip.name)", role: .destructive) {
+        leaveShare()
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text(
+        "The trip will be removed from your devices once CloudKit confirms. The owner keeps all data."
+      )
     }
     .sheet(item: $pendingForm) { presentation in
       TaskForm(
@@ -157,6 +200,53 @@ import os
     #if DEBUG
       .background { inspectionMarkers }
     #endif
+  }
+
+  /// Owner-side delete (Req 1.4). Removes the trip from the globals
+  /// container and asks `SharingService` to tear down the trip's
+  /// `TripZoneState` + queue the `CKRecordZone` deletion on the private
+  /// engine.
+  private func deleteTrip() {
+    let tripID = trip.id
+    modelContext.delete(trip)
+    do {
+      try modelContext.save()
+    } catch {
+      modelContext.rollback()
+      toastMessage = "Delete failed — try again."
+      return
+    }
+    if let sharingService {
+      Task {
+        do {
+          try await sharingService.deleteOwnedTrip(forTrip: tripID)
+        } catch {
+          modelLogger.error(
+            "[TripDetailView.delete-zone-failed] tripID=\(tripID, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+          )
+        }
+      }
+    }
+    dismiss()
+  }
+
+  /// Participant-side leave-share (Req 6.5). Asks `SharingService` to
+  /// delete the shared zone; the trip disappears locally on the next
+  /// zone-removed notification (or on next launch).
+  private func leaveShare() {
+    guard let sharingService else { return }
+    let tripID = trip.id
+    Task {
+      do {
+        try await sharingService.leaveShare(forTrip: tripID)
+        dismiss()
+      } catch {
+        modelLogger.error(
+          "[TripDetailView.leave-share-failed] tripID=\(tripID, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+        )
+        toastMessage = "Leaving the share failed — try again."
+      }
+    }
   }
 
   private func handlePackingSheetDismiss() {
@@ -207,7 +297,7 @@ import os
     }
   #endif
 
-  private func header(variant: ThemeVariant) -> some View {
+  private func header(variant: ThemeVariant, isParticipantOnShared: Bool) -> some View {
     VStack(alignment: .leading, spacing: 6) {
       Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
         .font(.title2.weight(.semibold))
@@ -230,6 +320,13 @@ import os
       .font(.caption)
       .foregroundStyle(variant.textSecondary)
 
+      if let lastEvaluated = lastEvaluatedTime(when: isParticipantOnShared) {
+        Text(rulesLastEvaluatedText(lastEvaluated))
+          .font(.caption)
+          .foregroundStyle(variant.textSecondary)
+          .accessibilityIdentifier("tripDetail.rulesLastEvaluated")
+      }
+
       let participants = trip.participants ?? []
       if !participants.isEmpty {
         HStack(spacing: -6) {
@@ -243,6 +340,25 @@ import os
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal)
     .padding(.vertical, 12)
+  }
+
+  /// Returns the last-evaluated timestamp to render in the participant
+  /// subline, or `nil` when the line should be omitted (owner-viewed,
+  /// no tracker available, or no event yet observed).
+  private func lastEvaluatedTime(when isParticipantOnShared: Bool) -> Date? {
+    guard isParticipantOnShared else { return nil }
+    return rulesLastEvaluatedTracker?.time(forTrip: trip.id)
+  }
+
+  private static let rulesLastEvaluatedFormatter: RelativeDateTimeFormatter = {
+    let formatter = RelativeDateTimeFormatter()
+    formatter.unitsStyle = .full
+    return formatter
+  }()
+
+  private func rulesLastEvaluatedText(_ date: Date) -> String {
+    let relative = Self.rulesLastEvaluatedFormatter.localizedString(for: date, relativeTo: .now)
+    return "Rules last evaluated \(relative)"
   }
 
   private func chipRow(variant: ThemeVariant) -> some View {
