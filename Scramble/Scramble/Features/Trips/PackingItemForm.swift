@@ -31,6 +31,7 @@ struct PackingItemForm: View {
   let onCancel: () -> Void
 
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.localWriteHook) private var hook
 
   @State private var name: String = ""
   @State private var inlineError: String?
@@ -100,9 +101,11 @@ struct PackingItemForm: View {
     do {
       switch mode {
       case .add(let person, let trip):
-        _ = try Self.performAdd(name: name, person: person, trip: trip, context: modelContext)
+        _ = try Self.performAdd(
+          name: name, person: person, trip: trip, context: modelContext, hook: hook
+        )
       case .edit(let item):
-        try Self.performEdit(item: item, name: name, context: modelContext)
+        try Self.performEdit(item: item, name: name, context: modelContext, hook: hook)
       }
       onSave()
     } catch {
@@ -144,7 +147,8 @@ extension PackingItemForm {
     name: String,
     person: Person,
     trip: Trip,
-    context: ModelContext
+    context: ModelContext,
+    hook: LocalWriteHook
   ) throws -> TripPackingItem {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     let snapshot = (trip.participantSnapshots ?? [])
@@ -161,7 +165,7 @@ extension PackingItemForm {
     )
     context.insert(item)
     do {
-      try context.save()
+      try hook.commit(context)
     } catch {
       context.delete(item)
       throw error
@@ -176,12 +180,13 @@ extension PackingItemForm {
   static func performEdit(
     item: TripPackingItem,
     name: String,
-    context: ModelContext
+    context: ModelContext,
+    hook: LocalWriteHook
   ) throws {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     item.name = trimmed
     do {
-      try context.save()
+      try hook.commit(context)
     } catch {
       context.rollback()
       throw error

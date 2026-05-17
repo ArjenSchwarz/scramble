@@ -20,6 +20,7 @@ import os
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.modelContext) private var modelContext
   @Environment(\.globalsContainer) private var globalsContainer
+  @Environment(\.localWriteHook) private var hook
   @Environment(\.zoneMigrationCoordinator) private var zoneMigrationCoordinator
 
   @State private var showCreateEditor = false
@@ -100,13 +101,17 @@ import os
           from: draft, in: modelContext, globals: globalsContainer.mainContext
         )
         do {
-          try modelContext.save()
+          try hook.commit(modelContext)
         } catch {
           modelContext.rollback()
           return false
         }
         do {
-          try RulesEngineRunner(context: modelContext).runForTrip(newTrip)
+          try RulesEngineRunner(
+            context: modelContext,
+            mastersContext: globalsContainer.mainContext,
+            hook: hook
+          ).runForTrip(newTrip)
         } catch {
           modelLogger.error(
             "[RulesEngine.trip-edit-failed] tripID=\(newTrip.id, privacy: .public) error=\(String(describing: error), privacy: .public)"

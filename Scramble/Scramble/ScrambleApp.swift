@@ -39,19 +39,20 @@ struct ScrambleApp: App {
       context: tripsLocal,
       container: CKContainer(identifier: ModelStore.cloudKitContainerIdentifier)
     )
-    let service = Self.makeSharingService(engine: engine, tripsLocal: tripsLocal)
+    let hook = LocalWriteHook(notifier: engine)
+    let service = Self.makeSharingService(engine: engine, tripsLocal: tripsLocal, hook: hook)
     let tracker = RulesLastEvaluatedTracker()
     self.sharingService = service
     self.syncEngine = engine
     self.rulesLastEvaluatedTracker = tracker
-    self.localWriteHook = LocalWriteHook(notifier: engine)
+    self.localWriteHook = hook
     self.migrationCoordinator = ZoneMigrationCoordinator(
       globalsContext: globals,
       tripsLocalContext: tripsLocal,
       driver: TripSyncEngineZoneMigrationDriver(syncEngine: engine)
     )
     self.triggerOrchestrator = Self.makeTriggerOrchestrator(
-      service: service, tripsLocal: tripsLocal, tracker: tracker
+      service: service, tripsLocal: tripsLocal, tracker: tracker, hook: localWriteHook
     )
     AppDelegate.environment = AppDelegate.Environment(
       sharingService: service,
@@ -65,11 +66,11 @@ struct ScrambleApp: App {
         tripsLocalContainer: ModelStore.containers.tripsLocal
       )
     #endif
-    Self.runColdLaunchEnginePass(service: service)
+    Self.runColdLaunchEnginePass(service: service, hook: localWriteHook)
   }
 
   private static func makeSharingService(
-    engine: TripSyncEngine, tripsLocal: ModelContext
+    engine: TripSyncEngine, tripsLocal: ModelContext, hook: LocalWriteHook
   ) -> any SharingService {
     #if DEBUG
       if EnvironmentProbe.production.isUITestHost {
@@ -79,17 +80,22 @@ struct ScrambleApp: App {
     return CloudKitSharingService(
       container: engine.container,
       context: tripsLocal,
-      syncEngine: engine
+      syncEngine: engine,
+      hook: hook
     )
   }
 
   private static func makeTriggerOrchestrator(
     service: any SharingService,
     tripsLocal: ModelContext,
-    tracker: RulesLastEvaluatedTracker
+    tracker: RulesLastEvaluatedTracker,
+    hook: LocalWriteHook
   ) -> RulesEngineTriggerOrchestrator {
     let runner = RulesEngineRunner(
-      context: tripsLocal, ownerIdentity: service.ownerIdentity(forTrip:)
+      context: tripsLocal,
+      mastersContext: ModelStore.containers.globals.mainContext,
+      ownerIdentity: service.ownerIdentity(forTrip:),
+      hook: hook
     )
     return RulesEngineTriggerOrchestrator(
       run: { tripID in
@@ -105,11 +111,15 @@ struct ScrambleApp: App {
   /// against the `tripsLocal` container — that is where Trip rows now
   /// live; the ownership gate remains permissive for trips without a
   /// `TripZoneState`.
-  private static func runColdLaunchEnginePass(service: any SharingService) {
+  private static func runColdLaunchEnginePass(
+    service: any SharingService, hook: LocalWriteHook
+  ) {
     do {
       _ = try RulesEngineRunner(
         context: ModelStore.containers.tripsLocal.mainContext,
-        ownerIdentity: service.ownerIdentity(forTrip:)
+        mastersContext: ModelStore.containers.globals.mainContext,
+        ownerIdentity: service.ownerIdentity(forTrip:),
+        hook: hook
       ).runForAllNonPastTrips()
     } catch {
       modelLogger.error(

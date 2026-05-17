@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 5.1 — write-path migration (tasks 20–28):
+  - `Scramble/Scramble/Sharing/CloudKitSharingService.swift` — `createShare`, `leaveShare`, and the lazy `fetchZoneState` save now route through `LocalWriteHook.commit(_:)`. `deleteOwnedTrip` and the private `cleanupLocalState` are deleted (`TripDeletion.delete` covers their behaviour). `leaveShare` tolerates `CKError.zoneNotFound` from the shared-DB delete (covers the case where the owner revoked the share concurrently) and then calls `TripDeletion.delete(tripID:in:hook:zoneDeleter: nil)` for the local cascade. Constructor gains a `hook: LocalWriteHook` parameter.
+  - `Scramble/Scramble/Sharing/SharingService.swift` — protocol drops `deleteOwnedTrip(forTrip:)`; `TripDeletion.delete(tripID:in:hook:zoneDeleter:)` is the single Trip-domain deletion entry point.
+  - `Scramble/Scramble/Sharing/UITestSharingService.swift` / `Scramble/ScrambleTests/Sharing/FakeSharingService.swift` — drop the protocol's old method to match.
+
 - Phase 5.1 — read-path conversion (tasks 12–19):
   - `Scramble/Scramble/Features/Trips/TripEditorPeoplePicker.swift` — extracted cross-container people picker. Wrapper applies `.modelContainer(globalsContainer)` to a child `PickerContent`; the inner `@Query<Person>` then resolves against globals from inside a Trip Editor that is rooted in `tripsLocal`. The inline `PersonEditor` sheet inherits the picker's container, so its writes go to globals without extra plumbing. Person-delete moved here (annotated `// LocalWriteHookContract: allow — globals context, not tripsLocal`).
   - `Scramble/ScrambleTests/Components/TaskRowAssigneeTests.swift` — covers `TaskRow.assigneeSnapshot(for:)` static helper: returns the snapshot whose `personID` matches `task.assigneePersonID`; nil for missing match, nil for nil assignee, nil for trip with no snapshots.
@@ -31,6 +36,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `specs/phase-5-cloudkit-sharing/implementation.md` — three-level explanation (beginner / intermediate / expert) of Phase 5's CloudKit sharing pipeline plus a Completeness Assessment mapping the 13 requirement clusters to fully / partially / missing.
 
 ### Changed
+
+- Phase 5.1 — write-path migration callers (tasks 21, 23, 25, 28):
+  - `Scramble/Scramble/Features/Trips/PackingSheet.swift` — both `PackingSheet` and the inner `PackingItemGroup` read `@Environment(\.localWriteHook)`; the `save(_:)` helper calls `hook.commit(modelContext)` in place of `try modelContext.save()`.
+  - `Scramble/Scramble/Features/Trips/TaskForm.swift` — task add/edit saves through the hook.
+  - `Scramble/Scramble/Features/Trips/PackingItemForm.swift` — `performAdd` and `performEdit` now take a `hook: LocalWriteHook` parameter; both call `hook.commit(context)` instead of `context.save()`. The form reads `@Environment(\.localWriteHook)` and passes it to the helpers.
+  - `Scramble/Scramble/Features/Trips/TripListView.swift` / `TripDetailView.swift` — trip create / edit saves go through the hook. Both views inject `\.globalsContainer` into `TripPersistence.create` / `apply` and pass the hook + globals context to the post-save `RulesEngineRunner` so the engine reaches both stores.
+  - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — owner-side `deleteTrip` replaces the previous `modelContext.delete(trip) + save + sharingService.deleteOwnedTrip(...)` sequence with a single `TripDeletion.delete(tripID:in:hook:zoneDeleter:)` call (zoneDeleter derived from the production `CloudKitSharingService.syncEngine`).
+  - `Scramble/Scramble/Features/MasterLists/MasterTaskEditor.swift` / `MasterPackingEditor.swift` — `runEngineAndDismiss` constructs the runner with `context: tripsLocalContainer.mainContext` (trips) and `mastersContext: modelContext` (globals, where the master rules live).
+  - `Scramble/Scramble/Features/Root/RootView.swift` — scene-phase warm-pass runs the engine against tripsLocal + globals via the env-injected hook and globals container.
+  - `Scramble/Scramble/RulesEngine/RulesEngineRunner.swift` — adds `mastersContext: ModelContext?` and `hook: LocalWriteHook?` parameters. `mastersContext` defaults to `context` (back-compat for single-container tests); the runner reads master snapshots from `mastersContext` and writes plan output to `context` via `apply(plan:context:hook:)`. `hook` defaults to a private `NoopRunnerNotifier`-backed instance so unit tests work without sync wiring.
+  - `Scramble/Scramble/RulesEngine/Apply.swift` — `apply(plan:context:hook:)` calls `hook.commit(context)` instead of `context.save()`. `insertAddedPacking` now writes the V3 `personSnapshot` relationship — it looks up the snapshot from `trip.participantSnapshots` by `master.personID` and drops the V2 `Person` fetch entirely (which would have failed against `tripsLocal` anyway). Rule-driven inserts for personIDs without a corresponding snapshot on the trip are skipped with a log line.
+  - `Scramble/Scramble/ScrambleApp.swift` — constructs `LocalWriteHook` first so `makeSharingService` can inject it into `CloudKitSharingService`. `makeTriggerOrchestrator` and `runColdLaunchEnginePass` thread `mastersContext: ModelStore.containers.globals.mainContext` and the production hook through the engine runner.
+  - `Scramble/ScrambleTests/RulesEngine/ApplyTests.swift` / `RulesEngineRunnerTests.swift` / `PackingFormSaveTests.swift` — every call site updated for the new `apply(plan:context:hook:)` and `performAdd(...,hook:)` / `performEdit(...,hook:)` signatures. Tests that exercise `insertAddedPacking` / `runForTrip` seed a `TripPersonSnapshot` on the trip so the new snapshot-based packing-item insert finds an owner; assertions on `inserted.person?.id` switch to `inserted.personSnapshot?.personID`.
 
 - Phase 5.1 — read-path conversion (tasks 13, 15, 16, 19):
   - `Scramble/Scramble/Components/TaskRow.swift` — adds the static `assigneeSnapshot(for:)` helper that reads `task.trip?.participantSnapshots?.first { $0.personID == task.assigneePersonID }`. Avatar render switched from the V2 `Person` traversal to the snapshot's `name` + `colourID`.

@@ -241,6 +241,7 @@ private struct PackingItemGroup: View {
   let onEdit: (TripPackingItem) -> Void
 
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.localWriteHook) private var hook
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
 
@@ -307,7 +308,7 @@ private struct PackingItemGroup: View {
 
   private func save(_ marker: String) {
     do {
-      try modelContext.save()
+      try hook.commit(modelContext)
     } catch {
       modelLogger.error(
         "[PackingSheet.save-failed] \(marker, privacy: .public): \(error.localizedDescription, privacy: .public)"

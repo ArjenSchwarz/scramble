@@ -18,11 +18,20 @@ final class CloudKitSharingService: SharingService {
   let container: CKContainer
   let context: ModelContext
   let syncEngine: TripSyncEngine
+  /// Phase 5.1 — every `tripsLocal` save routes through this chokepoint
+  /// so the engine is notified about dirty / deleted records.
+  let hook: LocalWriteHook
 
-  init(container: CKContainer, context: ModelContext, syncEngine: TripSyncEngine) {
+  init(
+    container: CKContainer,
+    context: ModelContext,
+    syncEngine: TripSyncEngine,
+    hook: LocalWriteHook
+  ) {
     self.container = container
     self.context = context
     self.syncEngine = syncEngine
+    self.hook = hook
   }
 
   // MARK: - createShare
@@ -43,7 +52,11 @@ final class CloudKitSharingService: SharingService {
     // reconstructed from the local store by the translator dispatch.
     syncEngine.enqueueShareSave(share)
     zoneState.shareID = share.recordID.recordName
-    try context.save()
+    // Routes through the chokepoint. `TripZoneState` mappings return
+    // nil from the hook's record-type dispatch, so the save lands but
+    // the notifier emits no record-level signals — the engine has
+    // already learned about the share via `enqueueShareSave`.
+    try hook.commit(context)
     return share
   }
 
@@ -120,71 +133,24 @@ final class CloudKitSharingService: SharingService {
 
   // MARK: - leaveShare
 
+  /// Participant-side leave. Phase 5.1: tolerates the case where the
+  /// remote zone has already been deleted (`CKError.zoneNotFound`) and
+  /// routes the local cleanup through `TripDeletion.delete` so the
+  /// reverse-cascade ends in a single `LocalWriteHook.commitDeletion`
+  /// transaction.
   func leaveShare(forTrip tripID: UUID) async throws {
     let zoneState = try fetchZoneState(forTrip: tripID)
     let zoneID = TripZoneStateRecordTranslator.zoneID(for: zoneState)
-    _ = try await container.sharedCloudDatabase.deleteRecordZone(withID: zoneID)
-    try cleanupLocalState(forTrip: tripID)
-  }
-
-  // MARK: - deleteOwnedTrip
-
-  /// Tear down the tripsLocal-side bookkeeping for an owner-deleted trip
-  /// and ask the private engine to remove the CK zone. The Trip record
-  /// itself lives in the globals container in Phase 5; the view layer
-  /// removes it from there separately.
-  func deleteOwnedTrip(forTrip tripID: UUID) async throws {
-    let descriptor = FetchDescriptor<TripZoneState>(
-      predicate: #Predicate { $0.tripID == tripID }
+    do {
+      _ = try await container.sharedCloudDatabase.deleteRecordZone(withID: zoneID)
+    } catch let error as CKError where error.code == .zoneNotFound {
+      // The owner revoked the share (or another device on the user's
+      // account already left it). Proceed with local cleanup — the
+      // expected post-leave state is identical either way.
+    }
+    try TripDeletion.delete(
+      tripID: tripID, in: context, hook: hook, zoneDeleter: nil
     )
-    let zoneStates = try context.fetch(descriptor)
-    for state in zoneStates {
-      let zoneID = TripZoneStateRecordTranslator.zoneID(for: state)
-      syncEngine.privateEngine?.state.add(
-        pendingDatabaseChanges: [.deleteZone(zoneID)]
-      )
-      state.pendingUploadFlags = Data()
-      context.delete(state)
-    }
-    try context.save()
-  }
-
-  /// Trip-deletion ordering (design § "Trip-deletion ordering"): clear
-  /// dirty flags, then packing items / tasks, then snapshots, then the
-  /// trip itself, then the zone state. Done in one transaction.
-  private func cleanupLocalState(forTrip tripID: UUID) throws {
-    let zoneStates = try context.fetch(
-      FetchDescriptor<TripZoneState>(predicate: #Predicate { $0.tripID == tripID })
-    )
-    for state in zoneStates {
-      state.pendingUploadFlags = Data()
-    }
-
-    let trips = try context.fetch(
-      FetchDescriptor<Trip>(predicate: #Predicate { $0.id == tripID })
-    )
-    guard let trip = trips.first else {
-      // Still tear down the zone state row even when the Trip is gone
-      // already (mid-cleanup crash recovery).
-      for state in zoneStates { context.delete(state) }
-      try context.save()
-      return
-    }
-
-    for item in trip.packingItems ?? [] {
-      context.delete(item)
-    }
-    for task in trip.tasks ?? [] {
-      context.delete(task)
-    }
-    for snapshot in trip.participantSnapshots ?? [] {
-      context.delete(snapshot)
-    }
-    context.delete(trip)
-    for state in zoneStates {
-      context.delete(state)
-    }
-    try context.save()
   }
 
   // MARK: - participants
@@ -295,7 +261,9 @@ final class CloudKitSharingService: SharingService {
       zoneScope: "private"
     )
     context.insert(state)
-    try context.save()
+    // Phase 5.1: lazy-insert lands through the chokepoint.
+    // `TripZoneState` mapping returns nil so this is a save-only path.
+    try hook.commit(context)
     return state
   }
 }

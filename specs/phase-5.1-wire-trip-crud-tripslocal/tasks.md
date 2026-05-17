@@ -153,14 +153,14 @@ references:
 
 ## Phase 4: Write-path migration — direct saves → LocalWriteHook.commit
 
-- [ ] 20. [test] Write tests for view-layer single-commit-per-action behaviour <!-- id:ki2e5nc -->
+- [x] 20. [test] Write tests for view-layer single-commit-per-action behaviour <!-- id:ki2e5nc -->
   - File: ScrambleTests/Features/Trips/ViewSaveCommitsTests.swift (new)
   - Cover with a recording PendingChangeNotifier: a packing-item add/edit/delete in PackingSheet produces exactly one notifier call; a task add/edit in TaskForm produces exactly one; a packing-item add/edit in PackingItemForm produces exactly one; orphan-snapshot cleanup on packing-item delete shows up in the same call (one commit, not two)
   - Stream: 1
   - Requirements: [2.1](requirements.md#2.1), [6.3](requirements.md#6.3)
   - References: design.md § Save-path chokepoint topology
 
-- [ ] 21. [impl] Route PackingSheet, TaskForm, PackingItemForm save sites through LocalWriteHook.commit <!-- id:ki2e5nd -->
+- [x] 21. [impl] Route PackingSheet, TaskForm, PackingItemForm save sites through LocalWriteHook.commit <!-- id:ki2e5nd -->
   - Files: Features/Trips/PackingSheet.swift:310, Features/Trips/TaskForm.swift:145, Features/Trips/PackingItemForm.swift (both save sites)
   - Each view reads @Environment(\.localWriteHook) private var hook and replaces try modelContext.save() with try hook.commit(modelContext)
   - PackingSheet packing-item-delete handler additionally calls SnapshotMaintenance.handlePackingItemDeletion(_:in:) (mutate-only) before context.delete(item) and the single commit
@@ -168,14 +168,14 @@ references:
   - Stream: 1
   - Requirements: [2.1](requirements.md#2.1), [6.3](requirements.md#6.3)
 
-- [ ] 22. [test] Write tests for TripListView trip-create flow producing a TripZoneState before the upload notifier fires <!-- id:ki2e5ne -->
+- [x] 22. [test] Write tests for TripListView trip-create flow producing a TripZoneState before the upload notifier fires <!-- id:ki2e5ne -->
   - File: ScrambleTests/Features/Trips/TripListViewTests.swift (new or extended)
   - Cover: after the create commit returns, the trip TripZoneState exists in tripsLocal, the recording notifier saw a single call carrying the Trip record name as dirty, and the dirty flag is recorded against the new TripZoneState.pendingUploadFlags
   - Stream: 1
   - Requirements: [1.4](requirements.md#1.4), [1.5](requirements.md#1.5)
   - References: design.md § TripPersistence (changed)
 
-- [ ] 23. [impl] Route TripListView and TripDetailView edit/create saves through LocalWriteHook.commit <!-- id:ki2e5nf -->
+- [x] 23. [impl] Route TripListView and TripDetailView edit/create saves through LocalWriteHook.commit <!-- id:ki2e5nf -->
   - Both views read @Environment(\.localWriteHook) private var hook and replace try modelContext.save() with try hook.commit(modelContext)
   - TripListView create path uses the new TripPersistence.create(from:in:globals:) signature with \.globalsContainer resolved from the environment
   - TripDetailView edit path uses the new TripPersistence.apply(_:to:in:globals:) signature
@@ -183,28 +183,28 @@ references:
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [2.1](requirements.md#2.1)
 
-- [ ] 24. [test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit <!-- id:ki2e5ng -->
+- [x] 24. [test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit <!-- id:ki2e5ng -->
   - File: ScrambleTests/RulesEngine/ApplyTests.swift (new or extended)
   - Cover: a plan with adds + flag changes produces a single notifier call carrying all affected record IDs; an apply that throws inside the commit propagates to the caller and context.rollback() clears partial inserts (rollback semantics preserved per design Apply.swift row)
   - Stream: 1
   - Requirements: [2.2](requirements.md#2.2)
   - References: design.md § Apply.swift audit-table row
 
-- [ ] 25. [impl] Update RulesEngine/Apply.swift to call LocalWriteHook.commit <!-- id:ki2e5nh -->
+- [x] 25. [impl] Update RulesEngine/Apply.swift to call LocalWriteHook.commit <!-- id:ki2e5nh -->
   - Replace try context.save() with try hook.commit(context); the hook is passed in as a parameter on apply(plan:context:hook:) (the function gains a new parameter; RulesEngineRunner plumbs it through from its initializer)
   - RulesEngineRunner catch in runForAllNonPastTrips still calls context.rollback() on a per-trip failure
-  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
+  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
   - Stream: 1
   - Requirements: [2.2](requirements.md#2.2)
 
-- [ ] 26. [test] Extend CloudKitSharingServiceTests for save-routing through LocalWriteHook <!-- id:ki2e5ni -->
+- [x] 26. [test] Extend CloudKitSharingServiceTests for save-routing through LocalWriteHook <!-- id:ki2e5ni -->
   - File: ScrambleTests/Sharing/CloudKitSharingServiceTests.swift
   - Cover: createShare saves the shareID via LocalWriteHook.commit (notifier sees no record IDs because TripZoneState mappings return nil — confirms the save-only path works); fetchZoneState lazy insert path commits through the hook; the previously-private deleteOwnedTrip and cleanupLocalState are deleted (tests for them removed; the trip-deletion-via-CloudKitSharingService path is removed)
   - Stream: 1
   - Requirements: [2.1](requirements.md#2.1), [5.1](requirements.md#5.1)
   - References: design.md § Pattern-extension audit CloudKitSharingService rows
 
-- [ ] 27. [impl] Refactor Sharing/CloudKitSharingService.swift — route saves via hook; delete deleteOwnedTrip + cleanupLocalState; leaveShare tolerates zone-not-found and calls TripDeletion.delete <!-- id:ki2e5nj -->
+- [x] 27. [impl] Refactor Sharing/CloudKitSharingService.swift — route saves via hook; delete deleteOwnedTrip + cleanupLocalState; leaveShare tolerates zone-not-found and calls TripDeletion.delete <!-- id:ki2e5nj -->
   - Replace try context.save() at lines 46 and 297 with try hook.commit(context); inject the hook in the constructor
   - Delete deleteOwnedTrip and cleanupLocalState methods (their behaviour is now provided by TripDeletion.delete)
   - leaveShare (currently lines 122-127) calls container.sharedCloudDatabase.deleteRecordZone(withID:); tolerate zone-not-found (CKError.zoneNotFound or similar) as success; then call TripDeletion.delete(tripID:in:hook:zoneDeleter:nil) for the local cascade
@@ -213,7 +213,7 @@ references:
   - Requirements: [2.1](requirements.md#2.1), [5.1](requirements.md#5.1), [9.3](requirements.md#9.3)
   - References: design.md § Error Handling leaveShare zone-not-found row
 
-- [ ] 28. [wire] Switch TripDetailView.deleteTrip to call TripDeletion.delete <!-- id:ki2e5nk -->
+- [x] 28. [wire] Switch TripDetailView.deleteTrip to call TripDeletion.delete <!-- id:ki2e5nk -->
   - File: Scramble/Scramble/Features/Trips/TripDetailView.swift
   - Replace the current modelContext.delete(trip) + modelContext.save() + sharingService.deleteOwnedTrip(...) sequence with a single try TripDeletion.delete(tripID:, in: modelContext, hook: hook, zoneDeleter: TripSyncEngineZoneDeleter(syncEngine:)) call
   - Preserve the existing toast-on-failure path and the dismiss() on success

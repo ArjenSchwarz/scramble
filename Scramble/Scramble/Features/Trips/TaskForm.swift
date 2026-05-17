@@ -35,6 +35,7 @@ struct TaskForm: View {
   let onCancel: () -> Void
 
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.localWriteHook) private var hook
   @Environment(\.dismiss) private var dismiss
 
   @State private var name: String = ""
@@ -142,7 +143,7 @@ struct TaskForm: View {
     // scope for v1"); the breadcrumb in os_log is the diagnostic. Revisit
     // when error surfacing is in scope.
     do {
-      try modelContext.save()
+      try hook.commit(modelContext)
     } catch {
       modelLogger.error(
         "TaskForm.save failed: \(error.localizedDescription, privacy: .public)"

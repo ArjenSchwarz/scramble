@@ -22,6 +22,8 @@ import os
   /// into the environment-injected tripsLocal container directly rather
   /// than relying on `@Environment(\.modelContext)`.
   @Environment(\.tripsLocalContainer) private var tripsLocalContainer
+  @Environment(\.globalsContainer) private var globalsContainer
+  @Environment(\.localWriteHook) private var hook
 
   #if DEBUG
     @State private var scenePhaseRunnerCalls: Int = 0
@@ -50,8 +52,12 @@ import os
       guard newPhase == .active, hasBeenBackgrounded else { return }
       hasBeenBackgrounded = false
       do {
-        _ = try RulesEngineRunner(context: tripsLocalContainer.mainContext)
-          .runForAllNonPastTrips()
+        _ = try RulesEngineRunner(
+          context: tripsLocalContainer.mainContext,
+          mastersContext: globalsContainer.mainContext,
+          hook: hook
+        )
+        .runForAllNonPastTrips()
       } catch {
         modelLogger.error(
           "[RulesEngine.scenePhase-failed] error=\(String(describing: error), privacy: .public)"

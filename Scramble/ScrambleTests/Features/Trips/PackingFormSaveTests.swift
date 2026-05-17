@@ -100,11 +100,13 @@ struct PackingFormSaveTests {
     let (trip, person) = try Self.seedTripWithPerson(in: context)
 
     let raw = "   Sunscreen   "
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
     let inserted = try PackingItemForm.performAdd(
       name: raw,
       person: person,
       trip: trip,
-      context: context
+      context: context,
+      hook: hook
     )
 
     #expect(inserted.name == "Sunscreen")
@@ -156,10 +158,12 @@ struct PackingFormSaveTests {
     context.insert(item)
     try context.save()
 
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
     try PackingItemForm.performEdit(
       item: item,
       name: "  Electric toothbrush  ",
-      context: context
+      context: context,
+      hook: hook
     )
 
     #expect(item.name == "Electric toothbrush")
@@ -189,7 +193,10 @@ struct PackingFormSaveTests {
     context.insert(item)
     try context.save()
 
-    try PackingItemForm.performEdit(item: item, name: "Big umbrella", context: context)
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    try PackingItemForm.performEdit(
+      item: item, name: "Big umbrella", context: context, hook: hook
+    )
 
     #expect(item.masterItemID == masterID)
     #expect(item.source == .rule)

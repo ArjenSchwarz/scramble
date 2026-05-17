@@ -43,11 +43,6 @@
 
     func leaveShare(forTrip tripID: UUID) async throws {}
 
-    func deleteOwnedTrip(forTrip tripID: UUID) async throws {
-      Self.ownerIdentitiesByTrip.removeValue(forKey: tripID)
-      Self.participantsByTrip.removeValue(forKey: tripID)
-    }
-
     func participants(forTrip tripID: UUID) async throws -> [ShareParticipant] {
       Self.participantsByTrip[tripID] ?? []
     }
