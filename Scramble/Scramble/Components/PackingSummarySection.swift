@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 #if canImport(UIKit)
@@ -7,10 +8,15 @@ import SwiftUI
 /// Per-person packing summary block rendered inside the Departure phase
 /// (`mode: .pack`) and the Day-before-return phase (`mode: .repack`). Each
 /// participant gets a `PackingSummaryRow`; tapping a row asks the parent to
-/// open the `PackingSheet`. Participants are sorted by `Person.name`
-/// case-insensitive ascending, with stable tiebreak on `Person.id`. When
-/// `trip.participants` is empty, a single non-interactive placeholder row
-/// is rendered per Req 1.8.
+/// open the `PackingSheet`. Participants are sorted by snapshot `name`
+/// case-insensitive ascending, with stable tiebreak on `personID`. When
+/// the trip has no roster snapshots, a single non-interactive placeholder
+/// row is rendered per Req 1.8.
+///
+/// Phase 5.1 — identity is read from `trip.participantSnapshots`
+/// (constraint C3); the Person reference handed to `onOpenSheet` is
+/// resolved via `PersonLookup` against the globals container so the
+/// PackingSheet downstream API is unchanged.
 struct PackingSummarySection: View {
   let trip: Trip
   let mode: PackingMode
@@ -19,39 +25,51 @@ struct PackingSummarySection: View {
 
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.globalsContainer) private var globalsContainer
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
-    let participants = sortedParticipants
+    let snapshots = sortedRosterSnapshots
     let countsByPerson = PackingListHelpers.countsByPerson(trip)
 
     VStack(alignment: .leading, spacing: 4) {
-      if participants.isEmpty {
+      if snapshots.isEmpty {
         Text("No participants yet — add people on the trip details screen")
           .font(.system(size: 13))
           .foregroundStyle(variant.textSecondary)
           .frame(minHeight: 44, alignment: .leading)
       } else {
-        ForEach(participants, id: \.id) { person in
+        ForEach(snapshots, id: \.personID) { snapshot in
           PackingSummaryRow(
-            person: person,
-            counts: countsByPerson[person.id]
+            snapshot: snapshot,
+            counts: countsByPerson[snapshot.personID]
               ?? PackingCounts(toPack: 0, packed: 0, repacked: 0, excluded: 0),
             mode: mode,
             focusOnDismiss: $focusOnDismiss,
-            onOpen: { onOpenSheet(person, mode) }
+            onOpen: { handleOpen(snapshot: snapshot) }
           )
         }
       }
     }
   }
 
-  private var sortedParticipants: [Person] {
-    let participants = trip.participants ?? []
-    return participants.sorted { lhs, rhs in
+  private func handleOpen(snapshot: TripPersonSnapshot) {
+    guard
+      let person = PersonLookup.person(
+        for: snapshot.personID, in: globalsContainer.mainContext
+      )
+    else {
+      return
+    }
+    onOpenSheet(person, mode)
+  }
+
+  private var sortedRosterSnapshots: [TripPersonSnapshot] {
+    let snapshots = (trip.participantSnapshots ?? []).filter(\.isRosterMember)
+    return snapshots.sorted { lhs, rhs in
       let nameOrder = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
       if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
-      return lhs.id.uuidString < rhs.id.uuidString
+      return lhs.personID.uuidString < rhs.personID.uuidString
     }
   }
 }
@@ -63,7 +81,7 @@ struct PackingSummarySection: View {
 /// `Person.id`; the parent restores VoiceOver focus to the originating row
 /// on sheet dismiss per Req 9.7.
 struct PackingSummaryRow: View {
-  let person: Person
+  let snapshot: TripPersonSnapshot
   let counts: PackingCounts
   let mode: PackingMode
   @AccessibilityFocusState.Binding var focusOnDismiss: UUID?
@@ -74,21 +92,21 @@ struct PackingSummaryRow: View {
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
-    let personColour = theme.personColor(key: person.colorKey, in: colorScheme) ?? .gray
+    let personColour = theme.personColor(key: snapshot.colourID, in: colorScheme) ?? .gray
     let ratio = PackingListHelpers.progressRatio(counts, mode: mode)
     let status = PackingListHelpers.summaryStatus(counts, mode: mode)
 
     Button(action: tap) {
       HStack(spacing: 12) {
         PersonAvatar(
-          name: person.name,
-          colorKey: person.colorKey,
+          name: snapshot.name,
+          colorKey: snapshot.colourID,
           size: .standard,
           isActive: true
         )
 
         VStack(alignment: .leading, spacing: 4) {
-          Text(person.name)
+          Text(snapshot.name)
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(variant.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,9 +129,9 @@ struct PackingSummaryRow: View {
     .buttonStyle(.plain)
     .accessibilityElement(children: .combine)
     .accessibilityLabel(accessibilityLabel)
-    .accessibilityFocused($focusOnDismiss, equals: person.id)
+    .accessibilityFocused($focusOnDismiss, equals: snapshot.personID)
     #if DEBUG
-      .accessibilityIdentifier("tripDetail.packingSummary.\(person.id.uuidString)")
+      .accessibilityIdentifier("tripDetail.packingSummary.\(snapshot.personID.uuidString)")
     #endif
   }
 
@@ -132,10 +150,10 @@ struct PackingSummaryRow: View {
       : counts.packed + counts.repacked
     let numerator: Int = (mode == .pack) ? counts.packed : counts.repacked
     if denominator == 0 {
-      return "\(person.name)'s packing, no items, double tap to open packing sheet"
+      return "\(snapshot.name)'s packing, no items, double tap to open packing sheet"
     }
     return
-      "\(person.name)'s packing, \(numerator) of \(denominator) \(action), double tap to open packing sheet"
+      "\(snapshot.name)'s packing, \(numerator) of \(denominator) \(action), double tap to open packing sheet"
   }
 }
 

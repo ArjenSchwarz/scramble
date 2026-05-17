@@ -131,9 +131,13 @@ extension PackingItemForm {
   }
 
   /// Inserts a manual `TripPackingItem` with the documented field values
-  /// (Req 5.3). Throws on `modelContext.save()` failure; on throw the
-  /// inserted instance is removed from the context so the caller's retry does
-  /// not double-insert.
+  /// (Req 5.3). Phase 5.1: writes the V3 `personSnapshot` relationship
+  /// (looked up against `trip.participantSnapshots` by `person.id`)
+  /// instead of the V2 `person → Person` relationship that would span
+  /// containers under the dual-container split. Throws on
+  /// `modelContext.save()` failure; on throw the inserted instance is
+  /// removed from the context so the caller's retry does not
+  /// double-insert.
   @MainActor
   @discardableResult
   static func performAdd(
@@ -143,15 +147,17 @@ extension PackingItemForm {
     context: ModelContext
   ) throws -> TripPackingItem {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    let snapshot = (trip.participantSnapshots ?? [])
+      .first { $0.personID == person.id }
     let item = TripPackingItem(
       trip: trip,
-      person: person,
       masterItemID: nil,
       name: trimmed,
       state: .unpacked,
       source: .manual,
       currentlyMatchesRules: true,
-      pinnedByUser: false
+      pinnedByUser: false,
+      personSnapshot: snapshot
     )
     context.insert(item)
     do {

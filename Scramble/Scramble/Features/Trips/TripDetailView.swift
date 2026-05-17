@@ -13,6 +13,7 @@ import os
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.globalsContainer) private var globalsContainer
   @Environment(\.dismiss) private var dismiss
   @Environment(\.sharingService) private var sharingService
   @Environment(\.rulesLastEvaluatedTracker) private var rulesLastEvaluatedTracker
@@ -176,7 +177,9 @@ import os
     }
     .sheet(isPresented: $showEditor) {
       TripEditorView(mode: .edit(trip), focusAttribute: editAttributeFocus) { draft in
-        let orphans = TripPersistence.apply(draft, to: trip, in: modelContext)
+        let orphans = TripPersistence.apply(
+          draft, to: trip, in: modelContext, globals: globalsContainer.mainContext
+        )
         do {
           try modelContext.save()
         } catch {
@@ -251,7 +254,7 @@ import os
 
   private func handlePackingSheetDismiss() {
     guard let person = lastOpenedPackingPerson else { return }
-    let participantIDs = (trip.participants ?? []).map(\.id)
+    let participantIDs = (trip.participantSnapshots ?? []).map(\.personID)
     if participantIDs.contains(person.id) {
       packingSummaryFocus = person.id
     } else {
@@ -327,11 +330,13 @@ import os
           .accessibilityIdentifier("tripDetail.rulesLastEvaluated")
       }
 
-      let participants = trip.participants ?? []
-      if !participants.isEmpty {
+      let snapshots = trip.participantSnapshots ?? []
+      if !snapshots.isEmpty {
         HStack(spacing: -6) {
-          ForEach(participants) { person in
-            PersonAvatar(name: person.name, colorKey: person.colorKey, size: .standard)
+          ForEach(snapshots) { snapshot in
+            PersonAvatar(
+              name: snapshot.name, colorKey: snapshot.colourID, size: .standard
+            )
           }
         }
         .padding(.top, 4)

@@ -54,12 +54,21 @@ final class LocalWriteHook {
     zoneIDsBeingDeleted: Set<CKRecordZone.ID>
   ) throws {
     let summary = collectChanges(in: context)
+    // Partition by zoneName only (trip-{uuid}). The hook synthesises
+    // zone IDs with `CKCurrentUserDefaultName`, but a participant
+    // trip's `TripZoneState` carries the remote owner's name; matching
+    // on full `CKRecordZone.ID` would misclassify those zones as
+    // surviving and trigger a re-insert of the just-deleted
+    // `TripZoneState` row inside `applyZoneChange`. Zone names are
+    // owner-agnostic and unique per trip, so a name-only comparison
+    // partitions correctly for both private-DB and shared-DB scopes.
+    let vanishingZoneNames: Set<String> = Set(zoneIDsBeingDeleted.map(\.zoneName))
 
     // Step 1: update TripZoneState rows for surviving zones only. A
     // vanishing zone's TripZoneState row is in the same transaction's
-    // deletedModelsArray; writing into it is wasted work and may race
-    // with the deletion.
-    for change in summary.zoneChanges where !zoneIDsBeingDeleted.contains(change.zoneID) {
+    // deletedModelsArray; writing into it is wasted work and would
+    // re-insert a fresh row.
+    for change in summary.zoneChanges where !vanishingZoneNames.contains(change.zoneID.zoneName) {
       try applyZoneChange(change, in: context)
     }
 

@@ -55,15 +55,15 @@ struct TaskForm: View {
         }
 
         Section("Assignee") {
-          let participants = mode.trip?.participants ?? []
-          if participants.isEmpty {
+          let snapshots = mode.trip?.participantSnapshots ?? []
+          if snapshots.isEmpty {
             Text("No participants yet — add people on the trip details screen")
               .foregroundStyle(.secondary)
           } else {
             Picker("Assignee", selection: $assigneePersonID) {
               Text("None").tag(UUID?.none)
-              ForEach(participants) { person in
-                Text(person.name).tag(Optional(person.id))
+              ForEach(snapshots) { snapshot in
+                Text(snapshot.name).tag(Optional(snapshot.personID))
               }
             }
           }

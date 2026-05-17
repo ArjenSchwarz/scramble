@@ -91,14 +91,14 @@ references:
 
 ## Phase 3: Read-path conversion — V2 reads → snapshots; people picker re-rooting
 
-- [ ] 12. [test] Write tests for assigneeSnapshot(for:) helper <!-- id:ki2e5n4 -->
+- [x] 12. [test] Write tests for assigneeSnapshot(for:) helper <!-- id:ki2e5n4 -->
   - File: ScrambleTests/Components/TaskRowAssigneeTests.swift (new)
   - Cover: returns the snapshot whose personID == task.assigneePersonID; nil when no match; nil when task.assigneePersonID is nil; nil when trip has no snapshots
   - Stream: 1
   - Requirements: [10.1](requirements.md#10.1)
   - References: design.md § Pattern-extension audit / Lookup patterns
 
-- [ ] 13. [impl] Add assigneeSnapshot(for:) helper in Components/TaskRow.swift and apply in Features/Trips/TaskForm.swift <!-- id:ki2e5n5 -->
+- [x] 13. [impl] Add assigneeSnapshot(for:) helper in Components/TaskRow.swift and apply in Features/Trips/TaskForm.swift <!-- id:ki2e5n5 -->
   - Helper: func assigneeSnapshot(for task: TripTask) -> TripPersonSnapshot? doing the participantSnapshots.first { $0.personID == task.assigneePersonID } lookup
   - Replace task.trip?.participants ?? [] (TaskRow.swift:174) with the helper-driven avatar render
   - Replace mode.trip?.participants ?? [] (TaskForm.swift:58) with mode.trip?.participantSnapshots ?? []; the picker selects a personID and the form sets task.assigneePersonID
@@ -106,14 +106,14 @@ references:
   - Stream: 1
   - Requirements: [10.1](requirements.md#10.1)
 
-- [ ] 14. [test] Write tests for TripPersistence snapshot-diff behaviour <!-- id:ki2e5n6 -->
+- [x] 14. [test] Write tests for TripPersistence snapshot-diff behaviour <!-- id:ki2e5n6 -->
   - File: ScrambleTests/Features/Trips/TripPersistenceTests.swift (new)
   - Cover: create and apply produce expected TripPersonSnapshot insert/update/remove diffs against the trip current participantSnapshots; trip.participants is NOT written (asserted by reading the V2 relationship and confirming it is empty); orphan IDs (Person not found in globals) are returned in missingIDs; the call invokes SnapshotMaintenance.handleRosterRemoval exactly once per removed personID (sole-caller invariant); a single LocalWriteHook.commit after the call produces exactly one notifier call summarising the editor save
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [1.5](requirements.md#1.5), [2.1](requirements.md#2.1), [6.2](requirements.md#6.2)
   - References: design.md § TripPersistence (changed)
 
-- [ ] 15. [impl] Rewrite TripPersistence.create / apply to operate on TripPersonSnapshot <!-- id:ki2e5n7 -->
+- [x] 15. [impl] Rewrite TripPersistence.create / apply to operate on TripPersonSnapshot <!-- id:ki2e5n7 -->
   - File: Scramble/Scramble/Features/Trips/TripPersistence.swift
   - New signatures: create(from:in:globals:) and apply(_:to:in:globals:); resolve draft.participantIDs against the globals context to obtain name + colourKey per ID; diff against trip.participantSnapshots and (a) insert new TripPersonSnapshot(personID:..., name:..., colourID:..., initialSource:name, isRosterMember:true, trip:trip) for new IDs, (b) call SnapshotMaintenance.handleRosterRemoval for removed IDs, (c) update existing snapshots in place for kept IDs whose name/colourID has changed
   - create also inserts the TripZoneState row for the new trip up-front (Req 1.5)
@@ -122,21 +122,21 @@ references:
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [1.5](requirements.md#1.5), [6.2](requirements.md#6.2)
 
-- [ ] 16. [wire] Replace V2 trip.participants reads with trip.participantSnapshots across audit-table sites <!-- id:ki2e5n8 -->
+- [x] 16. [wire] Replace V2 trip.participants reads with trip.participantSnapshots across audit-table sites <!-- id:ki2e5n8 -->
   - Files: TripListView.swift:160, TripDetailView.swift:254 and 330, TripDraft.swift:57, PackingSheet.swift:60, PackingSummarySection.swift:50
   - For each site, switch the read to participantSnapshots; downstream consumers that previously held [Person] now hold [TripPersonSnapshot] (rename local bindings to reflect the type)
   - Stream: 1
   - Requirements: [10.1](requirements.md#10.1), [10.3](requirements.md#10.3)
   - References: design.md § Pattern-extension audit
 
-- [ ] 17. [test] Write UI test for cross-container picker reactivity <!-- id:ki2e5n9 -->
+- [x] 17. [test] Write UI test for cross-container picker reactivity <!-- id:ki2e5n9 -->
   - File: ScrambleUITests/TripEditorPickerReactivityUITests.swift (new)
   - Open Trip Editor — picker shows the People list from globals; tap + Add person — create one in the inline PersonEditor sheet; dismiss; assert the new Person appears in the picker without leaving Trip Editor (reactivity proves @Query is bound to globals)
   - Stream: 1
   - Requirements: [9.1](requirements.md#9.1), [10.1](requirements.md#10.1)
   - References: design.md § Cross-container Trip Editor people picker
 
-- [ ] 18. [impl] Extract TripEditorPeoplePicker as a child view re-rooted to .modelContainer(globals) <!-- id:ki2e5na -->
+- [x] 18. [impl] Extract TripEditorPeoplePicker as a child view re-rooted to .modelContainer(globals) <!-- id:ki2e5na -->
   - New file: Scramble/Scramble/Features/Trips/TripEditorPeoplePicker.swift containing the wrapper TripEditorPeoplePicker (applies .modelContainer(globals) to a PickerContent child) and PickerContent (uses @Query var allPeople: [Person] and @Environment(\.modelContext))
   - Move the Person-delete line (TripEditorView.swift:309) into PickerContent; annotate the resulting try modelContext.save() with // LocalWriteHookContract: allow — globals context, not tripsLocal
   - Move the inline + Add person sheet presentation (which mounts PersonEditor) inside PickerContent so the sheet inherits the picker container
@@ -145,7 +145,7 @@ references:
   - Stream: 1
   - Requirements: [9.1](requirements.md#9.1), [10.1](requirements.md#10.1)
 
-- [ ] 19. [wire] Replace item.person reads with item.personSnapshot in PackingItemForm.swift <!-- id:ki2e5nb -->
+- [x] 19. [wire] Replace item.person reads with item.personSnapshot in PackingItemForm.swift <!-- id:ki2e5nb -->
   - The relationship already exists on the V3 schema; rename the read site and any local binding; the form write site (item.personSnapshot = ...) is preserved by the schema
   - Stream: 1
   - Requirements: [10.1](requirements.md#10.1)
@@ -193,7 +193,7 @@ references:
 - [ ] 25. [impl] Update RulesEngine/Apply.swift to call LocalWriteHook.commit <!-- id:ki2e5nh -->
   - Replace try context.save() with try hook.commit(context); the hook is passed in as a parameter on apply(plan:context:hook:) (the function gains a new parameter; RulesEngineRunner plumbs it through from its initializer)
   - RulesEngineRunner catch in runForAllNonPastTrips still calls context.rollback() on a per-trip failure
-  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
+  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
   - Stream: 1
   - Requirements: [2.2](requirements.md#2.2)
 

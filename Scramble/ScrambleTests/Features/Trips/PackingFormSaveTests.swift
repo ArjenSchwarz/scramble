@@ -68,14 +68,25 @@ struct PackingFormSaveTests {
     return try ModelContainer(for: schema, configurations: [config])
   }
 
+  /// Phase 5.1: the form's `performAdd` writes the V3 `personSnapshot`
+  /// relationship by looking up the snapshot from
+  /// `trip.participantSnapshots`. The seed therefore creates a snapshot
+  /// on the trip instead of writing the deprecated V2 `participants`
+  /// relationship.
   private static func seedTripWithPerson(in context: ModelContext) throws -> (Trip, Person) {
     let person = Person(name: "Arjen", colorKey: "blue")
     context.insert(person)
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     context.insert(trip)
-    var participants = trip.participants ?? []
-    participants.append(person)
-    trip.participants = participants
+    let snapshot = TripPersonSnapshot(
+      personID: person.id,
+      name: person.name,
+      colourID: person.colorKey,
+      initialSource: "name",
+      isRosterMember: true,
+      trip: trip
+    )
+    context.insert(snapshot)
     try context.save()
     return (trip, person)
   }
@@ -102,7 +113,8 @@ struct PackingFormSaveTests {
     #expect(inserted.currentlyMatchesRules == true)
     #expect(inserted.pinnedByUser == false)
     #expect(inserted.masterItemID == nil)
-    #expect(inserted.person?.id == person.id)
+    // Phase 5.1: assignee identity is the V3 personSnapshot relationship.
+    #expect(inserted.personSnapshot?.personID == person.id)
     #expect(inserted.trip?.id == trip.id)
 
     // Item is reachable from the trip's packing relationship.

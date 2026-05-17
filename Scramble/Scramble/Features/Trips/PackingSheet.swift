@@ -57,7 +57,7 @@ struct PackingSheet: View {
   }
 
   private var participantIDSignature: Set<UUID> {
-    Set((trip.participants ?? []).map(\.id))
+    Set((trip.participantSnapshots ?? []).map(\.personID))
   }
 
   var body: some View {

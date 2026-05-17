@@ -57,8 +57,8 @@ struct TaskRow: View {
         }
       }
 
-      if let person = resolvedAssignee {
-        PersonAvatar(name: person.name, colorKey: person.colorKey, size: .compact)
+      if let snapshot = Self.assigneeSnapshot(for: task) {
+        PersonAvatar(name: snapshot.name, colorKey: snapshot.colourID, size: .compact)
       }
     }
     .padding(.vertical, 8)
@@ -169,10 +169,15 @@ struct TaskRow: View {
     .accessibilityLabel(task.isCompleted ? "Mark incomplete" : "Mark complete")
   }
 
-  private var resolvedAssignee: Person? {
+  /// Phase 5.1 — looks up the assignee's `TripPersonSnapshot` instead of
+  /// traversing the V2-era `Trip.participants → Person` relationship,
+  /// which spans containers under the Phase 5.1 dual-container split and
+  /// is forbidden by constraint C3. The snapshot carries the same name +
+  /// colour the avatar needs and lives in `tripsLocal` alongside the
+  /// trip and task. Reused by `TaskForm`'s assignee picker.
+  static func assigneeSnapshot(for task: TripTask) -> TripPersonSnapshot? {
     guard let id = task.assigneePersonID else { return nil }
-    let participants = task.trip?.participants ?? []
-    return participants.first { $0.id == id }
+    return task.trip?.participantSnapshots?.first { $0.personID == id }
   }
 
   /// Combines the "completed" dim (UI doc §"Tasks") with the "rule no longer
