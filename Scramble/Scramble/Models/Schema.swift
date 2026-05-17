@@ -288,9 +288,14 @@ extension MigrationJournalEntry {
 
   /// True when every expected record name has been confirmed sent AND the
   /// zone-save event has succeeded — the design's completion correlation.
+  /// A trip with zero records still completes once the zone-save event
+  /// fires: the original `!expectedRecordNames.isEmpty` guard left
+  /// empty-record-set trips stuck in `.stageBInProgress` indefinitely
+  /// because `Set.isSubset(of:)` evaluates to `true` for empty sets but
+  /// the guard short-circuited the whole check.
   var isStageBComplete: Bool {
-    zoneSaved && !expectedRecordNames.isEmpty
-      && expectedRecordNames.isSubset(of: sentRecordNames)
+    guard zoneSaved else { return false }
+    return expectedRecordNames.isSubset(of: sentRecordNames)
   }
 }
 

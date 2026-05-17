@@ -51,6 +51,15 @@ final class ZoneMigrationCoordinator {
   /// `tripsLocal` that has not been moved into its trip zone yet (no
   /// matching `TripZoneState`). Idempotent — skips trips that already
   /// have a journal row.
+  ///
+  /// Until Phase 5.1 routes Trip CRUD through `tripsLocal`, the source
+  /// fetch deliberately stays on `tripsLocalContext`. Switching it to
+  /// `globalsContext` in isolation queues journals for trips whose
+  /// records the engine can't find on upload, leaving every entry stuck
+  /// in `.stageBInProgress` indefinitely (with a permanent "Syncing…"
+  /// badge per trip). The cleaner state is the current silent no-op:
+  /// nothing queues until Phase 5.1 lands the record-relocation step at
+  /// the same time. See `docs/implementation-phases.md`.
   func enqueueAll() throws {
     let existingJournals = try globalsContext.fetch(FetchDescriptor<MigrationJournalEntry>())
     let existingByTrip = Dictionary(

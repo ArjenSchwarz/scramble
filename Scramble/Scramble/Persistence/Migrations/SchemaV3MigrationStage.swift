@@ -45,6 +45,7 @@ nonisolated enum SchemaV3MigrationStage {
     )
 
     var snapshotByPersonID = existingByPersonID
+    var newSnapshots: [TripPersonSnapshot] = []
     for person in participants where existingByPersonID[person.id] == nil {
       let snapshot = TripPersonSnapshot(
         personID: person.id,
@@ -56,6 +57,17 @@ nonisolated enum SchemaV3MigrationStage {
       )
       context.insert(snapshot)
       snapshotByPersonID[person.id] = snapshot
+      newSnapshots.append(snapshot)
+    }
+    // `Trip.participantSnapshots ↔ TripPersonSnapshot.trip` is an unpaired
+    // relationship (see the model decl — the inverse was dropped for the
+    // iOS 26.4 cascade-traversal workaround). SwiftData therefore can't
+    // auto-populate the trip-side array from the snapshot-side `trip`
+    // reference; the writer has to maintain both sides explicitly.
+    if !newSnapshots.isEmpty {
+      var combined = existingSnapshots
+      combined.append(contentsOf: newSnapshots)
+      trip.participantSnapshots = combined
     }
 
     for item in trip.packingItems ?? [] {
