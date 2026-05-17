@@ -37,13 +37,11 @@ final class CloudKitSharingService: SharingService {
     let zoneID = TripZoneStateRecordTranslator.zoneID(for: zoneState)
     let share = CKShare(recordZoneID: zoneID)
     share.publicPermission = .none
-    // Hand the CKShare to the engine for upload via
-    // CKSyncEngine.State.add(pendingRecordZoneChanges:) — the engine's
-    // delegate emits the share record on the next batch and confirms via
-    // sentRecordZoneChanges.
-    syncEngine.privateEngine?.state.add(
-      pendingRecordZoneChanges: [.saveRecord(share.recordID)]
-    )
+    // Hand the CKShare to the engine. `enqueueShareSave` caches the
+    // CKShare so the engine's record provider can return the actual
+    // instance — `CKShare` is not in SwiftData and cannot be
+    // reconstructed from the local store by the translator dispatch.
+    syncEngine.enqueueShareSave(share)
     zoneState.shareID = share.recordID.recordName
     try context.save()
     return share

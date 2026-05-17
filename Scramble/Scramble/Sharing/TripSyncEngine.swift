@@ -36,6 +36,13 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
   /// `wasSelfOriginated(_:)` consumes them.
   private var sentRecordIDs: Set<CKRecord.ID> = []
 
+  /// Outbound `CKShare` instances waiting to be returned by the engine's
+  /// record provider. `CKShare` doesn't live in SwiftData, so the
+  /// translator-based `encodeRecord(for:scope:)` path can't reconstruct
+  /// it — the actual instance has to be cached here from
+  /// `enqueueShareSave(_:)` until `handleSentChanges` confirms upload.
+  private var pendingShares: [CKRecord.ID: CKShare] = [:]
+
   let events: AsyncStream<TripSyncEvent>
   private let eventContinuation: AsyncStream<TripSyncEvent>.Continuation
 
@@ -133,6 +140,11 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
     for recordID: CKRecord.ID,
     scope: CKDatabase.Scope
   ) -> CKRecord? {
+    // CKShare instances are cached in `pendingShares` because they are
+    // not backed by SwiftData and cannot be reconstructed from the local
+    // store. Return the cached instance unmodified; CloudKit accepts it
+    // and the engine then surfaces the save via `sentRecordZoneChanges`.
+    if let share = pendingShares[recordID] { return share }
     guard let recordUUID = UUID(uuidString: recordID.recordName) else { return nil }
     // Trip
     if let trip = try? context.fetch(
@@ -244,6 +256,20 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
     }
 
     try context.save()
+  }
+
+  // MARK: - Share record outbound
+
+  /// Queue a `CKShare` for upload on the private engine. The share is
+  /// cached in `pendingShares` so the record provider can return the
+  /// actual instance when CloudKit asks for it; once the send is
+  /// confirmed via `sentRecordZoneChanges` the cache entry is dropped.
+  func enqueueShareSave(_ share: CKShare) {
+    pendingShares[share.recordID] = share
+    privateEngine?.state.add(
+      pendingRecordZoneChanges: [.saveRecord(share.recordID)]
+    )
+    markSelfOriginated([share.recordID])
   }
 
   // MARK: - Self-origination tracking
@@ -458,6 +484,10 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     // once per record.
     var buckets: [String: [(UUID, Data)]] = [:]
     for saved in event.savedRecords {
+      // Drop the cached share now that CloudKit has acknowledged the
+      // save — the next createShare on the same trip will surface a new
+      // CKShare from the service.
+      pendingShares.removeValue(forKey: saved.recordID)
       guard let id = UUID(uuidString: saved.recordID.recordName) else { continue }
       buckets[saved.recordType, default: []].append((id, encodeSystemFields(of: saved)))
     }
