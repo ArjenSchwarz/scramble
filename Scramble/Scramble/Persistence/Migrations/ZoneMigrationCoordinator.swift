@@ -257,7 +257,18 @@ final class ZoneMigrationCoordinator {
     let descriptor = FetchDescriptor<MigrationJournalEntry>(
       predicate: #Predicate { $0.tripID == tripID }
     )
-    return try? globalsContext.fetch(descriptor).first
+    // Surface the fetch error rather than swallowing it; every event
+    // handler that calls this then no-ops, which is indistinguishable
+    // from "no journal exists" — masked migration stalls.
+    do {
+      return try globalsContext.fetch(descriptor).first
+    } catch {
+      let message = error.localizedDescription
+      modelLogger.error(
+        "[ZoneMigrationCoordinator] fetchJournal(\(tripID, privacy: .public)) failed: \(message, privacy: .public)"
+      )
+      return nil
+    }
   }
 
   private func finaliseIfComplete(_ journal: MigrationJournalEntry) {
