@@ -7,7 +7,7 @@
 | [Phase 3 Timeline Tasks](#phase-3-timeline-tasks) | 2026-05-14 | Done | Trip Detail timeline accordion plus tasks list with explainability and short-trip compression. |
 | [Phase 4 Packing Sheet](#phase-4-packing-sheet) | 2026-05-15 | Done | Per-person packing summary block and bottom sheet with pack and repack modes. |
 | [Phase 5 CloudKit Sharing](#phase-5-cloudkit-sharing) | 2026-05-17 | Done | Per-trip CKShare via custom zones, SchemaV3 snapshots, and silent-push subscriptions. |
-| [Phase 5.1 Wire Trip Crud Tripslocal](#phase-5.1-wire-trip-crud-tripslocal) | 2026-05-17 | Planned | Route Trip CRUD reads and writes through `tripsLocal` so the sync pipeline carries edits. |
+| [Phase 5.1 Wire Trip Crud Tripslocal](#phase-5.1-wire-trip-crud-tripslocal) | 2026-05-17 | In Progress | Route Trip CRUD reads and writes through `tripsLocal` so the sync pipeline carries edits. |
 
 ---
 

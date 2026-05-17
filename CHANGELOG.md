@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 5.1 — chokepoint extension (tasks 6–11):
+  - `Scramble/Scramble/Sharing/LocalWriteHook.swift` — adds `commitDeletion(_ context: ModelContext, zoneIDsBeingDeleted: Set<CKRecordZone.ID>)`. Partitions pending changes by mapped-zone membership in the vanishing-zone set: surviving-zone records follow the regular `commit(_:)` path (flag update + notifier signal); vanishing-zone records skip the per-`TripZoneState` flag update but still signal the notifier with deleted IDs so the engine queues `deleteRecord` operations alongside `deleteZone`. Refactors `commit` and `commitDeletion` to share a private `commitChanges(in:zoneIDsBeingDeleted:)` path so the only behavioural difference is the flag-write guard.
+  - `Scramble/ScrambleTests/Sharing/LocalWriteHookTests.swift` — three new tests for the mixed-zone partition contract: (a) deletion in vanishing zone Z1 + edit in surviving zone Z2 produces notifier-deleted-from-Z1 and dirty-in-Z2; (b) nil-mapping rows (`TripZoneState` in `deletedModelsArray`) are invisible to both flag update and notifier; (c) all-vanishing-zone deletions produce notifier signals but leave the about-to-be-deleted `pendingUploadFlags` blob untouched. `RecordingNotifier.calls` is now publicly mutable so tests can reset between commits in the same suite.
+
 - Phase 5.1 — foundation (tasks 1–5):
   - `Scramble/Scramble/Persistence/GlobalsContainerKey.swift` — SwiftUI environment carrier for the `globals` `ModelContainer`, mirroring `TripsLocalContainerKey`. Default value is `ModelStore.containers.globals`; production injects in `ScrambleApp.rootContent()` so Trip subtrees rooted in `tripsLocal` can re-root cross-container reads (people picker, `PersonLookup`).
   - `Scramble/Scramble/Persistence/LocalWriteHookEnvironmentKey.swift` — SwiftUI environment carrier for the shared `LocalWriteHook`. Default value is a `LocalWriteHook` whose notifier is a private `FallbackPendingChangeNotifier` that discards silently in test/UI-test/preview surroundings and emits a `fault`-level log plus DEBUG `assertionFailure` in production. Pairs with the (Phase 6) source-scan contract test to close both halves of the silent-failure mode Phase 5.1 exists to eliminate; documented as decision_log Decision 6.
@@ -21,6 +25,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `specs/phase-5-cloudkit-sharing/implementation.md` — three-level explanation (beginner / intermediate / expert) of Phase 5's CloudKit sharing pipeline plus a Completeness Assessment mapping the 13 requirement clusters to fully / partially / missing.
 
 ### Changed
+
+- Phase 5.1 — chokepoint extension callers (tasks 9, 11):
+  - `Scramble/Scramble/Sharing/SnapshotMaintenance.swift` — every routine (`propagatePersonEdit`, `handleRosterRemoval`, `handlePackingItemDeletion`, `sweep`) is now mutate-only: no `context.save()` calls, no `flagDirty` helper (deleted). The caller is responsible for committing through `LocalWriteHook.commit(_:)` so one user action collapses to one commit and the hook handles all dirty-marking uniformly.
+  - `Scramble/Scramble/Sharing/TripDeletion.swift` — `delete` signature is now `delete(tripID:in:hook:zoneDeleter:)`. The single context save routes through `hook.commitDeletion(context, zoneIDsBeingDeleted:)` so deleted record IDs reach the engine while the per-`TripZoneState` flag write is skipped for the vanishing zone. Drops the leading `pendingUploadFlags = Data()` reset — the new `commitDeletion` partition makes it redundant.
+  - `Scramble/ScrambleTests/Sharing/SnapshotMaintenanceTests.swift` — every test now drives the routine, commits via `LocalWriteHook.commit(_:)`, and (where relevant) asserts the recording notifier observed the expected dirty/deleted record IDs.
+  - `Scramble/ScrambleTests/Sharing/TripDeletionTests.swift` — every existing test instantiates a `LocalWriteHook` and passes it to `TripDeletion.delete`. Adds three new tests: `commitDeletion` routing yields a single vanishing-zone notifier signal carrying every deleted record ID; participant-scope deletion does not enqueue a zone delete; deleting a non-existent trip is idempotent.
 
 - Phase 5.1 — container topology wiring (task 3):
   - `Scramble/Scramble/Features/Root/RootView.swift` — Trips tab subtree now binds `.modelContainer(tripsLocalContainer)`; scene-phase warm-pass switched from `@Environment(\.modelContext)` (globals) to the env-injected `\.tripsLocalContainer.mainContext` so the rules engine runs against the container that now holds the trip-domain rows.

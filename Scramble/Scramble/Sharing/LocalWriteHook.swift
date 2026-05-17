@@ -26,11 +26,40 @@ final class LocalWriteHook {
   /// `TripZoneState` rows, save once, then notify the sync engine. Errors
   /// from `save()` propagate to the caller.
   func commit(_ context: ModelContext) throws {
+    try commitChanges(in: context, zoneIDsBeingDeleted: [])
+  }
+
+  /// Phase 5.1 — same contract as `commit(_:)` but partitions changes by
+  /// whether their mapped zone is in `zoneIDsBeingDeleted`. For records
+  /// whose zone is vanishing in this same transaction, the per-
+  /// `TripZoneState` flag update is skipped (the row is also being
+  /// deleted); the notifier is still called with the deleted record IDs
+  /// so the engine queues `deleteRecord` operations alongside the
+  /// `deleteZone`. Records whose zone is not vanishing follow the
+  /// regular `commit(_:)` path (flag update + notifier signal).
+  ///
+  /// Used by `TripDeletion.delete` so the entire reverse-cascade ends in
+  /// a single chokepoint call.
+  func commitDeletion(
+    _ context: ModelContext,
+    zoneIDsBeingDeleted: Set<CKRecordZone.ID>
+  ) throws {
+    try commitChanges(in: context, zoneIDsBeingDeleted: zoneIDsBeingDeleted)
+  }
+
+  // MARK: - Unified commit path
+
+  private func commitChanges(
+    in context: ModelContext,
+    zoneIDsBeingDeleted: Set<CKRecordZone.ID>
+  ) throws {
     let summary = collectChanges(in: context)
 
-    // Step 1: update TripZoneState rows so they include the dirty/deleted
-    // record names, before the save flushes everything together.
-    for change in summary.zoneChanges {
+    // Step 1: update TripZoneState rows for surviving zones only. A
+    // vanishing zone's TripZoneState row is in the same transaction's
+    // deletedModelsArray; writing into it is wasted work and may race
+    // with the deletion.
+    for change in summary.zoneChanges where !zoneIDsBeingDeleted.contains(change.zoneID) {
       try applyZoneChange(change, in: context)
     }
 
@@ -39,8 +68,8 @@ final class LocalWriteHook {
     try context.save()
 
     // Step 3: tell the engine which records to send / delete on the next
-    // batch. The notifier is responsible for choosing the database scope
-    // (private vs shared) based on each zone's state.
+    // batch. Vanishing-zone records still notify so the engine queues
+    // their `deleteRecord` operations alongside the `deleteZone`.
     for change in summary.zoneChanges {
       let recordIDs = change.dirtyRecordNames.map { recordName in
         CKRecord.ID(recordName: recordName, zoneID: change.zoneID)

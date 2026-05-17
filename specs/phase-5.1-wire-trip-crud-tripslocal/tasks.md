@@ -47,42 +47,42 @@ references:
 
 ## Phase 2: Chokepoint extension — LocalWriteHook + SnapshotMaintenance + TripDeletion
 
-- [ ] 6. [test] Extend LocalWriteHookTests for commitDeletion mixed-zone partition <!-- id:ki2e5my -->
+- [x] 6. [test] Extend LocalWriteHookTests for commitDeletion mixed-zone partition <!-- id:ki2e5my -->
   - File: ScrambleTests/Sharing/LocalWriteHookTests.swift
   - Cover per the design mixed-zone partition contract: (a) deletion in vanishing zone Z1 + edit in surviving zone Z2 produces notifier-deleted-from-Z1 and dirty-in-Z2; surviving zone state pendingUploadFlags carries Z2 dirty name only; (b) nil-mapping rows (e.g., TripZoneState in deletedModelsArray) are invisible to both flag update and notifier; (c) all records mapped to a vanishing zone produce notifier signals but no flag write
   - Stream: 1
   - Requirements: [2.4](requirements.md#2.4)
   - References: design.md § LocalWriteHook (changed), § Concurrency and ordering contracts
 
-- [ ] 7. [impl] Implement LocalWriteHook.commitDeletion(_:zoneIDsBeingDeleted:) <!-- id:ki2e5mz -->
+- [x] 7. [impl] Implement LocalWriteHook.commitDeletion(_:zoneIDsBeingDeleted:) <!-- id:ki2e5mz -->
   - File: Scramble/Scramble/Sharing/LocalWriteHook.swift
   - Partition mapped records by zoneIDsBeingDeleted set membership; surviving-zone records follow the existing commit path; vanishing-zone records skip flag update but still signal the notifier with deleted IDs
   - Blocked-by: ki2e5my ([test] Extend LocalWriteHookTests for commitDeletion mixed-zone partition)
   - Stream: 1
   - Requirements: [2.4](requirements.md#2.4)
 
-- [ ] 8. [test] Update SnapshotMaintenanceTests for mutate-only routines <!-- id:ki2e5n0 -->
+- [x] 8. [test] Update SnapshotMaintenanceTests for mutate-only routines <!-- id:ki2e5n0 -->
   - File: ScrambleTests/Sharing/SnapshotMaintenanceTests.swift
   - Each test now drives the routine, then commits via LocalWriteHook.commit, and asserts the recording notifier observed the expected dirty/deleted record IDs; existing behavioural assertions (propagation fan-out, roster removal, packing-item cleanup, sweep) retained
   - Stream: 1
   - Requirements: [6.1](requirements.md#6.1), [6.2](requirements.md#6.2), [6.3](requirements.md#6.3), [6.4](requirements.md#6.4), [2.3](requirements.md#2.3)
   - References: design.md § Save-path chokepoint topology, audit-table row for SnapshotMaintenance.swift
 
-- [ ] 9. [impl] Refactor SnapshotMaintenance routines to mutate-only <!-- id:ki2e5n1 -->
+- [x] 9. [impl] Refactor SnapshotMaintenance routines to mutate-only <!-- id:ki2e5n1 -->
   - File: Scramble/Scramble/Sharing/SnapshotMaintenance.swift
   - Drop every context.save() call (lines 55, 59, 81, 98, 111); delete the manual flagDirty helper (LocalWriteHook now handles dirty marking); update docs to state caller is responsible for committing via LocalWriteHook.commit
   - Blocked-by: ki2e5mz ([impl] Implement LocalWriteHook.commitDeletion(_:zoneIDsBeingDeleted:)), ki2e5n0 ([test] Update SnapshotMaintenanceTests for mutate-only routines)
   - Stream: 1
   - Requirements: [6.1](requirements.md#6.1), [6.2](requirements.md#6.2), [6.3](requirements.md#6.3), [6.4](requirements.md#6.4)
 
-- [ ] 10. [test] Extend TripDeletionTests for commitDeletion routing <!-- id:ki2e5n2 -->
+- [x] 10. [test] Extend TripDeletionTests for commitDeletion routing <!-- id:ki2e5n2 -->
   - File: ScrambleTests/Sharing/TripDeletionTests.swift
   - Assert TripDeletion.delete invokes LocalWriteHook.commitDeletion once with the correct zoneIDsBeingDeleted set; owner-scope still enqueues deleteZone; participant-scope does not; idempotent against missing trip; the recording notifier observed the expected deleted record IDs
   - Stream: 1
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3)
   - References: design.md § TripDeletion (changed)
 
-- [ ] 11. [impl] Refactor TripDeletion.delete to route through LocalWriteHook.commitDeletion <!-- id:ki2e5n3 -->
+- [x] 11. [impl] Refactor TripDeletion.delete to route through LocalWriteHook.commitDeletion <!-- id:ki2e5n3 -->
   - File: Scramble/Scramble/Sharing/TripDeletion.swift
   - New signature: delete(tripID:in:hook:zoneDeleter:); collect zoneIDsBeingDeleted from the fetched TripZoneState rows; stage the reverse-cascade deletions in the context; call hook.commitDeletion(context, zoneIDsBeingDeleted:); owner-scope post-commit enqueues deleteZone
   - Blocked-by: ki2e5mz ([impl] Implement LocalWriteHook.commitDeletion(_:zoneIDsBeingDeleted:)), ki2e5n2 ([test] Extend TripDeletionTests for commitDeletion routing)
@@ -193,7 +193,7 @@ references:
 - [ ] 25. [impl] Update RulesEngine/Apply.swift to call LocalWriteHook.commit <!-- id:ki2e5nh -->
   - Replace try context.save() with try hook.commit(context); the hook is passed in as a parameter on apply(plan:context:hook:) (the function gains a new parameter; RulesEngineRunner plumbs it through from its initializer)
   - RulesEngineRunner catch in runForAllNonPastTrips still calls context.rollback() on a per-trip failure
-  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
+  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
   - Stream: 1
   - Requirements: [2.2](requirements.md#2.2)
 
