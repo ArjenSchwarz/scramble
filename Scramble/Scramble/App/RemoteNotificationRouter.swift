@@ -55,13 +55,22 @@ final class TripSyncEngineNotificationFetcher: RemoteNotificationFetcher {
   }
 
   func fetchChanges(scope: CKDatabase.Scope) async throws {
+    let engine: CKSyncEngine?
     switch scope {
-    case .private:
-      try await syncEngine.privateEngine?.fetchChanges()
-    case .shared:
-      try await syncEngine.sharedEngine?.fetchChanges()
-    default:
-      return
+    case .private: engine = syncEngine.privateEngine
+    case .shared: engine = syncEngine.sharedEngine
+    default: return
     }
+    // The engine is `nil` only when `TripSyncEngine.start()` hasn't run
+    // (pre-MigrationGate launch path). Surfacing this as an error keeps
+    // `RemoteNotificationRouter.route` from reporting `.newData` for a
+    // fetch that never happened — UIKit would then mark the notification
+    // handled and never re-deliver it.
+    guard let engine else { throw NotificationFetcherError.engineUnavailable }
+    try await engine.fetchChanges()
   }
+}
+
+enum NotificationFetcherError: Error {
+  case engineUnavailable
 }

@@ -82,10 +82,26 @@ final class CloudKitSharingService: SharingService {
       .saveZone(CKRecordZone(zoneID: metadata.share.recordID.zoneID))
     ])
     try await sharedEngine?.fetchChanges()
-    let ownerName = metadata.ownerIdentity.userRecordID?.recordName
+    // Prefer the display name CloudKit resolved; fall back to email; only
+    // leave `nil` when CloudKit has no human-readable identifier yet (the
+    // raw `userRecordID.recordName` is an opaque `_abc123…` string and is
+    // not safe to surface in UI per Req 7.1).
+    let owner = metadata.ownerIdentity
+    let ownerDisplayName: String? = {
+      if let components = owner.nameComponents {
+        let formatted = Self.personNameFormatter
+          .string(from: components)
+          .trimmingCharacters(in: .whitespaces)
+        if !formatted.isEmpty { return formatted }
+      }
+      if let email = owner.lookupInfo?.emailAddress, !email.isEmpty {
+        return email
+      }
+      return nil
+    }()
     return AcceptedShareResult(
       zoneID: metadata.share.recordID.zoneID,
-      ownerDisplayName: ownerName
+      ownerDisplayName: ownerDisplayName
     )
   }
 
@@ -170,15 +186,24 @@ final class CloudKitSharingService: SharingService {
       ? container.sharedCloudDatabase : container.privateCloudDatabase
     let record = try await database.record(for: recordID)
     guard let share = record as? CKShare else { return [] }
-    return share.participants.map(Self.makeShareParticipant)
+    let currentUserRecordID = share.currentUserParticipant?.userIdentity.userRecordID
+    return share.participants.map {
+      Self.makeShareParticipant($0, currentUserRecordID: currentUserRecordID)
+    }
   }
 
   /// Apply Req 7.1's display-name fallback (`displayName → email →
   /// "Invited participant"`) together with Req 7.8's in-flight
   /// placeholder: while CloudKit is still resolving the identity for a
   /// pending invite, show `"Loading…"` rather than the terminal
-  /// "Invited participant" string.
-  static func makeShareParticipant(_ participant: CKShare.Participant) -> ShareParticipant {
+  /// "Invited participant" string. `isCurrentUser` is decided by record-ID
+  /// match against `share.currentUserParticipant` rather than the
+  /// participant role, so a participant on the share recognises their own
+  /// row (the role check would only mark the trip's owner).
+  static func makeShareParticipant(
+    _ participant: CKShare.Participant,
+    currentUserRecordID: CKRecord.ID? = nil
+  ) -> ShareParticipant {
     let identity = participant.userIdentity
     let lookup = identity.lookupInfo
     let formattedName = identity.nameComponents.flatMap(personNameDisplayName)
@@ -199,18 +224,31 @@ final class CloudKitSharingService: SharingService {
       // terminal fallback.
       return acceptance == .pending ? "Loading…" : "Invited participant"
     }()
+    let isCurrentUser: Bool = {
+      if let currentUserRecordID, let theirID = identity.userRecordID {
+        return currentUserRecordID == theirID
+      }
+      return false
+    }()
     return ShareParticipant(
       id: identity.userRecordID?.recordName ?? UUID().uuidString,
       displayName: displayName,
       acceptanceState: acceptance,
-      isCurrentUser: participant.role == .owner
+      isCurrentUser: isCurrentUser
     )
   }
 
-  private static func personNameDisplayName(_ components: PersonNameComponents) -> String? {
+  /// Shared formatter for owner + participant name resolution; allocating
+  /// per call adds up in the Participants section's loop.
+  private static let personNameFormatter: PersonNameComponentsFormatter = {
     let formatter = PersonNameComponentsFormatter()
     formatter.style = .default
-    let result = formatter.string(from: components).trimmingCharacters(in: .whitespaces)
+    return formatter
+  }()
+
+  private static func personNameDisplayName(_ components: PersonNameComponents) -> String? {
+    let result = personNameFormatter.string(from: components)
+      .trimmingCharacters(in: .whitespaces)
     return result.isEmpty ? nil : result
   }
 

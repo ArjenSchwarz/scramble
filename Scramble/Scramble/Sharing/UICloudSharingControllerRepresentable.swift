@@ -66,7 +66,13 @@ struct UICloudSharingControllerRepresentable: UIViewControllerRepresentable {
     }
 
     nonisolated func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
-      // No-op; CKSyncEngine confirms the save via sentRecordZoneChanges.
+      // CKSyncEngine confirms the save via sentRecordZoneChanges, but the
+      // SwiftUI parent's sheet binding does not observe UIKit's internal
+      // dismissal — without `onDismiss` the `isPresented` binding stays
+      // true and re-tapping Share won't re-present the sheet.
+      Task { @MainActor in
+        self.onDismiss()
+      }
     }
   }
 }

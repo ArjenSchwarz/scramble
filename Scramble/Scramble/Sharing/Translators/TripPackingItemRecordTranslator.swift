@@ -46,12 +46,15 @@ enum TripPackingItemRecordTranslator {
     if let tripID {
       item.trip = try fetchTrip(id: tripID, in: context)
     }
+    // Only assign when the key resolves to a UUID. Absence on the inbound
+    // record means "no change" — we cannot distinguish a field the sender
+    // omitted from a field the sender cleared, so the conservative read
+    // matches the `tripID` handling above and avoids destroying the local
+    // value when an older client schema didn't carry the field.
     let snapshotID = (record["personSnapshotID"] as? String)
       .flatMap(UUID.init(uuidString:))
     if let snapshotID {
       item.personSnapshot = try fetchSnapshot(id: snapshotID, in: context)
-    } else if record["personSnapshotID"] == nil {
-      item.personSnapshot = nil
     }
     item.masterItemID =
       (record["masterItemID"] as? String).flatMap(UUID.init(uuidString:))

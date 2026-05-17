@@ -170,9 +170,23 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
   /// Apply fetched records to the local store via the matching translator.
   /// Each record dispatches by `recordType`. Unknown types are logged and
   /// skipped — the spec policy is "tolerate older clients" (Decision 13).
+  /// Per-record translator failures are logged and the loop continues so
+  /// one malformed record can't strand the rest of an inbound batch.
+  /// CKSyncEngine considers an event "delivered" once `handleEvent`
+  /// returns, so the only safe behaviour is to commit the records we
+  /// successfully translated.
   func apply(fetchedRecords: [CKRecord]) throws {
     for record in fetchedRecords {
-      try apply(record)
+      do {
+        try apply(record)
+      } catch {
+        let type = record.recordType
+        let name = record.recordID.recordName
+        let message = error.localizedDescription
+        modelLogger.error(
+          "[TripSyncEngine] apply(record) failed for \(type, privacy: .public) \(name, privacy: .public): \(message, privacy: .public)"
+        )
+      }
     }
     try context.save()
   }
