@@ -458,7 +458,9 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     entries: [(UUID, Data)]
   ) throws {
     let ids = Set(entries.map(\.0))
-    let encodedByID = Dictionary(uniqueKeysWithValues: entries)
+    // Last write wins if CKSyncEngine ever surfaces duplicate record IDs
+    // in a single event — preferable to a trap.
+    let encodedByID = Dictionary(entries, uniquingKeysWith: { _, new in new })
     switch recordType {
     case TripRecordTranslator.recordType:
       let matches = try context.fetch(
