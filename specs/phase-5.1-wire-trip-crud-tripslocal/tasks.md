@@ -8,21 +8,21 @@ references:
 
 ## Phase 1: Foundation — container topology and env keys
 
-- [ ] 1. [config] Add \.globalsContainer SwiftUI environment key <!-- id:ki2e5mt -->
+- [x] 1. [config] Add \.globalsContainer SwiftUI environment key <!-- id:ki2e5mt -->
   - File: Scramble/Scramble/Persistence/GlobalsContainerKey.swift
   - Mirror the existing TripsLocalContainerKey shape; default value ModelStore.containers.globals
   - Stream: 1
   - Requirements: [9.1](requirements.md#9.1), [9.2](requirements.md#9.2)
   - References: design.md § Cross-container Trip Editor people picker
 
-- [ ] 2. [config] Add \.localWriteHook SwiftUI environment key <!-- id:ki2e5mu -->
+- [x] 2. [config] Add \.localWriteHook SwiftUI environment key <!-- id:ki2e5mu -->
   - File: Scramble/Scramble/Persistence/LocalWriteHookEnvironmentKey.swift
   - Default value is a fatal-error stub for previews; production injection happens in ScrambleApp.rootContent()
   - Stream: 1
   - Requirements: [2.1](requirements.md#2.1)
   - References: design.md § Integration points
 
-- [ ] 3. [wire] Wire RootView to bind subtrees to their containers and switch cold-launch engine pass to tripsLocal <!-- id:ki2e5mv -->
+- [x] 3. [wire] Wire RootView to bind subtrees to their containers and switch cold-launch engine pass to tripsLocal <!-- id:ki2e5mv -->
   - File: Scramble/Scramble/Features/Root/RootView.swift
   - Wrap the Trips-tab subtree in .modelContainer(tripsLocal); wrap the Master-Lists-tab subtree in .modelContainer(globals)
   - Inject \.globalsContainer and \.localWriteHook in ScrambleApp.rootContent() so both flow through the entire tree
@@ -31,14 +31,14 @@ references:
   - Requirements: [1.5](requirements.md#1.5)
   - References: design.md § Container topology after Phase 5.1, Integration points
 
-- [ ] 4. [test] Write tests for PersonLookup.person(for:in:) helper <!-- id:ki2e5mw -->
+- [x] 4. [test] Write tests for PersonLookup.person(for:in:) helper <!-- id:ki2e5mw -->
   - File: ScrambleTests/Features/Trips/PersonLookupTests.swift
   - Cover: resolution against an in-memory globals container; nil for missing UUID; no side effects on the context
   - Stream: 1
   - Requirements: [10.1](requirements.md#10.1)
   - References: design.md § Cross-container Person lookup helper
 
-- [ ] 5. [impl] Implement Features/Trips/PersonLookup.swift <!-- id:ki2e5mx -->
+- [x] 5. [impl] Implement Features/Trips/PersonLookup.swift <!-- id:ki2e5mx -->
   - File: Scramble/Scramble/Features/Trips/PersonLookup.swift
   - One-shot UUID lookup against a supplied globals ModelContext; main-actor; no observation
   - Blocked-by: ki2e5mw ([test] Write tests for PersonLookup.person(for:in:) helper)
@@ -193,7 +193,7 @@ references:
 - [ ] 25. [impl] Update RulesEngine/Apply.swift to call LocalWriteHook.commit <!-- id:ki2e5nh -->
   - Replace try context.save() with try hook.commit(context); the hook is passed in as a parameter on apply(plan:context:hook:) (the function gains a new parameter; RulesEngineRunner plumbs it through from its initializer)
   - RulesEngineRunner catch in runForAllNonPastTrips still calls context.rollback() on a per-trip failure
-  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
+  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
   - Stream: 1
   - Requirements: [2.2](requirements.md#2.2)
 
@@ -319,9 +319,9 @@ references:
 - [ ] 42. [test] Write UI test OfflineShareUITests <!-- id:ki2e5ny -->
   - File: ScrambleUITests/OfflineShareUITests.swift (new)
   - With the iCloudAvailability probe stubbed to unavailable (via UITestSeed + a launch argument), tap Share on a trip; assert the toast Network required to share appears; assert no share is recorded by the fake SharingService
-  - References: design.md § Testing Strategy — UI tests
   - Stream: 1
   - Requirements: [8.1](requirements.md#8.1)
+  - References: design.md § Testing Strategy — UI tests
 
 - [ ] 43. [impl] ShareToolbarButton catches SharingError.networkUnavailable and shows toast <!-- id:ki2e5nz -->
   - File: Scramble/Scramble/Features/Trips/ShareToolbarButton.swift
@@ -335,17 +335,17 @@ references:
   - Walks .swift files under Scramble/Scramble/, excluding LocalWriteHook.swift, TripDeletion.swift, ZoneMigrationCoordinator.swift, and the Components/ directory globals-only files; flags any modelContext.save() or context.save() call site unless the line carries the marker // LocalWriteHookContract: allow (used by the picker file and the legacy PersonEditor delete site)
   - The test fails the build on stray saves and passes on the cleaned tree
   - Test asserts both: (a) clean tree passes, (b) a synthetic offending fixture string fails — guarding against the test becoming a no-op due to a regex bug
-  - References: design.md § Testing Strategy — Unit tests
   - Stream: 1
   - Requirements: [2.5](requirements.md#2.5)
+  - References: design.md § Testing Strategy — Unit tests
 
 - [ ] 45. [test] Write V2RelationshipUseTest (SwiftSyntax-based) <!-- id:ki2e5o1 -->
   - File: ScrambleTests/Contracts/V2RelationshipUseTest.swift (new)
   - Parses every .swift file in the trip-domain file set (all files under Features/Trips/, Components/TaskListSection.swift, and any future file marked // trip-domain view); fails on .participants member access rooted in a value statically typed as Trip, or .person rooted in a value statically typed as TripPackingItem; honours // V2Relationship: allow escape
   - Asserts both clean-tree pass and a synthetic offending fixture failure, as for task 44
-  - References: design.md § Testing Strategy — Unit tests
   - Stream: 1
   - Requirements: [10.3](requirements.md#10.3)
+  - References: design.md § Testing Strategy — Unit tests
 
 - [ ] 46. [impl] Add swift-syntax SPM dependency to ScrambleTests and finalise V2RelationshipUseTest <!-- id:ki2e5o2 -->
   - Add the dependency to Scramble.xcodeproj test target (pin from: 601.0.0); finalise the test implementation behind the dependency
@@ -382,12 +382,12 @@ references:
 
 - [ ] 51. [impl] Update CLAUDE.md project-status sentence for Phase 5.1 <!-- id:ki2e5o7 -->
   - Append a one-sentence summary of Phase 5.1 observable outcome (cross-device sync now functions; previously broken share-acceptance and owner-edit propagation now work) to the existing project-status paragraph
-  - References: design.md § Overview
   - Blocked-by: ki2e5nv ([wire] Wire ScrambleApp to construct the EventBus, SignInResumeCoordinator, and route MigrationGate through them)
   - Stream: 1
+  - References: design.md § Overview
 
 - [ ] 52. [impl] Update specs/phase-5-cloudkit-sharing/implementation.md Completeness Assessment <!-- id:ki2e5o8 -->
   - Flip the assessment rows for requirement clusters newly fulfilled by Phase 5.1 (Phase 5 Reqs 1.3, 4.1, 4.5, 6.2, 11.2) to fully implemented with a cross-reference to this spec
-  - References: implementation-phases.md § Phase 5.1
   - Blocked-by: ki2e5nv ([wire] Wire ScrambleApp to construct the EventBus, SignInResumeCoordinator, and route MigrationGate through them)
   - Stream: 1
+  - References: implementation-phases.md § Phase 5.1

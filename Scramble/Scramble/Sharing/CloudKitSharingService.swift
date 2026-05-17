@@ -106,7 +106,8 @@ final class CloudKitSharingService: SharingService {
   /// not safe to surface in UI per Req 7.1).
   private static func resolveOwnerDisplayName(from owner: CKUserIdentity) -> String? {
     if let components = owner.nameComponents {
-      let formatted = personNameFormatter
+      let formatted =
+        personNameFormatter
         .string(from: components)
         .trimmingCharacters(in: .whitespaces)
       if !formatted.isEmpty { return formatted }

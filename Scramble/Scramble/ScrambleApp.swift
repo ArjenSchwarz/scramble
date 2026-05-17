@@ -25,6 +25,11 @@ struct ScrambleApp: App {
   private let migrationCoordinator: ZoneMigrationCoordinator
   private let triggerOrchestrator: RulesEngineTriggerOrchestrator
   private let rulesLastEvaluatedTracker: RulesLastEvaluatedTracker
+  /// Phase 5.1 — the single chokepoint for every `tripsLocal` save. The
+  /// hook's notifier is `TripSyncEngine`; trip-domain SwiftUI surfaces
+  /// reach it via `@Environment(\.localWriteHook)` and call
+  /// `hook.commit(_:)` instead of `modelContext.save()`.
+  private let localWriteHook: LocalWriteHook
 
   init() {
     let containers = ModelStore.containers
@@ -39,6 +44,7 @@ struct ScrambleApp: App {
     self.sharingService = service
     self.syncEngine = engine
     self.rulesLastEvaluatedTracker = tracker
+    self.localWriteHook = LocalWriteHook(notifier: engine)
     self.migrationCoordinator = ZoneMigrationCoordinator(
       globalsContext: globals,
       tripsLocalContext: tripsLocal,
@@ -95,13 +101,14 @@ struct ScrambleApp: App {
     )
   }
 
-  /// Cold-launch engine pass over master-listed trips. Runs against the
-  /// globals container — pre-Stage-B trips still live there and the
-  /// ownership gate is permissive for trips without a `TripZoneState`.
+  /// Cold-launch engine pass over master-listed trips. Phase 5.1: runs
+  /// against the `tripsLocal` container — that is where Trip rows now
+  /// live; the ownership gate remains permissive for trips without a
+  /// `TripZoneState`.
   private static func runColdLaunchEnginePass(service: any SharingService) {
     do {
       _ = try RulesEngineRunner(
-        context: ModelStore.shared.mainContext,
+        context: ModelStore.containers.tripsLocal.mainContext,
         ownerIdentity: service.ownerIdentity(forTrip:)
       ).runForAllNonPastTrips()
     } catch {
@@ -148,7 +155,9 @@ struct ScrambleApp: App {
   private func rootContent() -> some View {
     RootView()
       .environment(\.theme, .midnightAtlas)
+      .environment(\.globalsContainer, ModelStore.containers.globals)
       .environment(\.tripsLocalContainer, ModelStore.containers.tripsLocal)
+      .environment(\.localWriteHook, localWriteHook)
       .environment(\.sharingService, sharingService)
       .environment(\.rulesLastEvaluatedTracker, rulesLastEvaluatedTracker)
       .environment(\.zoneMigrationCoordinator, migrationCoordinator)

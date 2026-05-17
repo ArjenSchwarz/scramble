@@ -183,3 +183,47 @@ Acceptance criteria are properties the running system exhibits; doc updates are 
 - Approval of the requirements does not automatically commit the team to the doc updates; they must be carried into `tasks.md` explicitly during Phase 4 of the spec workflow.
 
 ---
+
+## Decision 6: `\.localWriteHook` default value is a no-op hook, not `fatalError`
+
+**Date**: 2026-05-17
+**Status**: accepted
+
+### Context
+
+The design specified the default value of the new `\.localWriteHook` SwiftUI environment key as a `fatalError`-only stub on the grounds that previews / tests without explicit injection should never commit. In practice this crashed the host app at launch: SwiftUI's `.environment(\.localWriteHook, _:)` modifier reads the keypath's current value via `WritableKeyPath._projectMutableAddress(from:)` to obtain a writable address before overwriting it, so the fatal stub fires *before* production injection in `ScrambleApp.rootContent()` can take effect. The crash surfaces as `_assertionFailure → static LocalWriteHookKey.defaultValue.getter → ChildEnvironment.updateValue` during the first `_UIHostingView.layoutSubviews()` pass.
+
+### Decision
+
+The default value of `\.localWriteHook` is a `LocalWriteHook` whose notifier is a private `FallbackPendingChangeNotifier`. The fallback notifier behaves in two modes:
+
+- **Test / UI-test / preview surroundings** (detected via `EnvironmentProbe.production`): discards signals silently. Previews and tests that read the environment without injecting one still save locally; they simply do not signal the sync engine.
+- **Production**: emits a `fault`-level `modelLogger` entry naming the unreached injection and (in DEBUG builds) trips an `assertionFailure`. The signal surfaces a misconfigured production view path at the first commit rather than the first missed sync.
+
+Production continues to inject the real hook (notifier = `TripSyncEngine`) from `ScrambleApp.rootContent()`.
+
+### Rationale
+
+- SwiftUI's environment-propagation machinery touches `defaultValue.getter` even when the modifier above it would supply a concrete value. A fatal default is therefore incompatible with the SwiftUI environment lifecycle; the design's stated intent ("fail fast in previews") is unreachable as written.
+- A benign-in-test, loud-in-production fallback satisfies SwiftUI's lifecycle without weakening the production contract. It pairs with the contract test in Req [2.5](requirements.md#2.5) to close both halves of the silent-failure mode Phase 5.1 exists to eliminate: the contract test catches direct `modelContext.save()` call sites; the fallback notifier catches the inverse — a `hook.commit(modelContext)` whose env-resolved hook is the default because injection didn't propagate.
+- The behavioural difference for previews / tests is small and acceptable: a preview that triggers a "save" will succeed locally (matching the existing `try modelContext.save()` behaviour previews already see) and emit no sync signals.
+
+### Alternatives Considered
+
+- **Optional environment value (`LocalWriteHook?`)**: Rejected because every Trip-domain view would have to unwrap on every call site, expanding the call-site footprint of the chokepoint refactor.
+- **Lazy / boxed value that only fatals on `commit`**: Rejected for the same reason as the original fatal stub — the SwiftUI environment getter still has to materialise a concrete value to overwrite, and any indirection that resolves to fatal at construction time crashes identically.
+- **Pure no-op notifier (no production signal)**: Rejected on review (see Decision 6 in this log's review history) because a `hook.commit()` call site that resolved to the default would silently update `TripZoneState.pendingUploadFlags` without notifying the engine — the same silent-failure mode Phase 5.1 exists to eliminate, reintroduced through a different door.
+- **Skip the env key and pass `LocalWriteHook` explicitly through view initialisers**: Rejected because Trip-feature surfaces are deep (Trip List → Trip Detail → AccordionTimeline → PackingSheet → PackingItemForm) and threading a parameter through each layer adds boilerplate proportional to the refactor's surface area.
+
+### Consequences
+
+**Positive:**
+- App launches cleanly under the dual-container split.
+- Previews / tests that incidentally touch the hook do not crash.
+- Production injection contract is unchanged; the contract test in Req [2.5](requirements.md#2.5) carries the static-source enforcement and the fallback notifier carries the runtime enforcement, together covering both halves of the silent-failure mode.
+
+**Negative:**
+- A preview that incorrectly relies on the env-injected hook for sync behaviour would observe silent no-ops. This is bounded — the only views that read `\.localWriteHook` are Trip-feature surfaces, and their preview suites do not assert sync behaviour.
+- Detection of the misconfigured-injection case is at first commit, not at view mount; a view that never commits could still ship with a broken injection chain. Tolerable: the same view that never commits also never causes data loss.
+
+---
