@@ -350,10 +350,14 @@ import os
     return rulesLastEvaluatedTracker?.time(forTrip: trip.id)
   }
 
-  private func rulesLastEvaluatedText(_ date: Date) -> String {
+  private static let rulesLastEvaluatedFormatter: RelativeDateTimeFormatter = {
     let formatter = RelativeDateTimeFormatter()
     formatter.unitsStyle = .full
-    let relative = formatter.localizedString(for: date, relativeTo: .now)
+    return formatter
+  }()
+
+  private func rulesLastEvaluatedText(_ date: Date) -> String {
+    let relative = Self.rulesLastEvaluatedFormatter.localizedString(for: date, relativeTo: .now)
     return "Rules last evaluated \(relative)"
   }
 

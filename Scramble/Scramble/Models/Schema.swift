@@ -253,21 +253,31 @@ extension MigrationJournalEntry {
 
   var expectedRecordNames: Set<String> {
     get {
-      guard let data = expectedRecordNamesData, !data.isEmpty else { return [] }
-      return (try? JSONDecoder().decode(Set<String>.self, from: data)) ?? []
+      guard let data = expectedRecordNamesData else { return [] }
+      return CodableBridge.decode(
+        data, as: Set<String>.self, default: [],
+        label: "MigrationJournalEntry.expectedRecordNames"
+      )
     }
     set {
-      expectedRecordNamesData = (try? JSONEncoder().encode(newValue)) ?? Data()
+      expectedRecordNamesData = CodableBridge.encode(
+        newValue, label: "MigrationJournalEntry.expectedRecordNames"
+      )
     }
   }
 
   var sentRecordNames: Set<String> {
     get {
-      guard let data = sentRecordNamesData, !data.isEmpty else { return [] }
-      return (try? JSONDecoder().decode(Set<String>.self, from: data)) ?? []
+      guard let data = sentRecordNamesData else { return [] }
+      return CodableBridge.decode(
+        data, as: Set<String>.self, default: [],
+        label: "MigrationJournalEntry.sentRecordNames"
+      )
     }
     set {
-      sentRecordNamesData = (try? JSONEncoder().encode(newValue)) ?? Data()
+      sentRecordNamesData = CodableBridge.encode(
+        newValue, label: "MigrationJournalEntry.sentRecordNames"
+      )
     }
   }
 

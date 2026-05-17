@@ -15,6 +15,12 @@ import os
 /// instantiate the engine without ever calling `start()`.
 @MainActor
 final class TripSyncEngine: NSObject, PendingChangeNotifier {
+  /// JSONEncoder/Decoder for `CKSyncEngine.State.Serialization` blobs.
+  /// Hoisted to `static let` because state writes fire on every engine
+  /// event; reallocating per call is hot-path overhead.
+  private static let stateEncoder = JSONEncoder()
+  private static let stateDecoder = JSONDecoder()
+
   /// Local cache of trip-zone entities. The engine reads from this on
   /// `nextRecordZoneChangeBatch` and writes into it on `handleEvent`.
   let context: ModelContext
@@ -87,7 +93,7 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
   func loadStateBlob(for scope: CKDatabase.Scope) -> CKSyncEngine.State.Serialization? {
     guard let data = stateStore.loadState(for: scope) else { return nil }
     do {
-      let decoded = try JSONDecoder().decode(
+      let decoded = try Self.stateDecoder.decode(
         CKSyncEngine.State.Serialization.self,
         from: data
       )
@@ -192,36 +198,37 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
     }
   }
 
-  /// Apply server-side deletions to the local store. Looks up the record
-  /// by `recordName` and deletes the matching local row. Skips entries
-  /// whose record name doesn't parse as a UUID.
+  /// Apply server-side deletions to the local store. Looks up the records
+  /// by `recordName` in one fetch per entity type and deletes the matches.
+  /// Skips entries whose record name doesn't parse as a UUID.
   func apply(deletedRecordIDs: [CKRecord.ID]) throws {
-    for recordID in deletedRecordIDs {
-      guard let id = UUID(uuidString: recordID.recordName) else { continue }
-      if let trip = try context.fetch(
-        FetchDescriptor<Trip>(predicate: #Predicate { $0.id == id })
-      ).first {
-        context.delete(trip)
-        continue
-      }
-      if let task = try context.fetch(
-        FetchDescriptor<TripTask>(predicate: #Predicate { $0.id == id })
-      ).first {
-        context.delete(task)
-        continue
-      }
-      if let item = try context.fetch(
-        FetchDescriptor<TripPackingItem>(predicate: #Predicate { $0.id == id })
-      ).first {
-        context.delete(item)
-        continue
-      }
-      if let snapshot = try context.fetch(
-        FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { $0.id == id })
-      ).first {
-        context.delete(snapshot)
-      }
+    let ids = Set(deletedRecordIDs.compactMap { UUID(uuidString: $0.recordName) })
+    guard !ids.isEmpty else { return }
+
+    let trips = try context.fetch(
+      FetchDescriptor<Trip>(predicate: #Predicate { ids.contains($0.id) })
+    )
+    let foundTripIDs = Set(trips.map(\.id))
+    for trip in trips { context.delete(trip) }
+
+    let remaining = ids.subtracting(foundTripIDs)
+    if !remaining.isEmpty {
+      let tasks = try context.fetch(
+        FetchDescriptor<TripTask>(predicate: #Predicate { remaining.contains($0.id) })
+      )
+      for task in tasks { context.delete(task) }
+
+      let items = try context.fetch(
+        FetchDescriptor<TripPackingItem>(predicate: #Predicate { remaining.contains($0.id) })
+      )
+      for item in items { context.delete(item) }
+
+      let snapshots = try context.fetch(
+        FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { remaining.contains($0.id) })
+      )
+      for snapshot in snapshots { context.delete(snapshot) }
     }
+
     try context.save()
   }
 
@@ -379,7 +386,7 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     scope: CKDatabase.Scope
   ) {
     do {
-      let data = try JSONEncoder().encode(serialization)
+      let data = try Self.stateEncoder.encode(serialization)
       try stateStore.saveState(data, for: scope)
     } catch {
       modelLogger.error(
@@ -412,7 +419,11 @@ extension TripSyncEngine: CKSyncEngineDelegate {
       let zoneRecordIDs =
         modifications.filter { $0.recordID.zoneID == zoneID }.map(\.recordID)
         + deletedIDs.filter { $0.zoneID == zoneID }
-      let isSelf = zoneRecordIDs.allSatisfy { wasSelfOriginated($0) }
+      // Consume every ID before reducing — `allSatisfy` short-circuits on
+      // the first false, which would leak any self-originated IDs that
+      // followed it in `sentRecordIDs`.
+      let consumed = zoneRecordIDs.map { wasSelfOriginated($0) }
+      let isSelf = consumed.allSatisfy { $0 }
       emit(.zoneChanged(zoneID, scope: scope, isSelfOriginated: isSelf))
       if !modifications.isEmpty {
         let zoneRecords = modifications.filter { $0.recordID.zoneID == zoneID }
@@ -428,33 +439,47 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     scope: CKDatabase.Scope
   ) {
     // Re-cache system fields on every record we just successfully sent
-    // so the next outbound batch starts from the server's view.
+    // so the next outbound batch starts from the server's view. Bucket by
+    // record type so each entity is fetched once per batch instead of
+    // once per record.
+    var buckets: [String: [(UUID, Data)]] = [:]
     for saved in event.savedRecords {
-      try? cacheSentSystemFields(of: saved)
+      guard let id = UUID(uuidString: saved.recordID.recordName) else { continue }
+      buckets[saved.recordType, default: []].append((id, encodeSystemFields(of: saved)))
+    }
+    for (recordType, entries) in buckets {
+      try? cacheSentSystemFields(recordType: recordType, entries: entries)
     }
     try? context.save()
   }
 
-  private func cacheSentSystemFields(of record: CKRecord) throws {
-    guard let id = UUID(uuidString: record.recordID.recordName) else { return }
-    let encoded = encodeSystemFields(of: record)
-    switch record.recordType {
+  private func cacheSentSystemFields(
+    recordType: String,
+    entries: [(UUID, Data)]
+  ) throws {
+    let ids = Set(entries.map(\.0))
+    let encodedByID = Dictionary(uniqueKeysWithValues: entries)
+    switch recordType {
     case TripRecordTranslator.recordType:
-      try context.fetch(
-        FetchDescriptor<Trip>(predicate: #Predicate { $0.id == id })
-      ).first?.ckRecordSystemFields = encoded
+      let matches = try context.fetch(
+        FetchDescriptor<Trip>(predicate: #Predicate { ids.contains($0.id) })
+      )
+      for trip in matches { trip.ckRecordSystemFields = encodedByID[trip.id] }
     case TripTaskRecordTranslator.recordType:
-      try context.fetch(
-        FetchDescriptor<TripTask>(predicate: #Predicate { $0.id == id })
-      ).first?.ckRecordSystemFields = encoded
+      let matches = try context.fetch(
+        FetchDescriptor<TripTask>(predicate: #Predicate { ids.contains($0.id) })
+      )
+      for task in matches { task.ckRecordSystemFields = encodedByID[task.id] }
     case TripPackingItemRecordTranslator.recordType:
-      try context.fetch(
-        FetchDescriptor<TripPackingItem>(predicate: #Predicate { $0.id == id })
-      ).first?.ckRecordSystemFields = encoded
+      let matches = try context.fetch(
+        FetchDescriptor<TripPackingItem>(predicate: #Predicate { ids.contains($0.id) })
+      )
+      for item in matches { item.ckRecordSystemFields = encodedByID[item.id] }
     case TripPersonSnapshotRecordTranslator.recordType:
-      try context.fetch(
-        FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { $0.id == id })
-      ).first?.ckRecordSystemFields = encoded
+      let matches = try context.fetch(
+        FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { ids.contains($0.id) })
+      )
+      for snapshot in matches { snapshot.ckRecordSystemFields = encodedByID[snapshot.id] }
     default:
       break
     }

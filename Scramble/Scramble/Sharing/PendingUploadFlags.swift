@@ -10,6 +10,11 @@ import Foundation
 /// expected per-trip record counts (low tens to low hundreds) and survives
 /// renumbering as new entities are added.
 nonisolated struct PendingUploadFlags: Codable, Equatable, Sendable {
+  // Reused per call — every local save in the chokepoint round-trips
+  // through these; per-call allocation is unnecessary churn.
+  private static let encoder = JSONEncoder()
+  private static let decoder = JSONDecoder()
+
   var dirtyRecordNames: Set<String>
   var deletedRecordNames: Set<String>
 
@@ -24,14 +29,14 @@ nonisolated struct PendingUploadFlags: Codable, Equatable, Sendable {
   /// Decode from raw `Data`. An empty buffer decodes to an empty value.
   static func decode(_ data: Data) -> PendingUploadFlags {
     guard !data.isEmpty else { return PendingUploadFlags() }
-    return (try? JSONDecoder().decode(PendingUploadFlags.self, from: data))
+    return (try? decoder.decode(PendingUploadFlags.self, from: data))
       ?? PendingUploadFlags()
   }
 
   /// Encode to raw `Data`. Encode failures fall back to empty `Data` to
   /// match `CodableBridge.encode`'s behaviour.
   func encode() -> Data {
-    (try? JSONEncoder().encode(self)) ?? Data()
+    (try? Self.encoder.encode(self)) ?? Data()
   }
 
   var isEmpty: Bool {
