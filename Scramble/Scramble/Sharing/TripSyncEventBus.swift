@@ -50,6 +50,15 @@ final class TripSyncEventBus {
 
   /// Register the orchestrator handler. Must be called before `start()`,
   /// and only once per bus lifetime.
+  ///
+  /// The orchestrator handler is invoked BEFORE the coordinator handler
+  /// for every event. If the orchestrator handler commits a partial
+  /// write and then throws, the coordinator handler still receives the
+  /// same event and sees the partial state. The current implementation
+  /// commits through atomic `LocalWriteHook.commit` so this is
+  /// structurally impossible, but the contract is on the caller — a
+  /// future orchestrator that batches multi-step work must catch and
+  /// roll back its own mutations before letting the throw escape.
   func subscribeOrchestrator(
     _ handler: @escaping @MainActor (TripSyncEvent) throws -> Void
   ) {
@@ -67,6 +76,10 @@ final class TripSyncEventBus {
 
   /// Register the coordinator handler. Must be called before `start()`,
   /// and only once per bus lifetime.
+  ///
+  /// The coordinator handler runs AFTER the orchestrator handler for
+  /// every event — see `subscribeOrchestrator` for the
+  /// partial-predecessor-state contract.
   func subscribeCoordinator(
     _ handler: @escaping @MainActor (TripSyncEvent) throws -> Void
   ) {

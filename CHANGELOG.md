@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Phase 5.1 — PR #6 review-fixer pass 4:
+  - `Scramble/Scramble/Sharing/TripSyncEventBus.swift` — `subscribeOrchestrator` / `subscribeCoordinator` doc comments now state the dispatch-order contract per-method: orchestrator runs first, coordinator runs second, both receive the same event even if the orchestrator handler throws after committing a partial write. The file header had the contract; per-method docs make it visible at the registration call site.
+  - `Scramble/Scramble/Sharing/SnapshotMaintenance.swift` — `handlePackingItemDeletion` now traps in DEBUG when called against an item already staged for deletion (`context.deletedModelsArray` contains it). The doc comment described the ordering contract but nothing enforced it; the in-context referrer count would silently miscount and orphan-delete a snapshot if a caller ran `context.delete(item)` first.
+
 - Phase 5.1 — PR #6 review-fixer pass 3:
   - `Scramble/Scramble/Features/Trips/TripPersistence.swift` — `apply` now `throws` and propagates errors from `SnapshotMaintenance.handleRosterRemoval` instead of logging-and-continuing. The routine interleaves a fetch with mutations, so a silent partial pass could leave one snapshot flipped to `isRosterMember=false` without the corresponding delete sweep. Caller (`TripDetailView` save handler) already wraps the call in do/catch with `modelContext.rollback()`, so the propagated error rolls back cleanly.
   - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — wraps the `TripPersistence.apply` call in the existing do/catch so a roster-removal fetch failure rolls back the edit and returns `false` to the editor.

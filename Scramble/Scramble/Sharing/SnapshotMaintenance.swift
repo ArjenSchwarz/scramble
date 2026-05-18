@@ -103,6 +103,22 @@ enum SnapshotMaintenance {
     _ item: TripPackingItem,
     in context: ModelContext
   ) throws {
+    #if DEBUG
+      // Enforce the ordering contract: the item must still be live in
+      // the context at the moment of this call. A staged deletion
+      // (`context.deletedModelsArray` contains `item`) means the caller
+      // ran `context.delete(item)` first, which would let the in-
+      // context referrer count drop to zero prematurely and incorrectly
+      // delete a snapshot that other packing items reference.
+      assert(
+        !context.deletedModelsArray.contains(where: { ($0 as? TripPackingItem)?.id == item.id }),
+        """
+        SnapshotMaintenance.handlePackingItemDeletion: call BEFORE \
+        context.delete(item). The in-context referrer count would \
+        otherwise miscount and could orphan-delete a snapshot.
+        """
+      )
+    #endif
     guard let snapshot = item.personSnapshot else { return }
     guard !snapshot.isRosterMember else { return }
     let referrerCount = try referrerCount(for: snapshot, in: context, excluding: item.id)
