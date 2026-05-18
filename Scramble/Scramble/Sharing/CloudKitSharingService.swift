@@ -133,24 +133,52 @@ final class CloudKitSharingService: SharingService {
 
   // MARK: - leaveShare
 
-  /// Participant-side leave. Phase 5.1: tolerates the case where the
-  /// remote zone has already been deleted (`CKError.zoneNotFound`) and
-  /// routes the local cleanup through `TripDeletion.delete` so the
-  /// reverse-cascade ends in a single `LocalWriteHook.commitDeletion`
-  /// transaction.
+  /// Participant-side leave. Phase 5.1: tolerates server-side failures
+  /// where the post-leave state is identical (`.zoneNotFound` — already
+  /// gone; `.networkUnavailable` / `.serverRejectedRequest` — server
+  /// can be reconciled later) and routes the local cleanup through
+  /// `TripDeletion.delete` so the reverse-cascade ends in a single
+  /// `LocalWriteHook.commitDeletion` transaction. The user's intent is
+  /// "remove this trip from my device"; we honour that locally and let
+  /// the next sync cycle reconcile the shared DB.
   func leaveShare(forTrip tripID: UUID) async throws {
     let zoneState = try fetchZoneState(forTrip: tripID)
     let zoneID = TripZoneStateRecordTranslator.zoneID(for: zoneState)
     do {
       _ = try await container.sharedCloudDatabase.deleteRecordZone(withID: zoneID)
-    } catch let error as CKError where error.code == .zoneNotFound {
-      // The owner revoked the share (or another device on the user's
-      // account already left it). Proceed with local cleanup — the
-      // expected post-leave state is identical either way.
+    } catch let error as CKError where Self.isTolerableLeaveError(error) {
+      let code = error.code.rawValue
+      modelLogger.info(
+        """
+        [CloudKitSharingService] leaveShare server-side delete \
+        tolerable: \(code, privacy: .public) — proceeding with \
+        local cleanup
+        """
+      )
     }
     try TripDeletion.delete(
       tripID: tripID, in: context, hook: hook, zoneDeleter: nil
     )
+  }
+
+  private static func isTolerableLeaveError(_ error: CKError) -> Bool {
+    switch error.code {
+    case .zoneNotFound:
+      // Owner revoked the share or another device already left it.
+      return true
+    case .networkUnavailable, .networkFailure:
+      // User is offline. Honour the local intent; the server zone-
+      // membership is reconciled by the next sync once connectivity
+      // returns.
+      return true
+    case .serverRejectedRequest:
+      // Server thinks the participant is no longer entitled (often the
+      // owner-revoked case manifesting as a rejection rather than
+      // not-found). Same post-leave state from the participant's POV.
+      return true
+    default:
+      return false
+    }
   }
 
   // MARK: - participants

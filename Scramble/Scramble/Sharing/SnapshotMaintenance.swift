@@ -87,6 +87,18 @@ enum SnapshotMaintenance {
   /// snapshot is non-roster and no other packing item still references
   /// it, delete the snapshot too. Caller is responsible for actually
   /// deleting `item`. Mutate-only.
+  ///
+  /// **Ordering contract — call BEFORE `context.delete(item)`.** This
+  /// routine counts referrers via a SwiftData fetch (predicate over
+  /// `personSnapshot?.id`) which sees the in-context state, including
+  /// any deletions staged in this transaction. If `item` is already
+  /// deleted at the moment of this call, the referrer count drops to
+  /// zero prematurely and a snapshot that other packing items still
+  /// reference would be deleted incorrectly. Production callers
+  /// (`PackingSheet.deletePackingItem`, `PackingItemForm.delete`)
+  /// must run `try SnapshotMaintenance.handlePackingItemDeletion(item,
+  /// in: context)` first, then `context.delete(item)`, then the single
+  /// `LocalWriteHook.commit(_:)`.
   static func handlePackingItemDeletion(
     _ item: TripPackingItem,
     in context: ModelContext

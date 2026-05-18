@@ -15,6 +15,18 @@ import SwiftData
 enum PersonLookup {
   static func person(for id: UUID, in globals: ModelContext) -> Person? {
     let descriptor = FetchDescriptor<Person>(predicate: #Predicate { $0.id == id })
-    return try? globals.fetch(descriptor).first
+    do {
+      return try globals.fetch(descriptor).first
+    } catch {
+      // Schema mismatch / store corruption shouldn't silently degrade
+      // to "person not found" — that masks a load-bearing infrastructure
+      // failure behind what looks like a stale-snapshot symptom. Surface
+      // it the same way `TripPersistence.resolveParticipants` does so
+      // Console diagnostics line up across cross-container fetches.
+      modelLogger.error(
+        "[PersonLookup] fetch failed for \(id, privacy: .public): \(error.localizedDescription, privacy: .public)"
+      )
+      return nil
+    }
   }
 }

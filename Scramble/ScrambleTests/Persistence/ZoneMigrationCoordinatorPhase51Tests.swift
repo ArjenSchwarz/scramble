@@ -105,6 +105,32 @@ struct ZoneMigrationCoordinatorPhase51Tests {
     #expect(states.count == 1)
   }
 
+  @Test("deleteFromGlobals removes any TripZoneState rows that exist in globals (defence)")
+  func deleteFromGlobalsRemovesOrphanZoneStates() throws {
+    let setup = try ZoneMigrationCoordinatorTests.makeSetup()
+    let trip = Trip(name: "T", startDate: .now, endDate: .now)
+    // Seed a TripZoneState row directly in globals to simulate the
+    // hypothetical pre-Phase-5.0 orphan the reviewer flagged. Production
+    // never inserts here, but the defence should still sweep it.
+    let state = TripZoneState(
+      tripID: trip.id,
+      zoneOwnerName: CKCurrentUserDefaultName,
+      zoneScope: "private"
+    )
+    setup.globalsContext.insert(trip)
+    setup.globalsContext.insert(state)
+    try setup.globalsContext.save()
+
+    try setup.coordinator.enqueueAll()
+    try setup.coordinator.runStageB()
+
+    let globalsZoneStates = try setup.globalsContext.fetch(FetchDescriptor<TripZoneState>())
+    let tripsLocalZoneStates = try setup.tripsLocalContext.fetch(FetchDescriptor<TripZoneState>())
+    #expect(globalsZoneStates.isEmpty, "Orphan zone state swept from globals")
+    #expect(tripsLocalZoneStates.count == 1, "Fresh zone state in tripsLocal")
+    #expect(tripsLocalZoneStates.first?.tripID == trip.id)
+  }
+
   @Test("Branch (none, none): trip vanished — journal transitions to .failed")
   func branchTripVanishedMarksFailed() throws {
     let setup = try ZoneMigrationCoordinatorTests.makeSetup()

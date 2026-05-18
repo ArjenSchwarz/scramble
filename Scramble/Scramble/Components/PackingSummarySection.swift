@@ -31,6 +31,11 @@ struct PackingSummarySection: View {
     let variant = theme.variant(for: colorScheme)
     let snapshots = sortedRosterSnapshots
     let countsByPerson = PackingListHelpers.countsByPerson(trip)
+    // Phase 5.1 — resolve every roster Person in a single batch fetch
+    // against globals instead of one fetch per ForEach iteration. The
+    // dictionary is rebuilt each render pass, which costs at most one
+    // SwiftData query per render rather than N.
+    let peopleByID = resolvePersons(for: snapshots)
 
     VStack(alignment: .leading, spacing: 4) {
       if snapshots.isEmpty {
@@ -40,9 +45,7 @@ struct PackingSummarySection: View {
           .frame(minHeight: 44, alignment: .leading)
       } else {
         ForEach(snapshots, id: \.personID) { snapshot in
-          let resolvedPerson = PersonLookup.person(
-            for: snapshot.personID, in: globalsContainer.mainContext
-          )
+          let resolvedPerson = peopleByID[snapshot.personID]
           PackingSummaryRow(
             snapshot: snapshot,
             counts: countsByPerson[snapshot.personID]
@@ -55,6 +58,14 @@ struct PackingSummarySection: View {
         }
       }
     }
+  }
+
+  private func resolvePersons(for snapshots: [TripPersonSnapshot]) -> [UUID: Person] {
+    let ids = snapshots.map(\.personID)
+    let resolved = TripPersistence.resolveParticipants(
+      ids: ids, in: globalsContainer.mainContext
+    )
+    return Dictionary(uniqueKeysWithValues: resolved.resolved.map { ($0.id, $0) })
   }
 
   private func handleOpen(snapshot: TripPersonSnapshot, person: Person?) {

@@ -384,6 +384,14 @@ final class ZoneMigrationCoordinator {
   /// `TripDeletion` (`packingItems` → `tasks` → `participantSnapshots` →
   /// `trip`) to avoid the iOS 26.4 SwiftData cascade-traversal panic
   /// when the snapshot ↔ packing-item nullify pair enters the chain.
+  ///
+  /// Production code only ever inserts `TripZoneState` into
+  /// `tripsLocal` (see `ensureZoneState`, `TripPersistence.create`,
+  /// `CloudKitSharingService.fetchZoneState`, and the share/translator
+  /// paths), so an orphan in `globals` is not expected. Defence-in-depth
+  /// nevertheless: any `TripZoneState` row matching the trip is deleted
+  /// from `globals` so a future relocation that happens to seed one
+  /// (e.g., a translator change) cannot leave a stranded row.
   private func deleteFromGlobals(tripID: UUID) throws {
     guard let trip = try fetchTrip(tripID: tripID, in: globalsContext) else { return }
     for item in trip.packingItems ?? [] {
@@ -396,6 +404,12 @@ final class ZoneMigrationCoordinator {
       globalsContext.delete(snapshot)
     }
     globalsContext.delete(trip)
+    let orphanZoneStates = try globalsContext.fetch(
+      FetchDescriptor<TripZoneState>(predicate: #Predicate { $0.tripID == tripID })
+    )
+    for state in orphanZoneStates {
+      globalsContext.delete(state)
+    }
     try globalsContext.save()
   }
 
