@@ -40,6 +40,7 @@ import SwiftUI
   @State private var newlyCreatedPerson: Person?
   @State private var personPendingDelete: Person?
   @State private var personDeleteConflict: PersonDeleteBlocker?
+  @State private var deleteErrorMessage: String?
 
   var body: some View {
     let selected = orderedSelectedPeople
@@ -100,6 +101,22 @@ import SwiftUI
     } message: { conflict in
       Text(conflict.message)
     }
+    .alert(
+      "Couldn't delete",
+      isPresented: deleteErrorAlertBinding,
+      presenting: deleteErrorMessage
+    ) { _ in
+      Button("OK", role: .cancel) {}
+    } message: { message in
+      Text(message)
+    }
+  }
+
+  private var deleteErrorAlertBinding: Binding<Bool> {
+    Binding(
+      get: { deleteErrorMessage != nil },
+      set: { if !$0 { deleteErrorMessage = nil } }
+    )
   }
 
   // MARK: - Row
@@ -158,6 +175,7 @@ import SwiftUI
     if let removedIndex {
       participantIDs.remove(at: removedIndex)
     }
+    let personID = person.id
     globalsContext.delete(person)
     do {
       try globalsContext.save()  // LocalWriteHookContract: allow — globals context, not tripsLocal
@@ -167,8 +185,17 @@ import SwiftUI
       // that too — otherwise the UI shows the person gone while they're still
       // around. Re-insert at the original position.
       if let removedIndex {
-        participantIDs.insert(person.id, at: removedIndex)
+        participantIDs.insert(personID, at: removedIndex)
       }
+      let errorMessage = error.localizedDescription
+      modelLogger.error(
+        """
+        [TripEditorPeoplePicker.performDelete] save failed for \
+        personID=\(personID, privacy: .public): \
+        \(errorMessage, privacy: .public)
+        """
+      )
+      deleteErrorMessage = "Couldn't delete this person — try again."
     }
     personPendingDelete = nil
   }

@@ -70,23 +70,27 @@ final class SignInResumeCoordinator {
   func start() {
     if !observers.isEmpty { return }
     let center = NotificationCenter.default
-    // The observer block is invoked on `.main` (the queue we register
-    // with), which is the @MainActor in production. Calling
-    // `runResumeIfNeeded()` directly is safe because both the queue
-    // and the receiver are main-isolated.
+    // Hop the notification handler into a @MainActor Task rather than
+    // `MainActor.assumeIsolated`. The latter is correct today because
+    // we register with `queue: .main`, but `OperationQueue.main` is not
+    // formally the MainActor's executor — if CloudKit ever changes the
+    // delivery queue (or Swift 6 strict-checking tightens the
+    // assumeIsolated trap), the silent trap is a regression hazard.
+    // Spawning a Task is unconditionally safe; the small overhead is
+    // negligible for these rare notifications.
     let onChange = center.addObserver(
       forName: .CKAccountChanged,
       object: nil,
       queue: .main
     ) { [weak self] _ in
-      MainActor.assumeIsolated { self?.runResumeIfNeeded() }
+      Task { @MainActor in self?.runResumeIfNeeded() }
     }
     let onActivate = center.addObserver(
       forName: UIScene.didActivateNotification,
       object: nil,
       queue: .main
     ) { [weak self] _ in
-      MainActor.assumeIsolated { self?.runResumeIfNeeded() }
+      Task { @MainActor in self?.runResumeIfNeeded() }
     }
     observers = [onChange, onActivate]
     runResumeIfNeeded()

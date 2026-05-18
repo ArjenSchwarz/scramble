@@ -4,6 +4,14 @@ import os
 
 /// Sheet presentation identity for `PackingItemForm`. `.add` carries the
 /// active person and trip; `.edit` carries the existing `TripPackingItem`.
+/// Form-internal errors. Currently surfaces only the
+/// `missingPersonSnapshot` case (defensive guard against an add against
+/// a Person who isn't on the trip's roster); the form's catch path
+/// renders an inline error like any other save failure.
+enum PackingItemFormError: Error {
+  case missingPersonSnapshot
+}
+
 enum PackingItemFormPresentation: Identifiable {
   case add(person: Person, trip: Trip)
   case edit(item: TripPackingItem)
@@ -151,8 +159,22 @@ extension PackingItemForm {
     hook: LocalWriteHook
   ) throws -> TripPackingItem {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    let snapshot = (trip.participantSnapshots ?? [])
-      .first { $0.personID == person.id }
+    guard
+      let snapshot = (trip.participantSnapshots ?? [])
+        .first(where: { $0.personID == person.id })
+    else {
+      // Defensive — the picker shouldn't surface a Person who isn't on
+      // the trip's roster, but if the participantSnapshots list is
+      // mid-mutation (e.g. roster removal racing the form), creating
+      // an ownerless TripPackingItem would render incorrectly on every
+      // device. Match `Apply.swift insertAddedPacking`: log info and
+      // throw so the caller surfaces its inline-error toast instead of
+      // saving silently.
+      modelLogger.info(
+        "[PackingItemForm.performAdd] no roster snapshot for personID=\(person.id, privacy: .public); skipping add"
+      )
+      throw PackingItemFormError.missingPersonSnapshot
+    }
     let item = TripPackingItem(
       trip: trip,
       masterItemID: nil,

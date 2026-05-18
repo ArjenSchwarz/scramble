@@ -231,6 +231,13 @@ import os
         zoneDeleter: zoneDeleter
       )
     } catch {
+      // `TripDeletion.delete` stages every record-delete and zone-state
+      // delete in the context BEFORE calling `hook.commitDeletion`. A
+      // throw from the commit leaves those staged deletes pending,
+      // which would make the trip vanish from `@Query` results until
+      // the next app launch even though the disk still has the data.
+      // Rollback restores the pre-delete view state.
+      modelContext.rollback()
       toastMessage = "Delete failed — try again."
       modelLogger.error(
         "[TripDetailView.delete-failed] tripID=\(tripID, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
