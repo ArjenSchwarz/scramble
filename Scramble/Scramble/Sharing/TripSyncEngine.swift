@@ -355,11 +355,19 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
 /// Production sync events. The `isSelfOriginated` flag on `.zoneChanged`
 /// satisfies the design's owner-side echo guard
 /// (design § "engine ownership gate").
+///
+/// Phase 5.1 — `.zoneSaved`, `.recordsSaved`, `.recordsFailed` feed the
+/// `ZoneMigrationCoordinator` so Stage B journal entries terminate as the
+/// engine confirms each upload step. `TripSyncEventBus` multicasts every
+/// event to both the orchestrator and the coordinator.
 enum TripSyncEvent: Sendable {
   case zoneChanged(CKRecordZone.ID, scope: CKDatabase.Scope, isSelfOriginated: Bool)
   case recordsFetched([CKRecord], in: CKRecordZone.ID)
   case shareAccepted(CKRecordZone.ID, ownerName: String)
   case zoneRemoved(CKRecordZone.ID)
+  case zoneSaved(CKRecordZone.ID)
+  case recordsSaved([CKRecord.ID])
+  case recordsFailed([CKRecord.ID], error: String)
   case error(String)
 }
 
@@ -387,7 +395,9 @@ extension TripSyncEngine: CKSyncEngineDelegate {
       await handleFetchedChanges(event, scope: scope)
     case .sentRecordZoneChanges(let event):
       await handleSentChanges(event, scope: scope)
-    case .accountChange, .fetchedDatabaseChanges, .sentDatabaseChanges,
+    case .sentDatabaseChanges(let event):
+      await handleSentDatabaseChanges(event)
+    case .accountChange, .fetchedDatabaseChanges,
       .willFetchChanges, .willFetchRecordZoneChanges,
       .didFetchRecordZoneChanges, .didFetchChanges,
       .willSendChanges, .didSendChanges:
@@ -504,6 +514,32 @@ extension TripSyncEngine: CKSyncEngineDelegate {
       try? cacheSentSystemFields(recordType: recordType, entries: entries)
     }
     try? context.save()
+
+    // Phase 5.1 — surface per-batch confirmation so the migration
+    // coordinator can advance its journal entries. The bus dispatches
+    // these to `ZoneMigrationCoordinator.handleRecordsSaved` /
+    // `handleRecordsFailed`.
+    let savedIDs = event.savedRecords.map(\.recordID)
+    if !savedIDs.isEmpty {
+      emit(.recordsSaved(savedIDs))
+    }
+    let failedIDs = event.failedRecordSaves.map { $0.record.recordID }
+    if !failedIDs.isEmpty {
+      let message = event.failedRecordSaves.first?.error.localizedDescription ?? "unknown error"
+      emit(.recordsFailed(failedIDs, error: message))
+    }
+  }
+
+  private func handleSentDatabaseChanges(
+    _ event: CKSyncEngine.Event.SentDatabaseChanges
+  ) {
+    // Phase 5.1 — emit one `.zoneSaved` per successfully saved zone so
+    // the migration coordinator can advance the journal entry's
+    // `zoneSaved` flag. `savedZones` is the CKSyncEngine confirmation
+    // that the zone now exists server-side.
+    for zone in event.savedZones {
+      emit(.zoneSaved(zone.zoneID))
+    }
   }
 
   private func cacheSentSystemFields(

@@ -193,7 +193,7 @@ references:
 - [x] 25. [impl] Update RulesEngine/Apply.swift to call LocalWriteHook.commit <!-- id:ki2e5nh -->
   - Replace try context.save() with try hook.commit(context); the hook is passed in as a parameter on apply(plan:context:hook:) (the function gains a new parameter; RulesEngineRunner plumbs it through from its initializer)
   - RulesEngineRunner catch in runForAllNonPastTrips still calls context.rollback() on a per-trip failure
-  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
+  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
   - Stream: 1
   - Requirements: [2.2](requirements.md#2.2)
 
@@ -223,33 +223,33 @@ references:
 
 ## Phase 5: Migration coordinator + engine event multicast + sign-in resume
 
-- [ ] 29. [test] Extend ZoneMigrationCoordinatorTests for the 15-step relocation algorithm <!-- id:ki2e5nl -->
+- [x] 29. [test] Extend ZoneMigrationCoordinatorTests for the 15-step relocation algorithm <!-- id:ki2e5nl -->
   - File: ScrambleTests/Persistence/ZoneMigrationCoordinatorTests.swift
   - Cover: .completed journal entries are terminal no-ops (step 2 short-circuit); the four-quadrant existence branch (both, tripsLocal-only, globals-only, neither) takes the right step 6 branch each time; step 10 clear of sentRecordNames and zoneSaved makes prior-aborted-run events no-ops on resume; Stage A TripPersonSnapshot rows are retroactively dirty-flagged on Stage B entry (Req 4.9); signed-out completes the local relocation but defers Stage B (Req 4.7); relocation preserves every persisted field per Req 4.2
   - Stream: 1
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.5](requirements.md#4.5), [4.6](requirements.md#4.6), [4.7](requirements.md#4.7), [4.9](requirements.md#4.9), [4.10](requirements.md#4.10), [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.4](requirements.md#7.4)
   - References: design.md § ZoneMigrationCoordinator (changed), § Concurrency and ordering contracts
 
-- [ ] 30. [impl] Implement ZoneMigrationCoordinator.relocateToTripsLocal(_:) helper <!-- id:ki2e5nm -->
+- [x] 30. [impl] Implement ZoneMigrationCoordinator.relocateToTripsLocal(_:) helper <!-- id:ki2e5nm -->
   - File: Scramble/Scramble/Persistence/Migrations/ZoneMigrationCoordinator.swift
   - Reads the Trip + dependents (tasks, packingItems, participantSnapshots) from globalsContext and inserts equivalent rows into tripsLocalContext, preserving every persisted field per Req 4.2 (including id, masterItemID, currentlyMatchesRules, pinnedByUser, userDeletedOnThisTrip, state, isCompleted, assigneePersonID, name, ckRecordSystemFields, and all Codable-blob fields)
   - Commits tripsLocalContext first; only afterwards is the globals delete step run by the caller (per the per-container atomicity invariant)
   - Stream: 1
   - Requirements: [4.2](requirements.md#4.2)
 
-- [ ] 31. [impl] Update ZoneMigrationCoordinator.enqueueAll to scan both containers <!-- id:ki2e5nn -->
+- [x] 31. [impl] Update ZoneMigrationCoordinator.enqueueAll to scan both containers <!-- id:ki2e5nn -->
   - Fetch existing journal entries from globals (unchanged); fetch existing TripZoneState rows from tripsLocal (unchanged); fetch Trip rows from BOTH containers; enqueue a journal for any trip not yet covered by a journal AND not yet in TripZoneState; idempotent on repeat
   - Blocked-by: ki2e5nm ([impl] Implement ZoneMigrationCoordinator.relocateToTripsLocal(_:) helper)
   - Stream: 1
   - Requirements: [4.1](requirements.md#4.1), [4.6](requirements.md#4.6), [4.7](requirements.md#4.7)
 
-- [ ] 32. [impl] Rewrite ZoneMigrationCoordinator.startOrResume per the 15-step algorithm <!-- id:ki2e5no -->
+- [x] 32. [impl] Rewrite ZoneMigrationCoordinator.startOrResume per the 15-step algorithm <!-- id:ki2e5no -->
   - Steps 2 (.completed short-circuit), 6 (four-quadrant existence branch invoking relocateToTripsLocal and deleteFromGlobals as appropriate), 10 (clear sentRecordNames + zoneSaved before re-marking .stageBInProgress), 13 (retroactively dirty-flag Stage A snapshot rows), 14 (sequential tripsLocalContext.save() then globalsContext.save(), both @MainActor, no await between)
   - Blocked-by: ki2e5nl ([test] Extend ZoneMigrationCoordinatorTests for the 15-step relocation algorithm), ki2e5nm ([impl] Implement ZoneMigrationCoordinator.relocateToTripsLocal(_:) helper), ki2e5nn ([impl] Update ZoneMigrationCoordinator.enqueueAll to scan both containers)
   - Stream: 1
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.5](requirements.md#4.5), [4.6](requirements.md#4.6), [4.9](requirements.md#4.9), [4.10](requirements.md#4.10)
 
-- [ ] 33. [test] Write parameterised PBT for cross-store consistency + idempotence <!-- id:ki2e5np -->
+- [x] 33. [test] Write parameterised PBT for cross-store consistency + idempotence <!-- id:ki2e5np -->
   - File: ScrambleTests/Persistence/ZoneMigrationCoordinatorPBT.swift (new)
   - Use Swift Testing @Test(arguments:) over the cross-product interruptionPoint in {fresh, after-step-10-clear, after-tripsLocal-save, after-globals-delete, after-completion} × resumeCount in {1, 2, 5}; assert terminal state is either tripsLocal-only or globals-only for the trip and that the journal converges to a terminal state
   - Blocked-by: ki2e5no ([impl] Rewrite ZoneMigrationCoordinator.startOrResume per the 15-step algorithm)
@@ -257,7 +257,7 @@ references:
   - Requirements: [4.5](requirements.md#4.5), [4.6](requirements.md#4.6)
   - References: design.md § Property-based tests property 1
 
-- [ ] 34. [test] Write parameterised PBT for commitDeletion mixed-zone partition <!-- id:ki2e5nq -->
+- [x] 34. [test] Write parameterised PBT for commitDeletion mixed-zone partition <!-- id:ki2e5nq -->
   - File: ScrambleTests/Sharing/LocalWriteHookPBT.swift (new)
   - Use Swift Testing @Test(arguments:) over generators of (zoneIDsBeingDeleted, deleted_in_vanishing_zone, deleted_in_surviving_zone, changed_in_surviving_zone); assert post-commit surviving-zone pendingUploadFlags equal the surviving-only set and the notifier received the union of all deleted IDs
   - Blocked-by: ki2e5mz ([impl] Implement LocalWriteHook.commitDeletion(_:zoneIDsBeingDeleted:))
@@ -265,34 +265,34 @@ references:
   - Requirements: [2.4](requirements.md#2.4)
   - References: design.md § Property-based tests property 2
 
-- [ ] 35. [test] Write TripSyncEventBusTests <!-- id:ki2e5nr -->
+- [x] 35. [test] Write TripSyncEventBusTests <!-- id:ki2e5nr -->
   - File: ScrambleTests/Sharing/TripSyncEventBusTests.swift (new)
   - Cover: a single iteration multicasts every event to both registered subscribers; one subscriber throwing inside its handler is logged and does NOT cancel the bus or starve the other subscriber; late-subscribe-after-start in DEBUG triggers assertionFailure; test-only stop() cancels the iteration
   - Stream: 1
   - Requirements: [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3)
   - References: design.md § TripSyncEventBus (new)
 
-- [ ] 36. [impl] Implement Sharing/TripSyncEventBus.swift <!-- id:ki2e5ns -->
+- [x] 36. [impl] Implement Sharing/TripSyncEventBus.swift <!-- id:ki2e5ns -->
   - Owns a single Task iterating the engine events stream; subscribers register their handler via subscribeOrchestrator / subscribeCoordinator (with the documented late-register precondition: assertionFailure in DEBUG, log+return in release); each dispatch is wrapped in do { handler(event) } catch { modelLogger.error(...) }
   - Test-only stop() cancels the task
   - Blocked-by: ki2e5nr ([test] Write TripSyncEventBusTests)
   - Stream: 1
   - Requirements: [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.4](requirements.md#7.4)
 
-- [ ] 37. [test] Write SignInResumeCoordinatorTests <!-- id:ki2e5nt -->
+- [x] 37. [test] Write SignInResumeCoordinatorTests <!-- id:ki2e5nt -->
   - File: ScrambleTests/App/SignInResumeCoordinatorTests.swift (new)
   - Cover: start() immediately re-checks accountStatus() and runs when available; CKAccountChanged notification triggers a run; UIScene.didActivateNotification fallback also triggers a run; concurrent triggers collapse to a single trailing replay via the inFlight: Task? + pendingReplay: Bool mechanism; migrationCoordinator.isCloudAvailable() returning false short-circuits the run
   - Stream: 1
   - Requirements: [4.8](requirements.md#4.8)
   - References: design.md § SignInResumeCoordinator (new)
 
-- [ ] 38. [impl] Implement App/SignInResumeCoordinator.swift <!-- id:ki2e5nu -->
+- [x] 38. [impl] Implement App/SignInResumeCoordinator.swift <!-- id:ki2e5nu -->
   - @MainActor final class. Init takes migrationCoordinator: ZoneMigrationCoordinator and container: CKContainer. start() installs the two observers and performs the immediate accountStatus() re-check. runResumeIfNeeded() is the single entry point: checks isCloudAvailable(), runs enqueueAll + runStageB, and uses an inFlight: Task? + pendingReplay: Bool to collapse storm-fire to at most one trailing replay
   - Blocked-by: ki2e5nt ([test] Write SignInResumeCoordinatorTests)
   - Stream: 1
   - Requirements: [4.8](requirements.md#4.8)
 
-- [ ] 39. [wire] Wire ScrambleApp to construct the EventBus, SignInResumeCoordinator, and route MigrationGate through them <!-- id:ki2e5nv -->
+- [x] 39. [wire] Wire ScrambleApp to construct the EventBus, SignInResumeCoordinator, and route MigrationGate through them <!-- id:ki2e5nv -->
   - Files: Scramble/Scramble/ScrambleApp.swift, Scramble/Scramble/App/MigrationGate.swift
   - In ScrambleApp.init: construct TripSyncEventBus(events: engine.events); call bus.subscribeOrchestrator(triggerOrchestrator) and bus.subscribeCoordinator(migrationCoordinator) BEFORE bus.start(); construct SignInResumeCoordinator(migrationCoordinator:container:) and call start() after bus.start()
   - MigrationGate.prepare() awaits signInResumeCoordinator.runResumeIfNeeded() instead of calling enqueueAll/runStageB directly; the gate also logs a warning when the count of MigrationJournalEntry rows exceeds 100 (the journal accumulation back-stop)

@@ -30,30 +30,48 @@ struct ScrambleApp: App {
   /// reach it via `@Environment(\.localWriteHook)` and call
   /// `hook.commit(_:)` instead of `modelContext.save()`.
   private let localWriteHook: LocalWriteHook
+  /// Phase 5.1 — single-iteration multicast of `syncEngine.events` to
+  /// both the orchestrator and the migration coordinator. Constructed
+  /// in `init` so subscribers register before `start()` is called from
+  /// `prepareLaunch`.
+  private let eventBus: TripSyncEventBus
+  /// Phase 5.1 — drives `migrationCoordinator.enqueueAll + runStageB`
+  /// on every iCloud sign-in transition. `MigrationGate.prepare` also
+  /// routes through this so a single in-flight invocation collapses
+  /// gate-startup + account-changed + scene-activated triggers.
+  private let signInResumeCoordinator: SignInResumeCoordinator
 
   init() {
     let containers = ModelStore.containers
     let tripsLocal = containers.tripsLocal.mainContext
     let globals = containers.globals.mainContext
-    let engine = TripSyncEngine(
-      context: tripsLocal,
-      container: CKContainer(identifier: ModelStore.cloudKitContainerIdentifier)
-    )
+    let cloudContainer = CKContainer(identifier: ModelStore.cloudKitContainerIdentifier)
+    let engine = TripSyncEngine(context: tripsLocal, container: cloudContainer)
     let hook = LocalWriteHook(notifier: engine)
     let service = Self.makeSharingService(engine: engine, tripsLocal: tripsLocal, hook: hook)
     let tracker = RulesLastEvaluatedTracker()
-    self.sharingService = service
-    self.syncEngine = engine
-    self.rulesLastEvaluatedTracker = tracker
-    self.localWriteHook = hook
-    self.migrationCoordinator = ZoneMigrationCoordinator(
+    let coordinator = ZoneMigrationCoordinator(
       globalsContext: globals,
       tripsLocalContext: tripsLocal,
       driver: TripSyncEngineZoneMigrationDriver(syncEngine: engine)
     )
-    self.triggerOrchestrator = Self.makeTriggerOrchestrator(
-      service: service, tripsLocal: tripsLocal, tracker: tracker, hook: localWriteHook
+    let orchestrator = Self.makeTriggerOrchestrator(
+      service: service, tripsLocal: tripsLocal, tracker: tracker, hook: hook
     )
+    let bus = TripSyncEventBus(events: engine.events)
+    bus.subscribeOrchestrator(orchestrator)
+    bus.subscribeCoordinator(coordinator)
+    let resume = SignInResumeCoordinator(migrationCoordinator: coordinator)
+
+    self.sharingService = service
+    self.syncEngine = engine
+    self.rulesLastEvaluatedTracker = tracker
+    self.localWriteHook = hook
+    self.migrationCoordinator = coordinator
+    self.triggerOrchestrator = orchestrator
+    self.eventBus = bus
+    self.signInResumeCoordinator = resume
+
     AppDelegate.environment = AppDelegate.Environment(
       sharingService: service,
       notificationRouter: RemoteNotificationRouter(
@@ -143,22 +161,35 @@ struct ScrambleApp: App {
     let probe = EnvironmentProbe.production
     let isHeadless = probe.isTest || probe.isUITestHost || probe.isPreview
     guard !isHeadless else { return }
+
+    // Bus subscribers were registered in init(); start the iteration
+    // first so any events the engine emits as it starts up land on
+    // both the orchestrator and the migration coordinator.
+    eventBus.start()
+    // Route the initial resume through the same single in-flight
+    // pipeline that observes CKAccountChanged / scene-activated. This
+    // collapses MigrationGate startup + later sign-in flips to one
+    // serial pipeline (design § "SignInResumeCoordinator").
+    signInResumeCoordinator.start()
+    // Back-stop visibility: log when the migration journal accumulates
+    // beyond a sane bound (design § "Data Models" — known non-goal of
+    // automatic cleanup). Failure-to-count is itself a regression
+    // signal — surface the error rather than swallowing it with `try?`.
     do {
-      try migrationCoordinator.enqueueAll()
-      try migrationCoordinator.runStageB()
+      let count = try migrationCoordinator.globalsContext.fetchCount(
+        FetchDescriptor<MigrationJournalEntry>()
+      )
+      if count > 100 {
+        modelLogger.warning(
+          "[MigrationGate] MigrationJournalEntry rows=\(count) — back-stop threshold exceeded"
+        )
+      }
     } catch {
       modelLogger.error(
-        "[MigrationGate] Stage B failed: \(error.localizedDescription, privacy: .public)"
+        "[MigrationGate] journal back-stop count failed: \(error.localizedDescription, privacy: .public)"
       )
     }
     syncEngine.start()
-    let orchestrator = triggerOrchestrator
-    let engine = syncEngine
-    Task { @MainActor in
-      for await event in engine.events {
-        orchestrator.handle(event: event)
-      }
-    }
   }
 
   @ViewBuilder

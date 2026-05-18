@@ -44,7 +44,8 @@ final class RulesEngineTriggerOrchestrator {
       guard let tripID = parseTripID(from: zoneID.zoneName) else { return }
       tracker?.record(tripID: tripID, at: now())
       run(tripID)
-    case .recordsFetched, .shareAccepted, .zoneRemoved, .error:
+    case .recordsFetched, .shareAccepted, .zoneRemoved,
+      .zoneSaved, .recordsSaved, .recordsFailed, .error:
       break
     }
   }
