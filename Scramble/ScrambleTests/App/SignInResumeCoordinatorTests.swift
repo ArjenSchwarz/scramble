@@ -102,6 +102,39 @@ struct SignInResumeCoordinatorTests {
     #expect(delta == 1, "Exactly one trailing replay (saw \(delta))")
   }
 
+  @Test("Triggers landing during the trailing replay spawn a new round (no drop)")
+  func lateTriggerStartsNewRound() async throws {
+    let gate = ResumeGate()
+    let counter = RunCounter()
+    let coordinator = SignInResumeCoordinator(
+      isCloudAvailable: { true },
+      resume: {
+        counter.bump()
+        await gate.wait()
+      }
+    )
+    coordinator.start()
+    await counter.waitForAtLeast(1)
+    let baseline = counter.value
+
+    // Fire a trigger during the initial run; release; the trailing
+    // replay starts. While it's parked on the gate, fire another
+    // trigger — without the late-trigger re-entry fix this would be
+    // dropped because pendingReplay is cleared on the way out.
+    coordinator.runResumeIfNeeded()
+    gate.release()  // initial run completes
+    await counter.waitForAtLeast(baseline + 1)  // trailing replay is running
+
+    coordinator.runResumeIfNeeded()  // late trigger lands during trailing replay
+    gate.release()  // trailing replay completes; late trigger spawns a new round
+    await counter.waitForAtLeast(baseline + 2)  // late-trigger round runs
+    gate.release()  // late-trigger round completes
+    await counter.waitForStable(checks: 10, intervalNanos: 10_000_000)
+
+    let delta = counter.value - baseline
+    #expect(delta == 2, "Trailing replay + late-trigger round (saw \(delta))")
+  }
+
   // MARK: - Helpers
 
   /// Single-shot gate that the `resume` closure can `await` on. The

@@ -95,6 +95,14 @@ final class SignInResumeCoordinator {
   /// Single entry point for resume — checks availability, collapses
   /// storm-fire via `inFlight` + `pendingReplay`. Guarantees ≤1
   /// trailing replay per in-flight run regardless of trigger volume.
+  ///
+  /// Triggers that arrive DURING the trailing replay would otherwise be
+  /// orphaned: they see `inFlight != nil` and set `pendingReplay`, but
+  /// the in-flight task is about to exit and would clear the flag.
+  /// After clearing `inFlight` we re-check the flag and, if a late
+  /// trigger landed, re-enter via a fresh `runResumeIfNeeded()` call.
+  /// Each round still bounds itself to ≤1 trailing replay; sustained
+  /// storms chain rounds rather than absorbing forever.
   func runResumeIfNeeded() {
     guard isCloudAvailable() else { return }
     if inFlight != nil {
@@ -108,10 +116,15 @@ final class SignInResumeCoordinator {
         self.pendingReplay = false
         await self.resume()
       }
-      // Anything that arrived after the trailing replay started runs in
-      // the next `runResumeIfNeeded` call — by design.
+      // Capture-then-clear so we observe triggers that landed during
+      // the trailing replay above. Clearing `inFlight` first lets the
+      // re-entry start a new task instead of just flipping the flag.
+      let hadLateTrigger = self.pendingReplay
       self.pendingReplay = false
       self.inFlight = nil
+      if hadLateTrigger {
+        self.runResumeIfNeeded()
+      }
     }
   }
 }

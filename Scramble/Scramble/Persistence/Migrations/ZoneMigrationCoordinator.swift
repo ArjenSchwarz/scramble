@@ -67,7 +67,12 @@ final class ZoneMigrationCoordinator {
 
     let tripsLocalTrips = try tripsLocalContext.fetch(FetchDescriptor<Trip>())
     let globalsTrips = try globalsContext.fetch(FetchDescriptor<Trip>())
-    let allTripIDs = Set(tripsLocalTrips.map(\.id)).union(globalsTrips.map(\.id))
+    // Sort the union for deterministic journal-insertion order across
+    // runs — Set iteration is non-deterministic, which makes Stage B
+    // logs and PBT failure traces harder to reason about.
+    let allTripIDs = Set(tripsLocalTrips.map(\.id))
+      .union(globalsTrips.map(\.id))
+      .sorted { $0.uuidString < $1.uuidString }
 
     for tripID in allTripIDs where !migratedTripIDs.contains(tripID) {
       if existingByTrip[tripID] != nil { continue }

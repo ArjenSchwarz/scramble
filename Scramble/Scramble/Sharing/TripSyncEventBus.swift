@@ -18,6 +18,18 @@ import Foundation
 ///   - Each dispatch wraps the handler call in a `do/catch` so a
 ///     subscriber's thrown error is logged via `modelLogger.error` and
 ///     the bus continues for the other subscriber.
+///   - **Handlers must be atomic or tolerate partial predecessor
+///     state.** Dispatch order is fixed (orchestrator first, coordinator
+///     second), so if the orchestrator handler throws mid-rule-engine-run
+///     with a partial write committed, the coordinator handler still
+///     receives the same event and acts on a partially updated store.
+///     Today the orchestrator's rule-engine pass and the coordinator's
+///     journal mutations are committed through `LocalWriteHook.commit`
+///     and `globalsContext.save()` respectively — both atomic per
+///     ModelContext — so a half-committed predecessor is structurally
+///     impossible. Future subscribers that batch multi-step work without
+///     this property must add their own catch-and-rollback or accept
+///     the partial-state risk.
 ///   - `stop()` cancels the iteration task; used by tests.
 ///
 /// Note: production has exactly two named subscribers. The two-slot

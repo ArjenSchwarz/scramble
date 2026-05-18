@@ -40,25 +40,40 @@ struct PackingSummarySection: View {
           .frame(minHeight: 44, alignment: .leading)
       } else {
         ForEach(snapshots, id: \.personID) { snapshot in
+          let resolvedPerson = PersonLookup.person(
+            for: snapshot.personID, in: globalsContainer.mainContext
+          )
           PackingSummaryRow(
             snapshot: snapshot,
             counts: countsByPerson[snapshot.personID]
               ?? PackingCounts(toPack: 0, packed: 0, repacked: 0, excluded: 0),
             mode: mode,
             focusOnDismiss: $focusOnDismiss,
-            onOpen: { handleOpen(snapshot: snapshot) }
+            isEnabled: resolvedPerson != nil,
+            onOpen: { handleOpen(snapshot: snapshot, person: resolvedPerson) }
           )
         }
       }
     }
   }
 
-  private func handleOpen(snapshot: TripPersonSnapshot) {
-    guard
-      let person = PersonLookup.person(
-        for: snapshot.personID, in: globalsContainer.mainContext
+  private func handleOpen(snapshot: TripPersonSnapshot, person: Person?) {
+    guard let person else {
+      // The snapshot references a Person that isn't in this device's
+      // globals store — likely a stale snapshot whose owner removed
+      // the Person, or an in-progress relocation. The row is rendered
+      // as disabled, so this branch only fires if a tap races the
+      // resolution; log it so Console surfaces the gap rather than
+      // silently no-op'ing.
+      let personID = snapshot.personID
+      let snapshotName = snapshot.name
+      modelLogger.error(
+        """
+        [PackingSummarySection] cannot open sheet — Person \
+        \(personID, privacy: .public) not found in globals \
+        (snapshot name=\(snapshotName, privacy: .public))
+        """
       )
-    else {
       return
     }
     onOpenSheet(person, mode)
@@ -85,6 +100,11 @@ struct PackingSummaryRow: View {
   let counts: PackingCounts
   let mode: PackingMode
   @AccessibilityFocusState.Binding var focusOnDismiss: UUID?
+  /// Phase 5.1 — false when the underlying `Person` cannot be resolved
+  /// from the globals container (stale snapshot, in-progress relocation).
+  /// Disables the button so the row gives a visible signal that tapping
+  /// won't do anything, instead of silently no-op'ing.
+  let isEnabled: Bool
   let onOpen: () -> Void
 
   @Environment(\.theme) private var theme
@@ -127,6 +147,7 @@ struct PackingSummaryRow: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .disabled(!isEnabled)
     .accessibilityElement(children: .combine)
     .accessibilityLabel(accessibilityLabel)
     .accessibilityFocused($focusOnDismiss, equals: snapshot.personID)
