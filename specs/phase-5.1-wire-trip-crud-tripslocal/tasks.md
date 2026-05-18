@@ -193,7 +193,7 @@ references:
 - [x] 25. [impl] Update RulesEngine/Apply.swift to call LocalWriteHook.commit <!-- id:ki2e5nh -->
   - Replace try context.save() with try hook.commit(context); the hook is passed in as a parameter on apply(plan:context:hook:) (the function gains a new parameter; RulesEngineRunner plumbs it through from its initializer)
   - RulesEngineRunner catch in runForAllNonPastTrips still calls context.rollback() on a per-trip failure
-  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit), routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through, routing, through
+  - Blocked-by: ki2e5n1 ([impl] Refactor SnapshotMaintenance routines to mutate-only), ki2e5ng ([test] Write tests for rules engine apply(plan:) routing through LocalWriteHook.commit)
   - Stream: 1
   - Requirements: [2.2](requirements.md#2.2)
 

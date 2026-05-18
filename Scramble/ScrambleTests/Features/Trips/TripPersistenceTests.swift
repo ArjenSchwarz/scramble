@@ -157,7 +157,7 @@ struct TripPersistenceTests {
       attributes: TripAttributes(),
       participantIDs: [alice.id, carol.id]
     )
-    let missing = TripPersistence.apply(
+    let missing = try TripPersistence.apply(
       nextDraft, to: trip, in: tripsLocal, globals: globalsContext
     )
     #expect(missing.isEmpty)
@@ -225,7 +225,7 @@ struct TripPersistenceTests {
       attributes: TripAttributes(),
       participantIDs: []
     )
-    _ = TripPersistence.apply(
+    _ = try TripPersistence.apply(
       emptyDraft, to: trip, in: tripsLocal, globals: globalsContext
     )
 

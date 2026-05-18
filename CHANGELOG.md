@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Phase 5.1 — PR #6 review-fixer pass 3:
+  - `Scramble/Scramble/Features/Trips/TripPersistence.swift` — `apply` now `throws` and propagates errors from `SnapshotMaintenance.handleRosterRemoval` instead of logging-and-continuing. The routine interleaves a fetch with mutations, so a silent partial pass could leave one snapshot flipped to `isRosterMember=false` without the corresponding delete sweep. Caller (`TripDetailView` save handler) already wraps the call in do/catch with `modelContext.rollback()`, so the propagated error rolls back cleanly.
+  - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — wraps the `TripPersistence.apply` call in the existing do/catch so a roster-removal fetch failure rolls back the edit and returns `false` to the editor.
+  - `Scramble/ScrambleTests/Features/Trips/TripPersistenceTests.swift` — added `try` to the two `apply` call sites.
+  - `Scramble/Scramble/Sharing/CloudKitSharingService.swift` — `leaveShare` doc comment now explicitly states the known limitation: when the server delete fails with a tolerable error, the local `TripZoneState` is gone and no `CKSyncEngine` retry is queued. The owner's Participants section will continue to show this participant until the share is revoked or re-accepted. Acceptable for the family-app context; a future "leave-pending" sentinel could close the gap.
+  - `specs/phase-5.1-wire-trip-crud-tripslocal/tasks.md` — cleaned up corrupt `Blocked-by` field on task 25 (generation artefact with `"routing, through, routing, through, ..."` repeated 45 times).
+
 - Phase 5.1 — PR #6 review-fixer pass 2:
   - `Scramble/Scramble/Persistence/Migrations/ZoneMigrationCoordinator.swift` — `deleteFromGlobals` now defensively sweeps any `TripZoneState` rows for the trip from `globals` before the save. Production code never inserts there (all four `TripZoneState(...)` call sites bind `tripsLocal`), but the defence catches a hypothetical orphan from a future translator change or a foreign sync source.
   - `Scramble/ScrambleTests/Persistence/ZoneMigrationCoordinatorPhase51Tests.swift` — new `deleteFromGlobalsRemovesOrphanZoneStates` test seeds a `TripZoneState` directly in `globals` and verifies it's swept on relocation.

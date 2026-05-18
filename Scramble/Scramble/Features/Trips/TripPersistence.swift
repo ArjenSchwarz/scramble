@@ -124,7 +124,7 @@ import os
     to trip: Trip,
     in tripsLocal: ModelContext,
     globals: ModelContext
-  ) -> [UUID] {
+  ) throws -> [UUID] {
     let resolved = resolveParticipants(ids: draft.participantIDs, in: globals)
     trip.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
     trip.startDate = draft.startDate
@@ -137,23 +137,17 @@ import os
 
     // Remove snapshots whose person is no longer in the draft. Use the
     // dedicated routine so packing-item-referenced snapshots survive
-    // as `isRosterMember = false` (Req 6.2).
+    // as `isRosterMember = false` (Req 6.2). Errors propagate so the
+    // caller can roll back the context — `handleRosterRemoval` interleaves
+    // a fetch with a mutation, so a partial pass would leave one snapshot
+    // flipped to `isRosterMember=false` without the corresponding delete
+    // sweep. Logging-and-continuing here would hide that partial state.
     for snapshot in existing where desiredByID[snapshot.personID] == nil {
-      do {
-        try SnapshotMaintenance.handleRosterRemoval(
-          tripID: trip.id,
-          personID: snapshot.personID,
-          in: tripsLocal
-        )
-      } catch {
-        modelLogger.error(
-          """
-          [TripPersistence.apply] roster removal failed for \
-          personID=\(snapshot.personID, privacy: .public) \
-          error=\(String(describing: error), privacy: .public)
-          """
-        )
-      }
+      try SnapshotMaintenance.handleRosterRemoval(
+        tripID: trip.id,
+        personID: snapshot.personID,
+        in: tripsLocal
+      )
     }
 
     // Insert new + update kept.

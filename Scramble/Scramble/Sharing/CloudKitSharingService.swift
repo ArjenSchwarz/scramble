@@ -135,12 +135,25 @@ final class CloudKitSharingService: SharingService {
 
   /// Participant-side leave. Phase 5.1: tolerates server-side failures
   /// where the post-leave state is identical (`.zoneNotFound` — already
-  /// gone; `.networkUnavailable` / `.serverRejectedRequest` — server
-  /// can be reconciled later) and routes the local cleanup through
-  /// `TripDeletion.delete` so the reverse-cascade ends in a single
-  /// `LocalWriteHook.commitDeletion` transaction. The user's intent is
-  /// "remove this trip from my device"; we honour that locally and let
-  /// the next sync cycle reconcile the shared DB.
+  /// gone; `.networkUnavailable` / `.networkFailure` / `.serverRejectedRequest`
+  /// — server can be reconciled later) and routes the local cleanup
+  /// through `TripDeletion.delete` so the reverse-cascade ends in a
+  /// single `LocalWriteHook.commitDeletion` transaction. The user's
+  /// intent is "remove this trip from my device"; we honour that
+  /// locally and let the next sync cycle reconcile the shared DB.
+  ///
+  /// **Known limitation (best-effort).** When the server-side delete
+  /// fails with a tolerable error, the local `TripZoneState` row is
+  /// gone — there is no record left for `CKSyncEngine` to carry a
+  /// retry against. The owner's Participants section on other devices
+  /// will continue to show this participant until either: (a) the
+  /// participant re-accepts the share and leaves again online, or
+  /// (b) the share itself expires / is revoked by the owner. This is
+  /// acceptable for the family-app context (the participant's intent
+  /// is honoured on their device; the owner can revoke if needed) and
+  /// avoids blocking offline-leave on a network round-trip. A future
+  /// improvement could persist a "leave-pending" sentinel and retry on
+  /// the next sync, at the cost of additional state machinery.
   func leaveShare(forTrip tripID: UUID) async throws {
     let zoneState = try fetchZoneState(forTrip: tripID)
     let zoneID = TripZoneStateRecordTranslator.zoneID(for: zoneState)

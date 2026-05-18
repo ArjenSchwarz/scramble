@@ -178,10 +178,11 @@ import os
     }
     .sheet(isPresented: $showEditor) {
       TripEditorView(mode: .edit(trip), focusAttribute: editAttributeFocus) { draft in
-        let orphans = TripPersistence.apply(
-          draft, to: trip, in: modelContext, globals: globalsContainer.mainContext
-        )
+        let orphans: [UUID]
         do {
+          orphans = try TripPersistence.apply(
+            draft, to: trip, in: modelContext, globals: globalsContainer.mainContext
+          )
           try hook.commit(modelContext)
         } catch {
           modelContext.rollback()
