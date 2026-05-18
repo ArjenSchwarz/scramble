@@ -174,11 +174,9 @@ struct ScrambleApp: App {
     // Back-stop visibility: log when the migration journal accumulates
     // beyond a sane bound (design § "Data Models" — known non-goal of
     // automatic cleanup). Failure-to-count is itself a regression
-    // signal — surface the error rather than swallowing it with `try?`.
+    // signal — surface the error rather than swallowing it.
     do {
-      let count = try migrationCoordinator.globalsContext.fetchCount(
-        FetchDescriptor<MigrationJournalEntry>()
-      )
+      let count = try migrationCoordinator.journalCount()
       if count > 100 {
         modelLogger.warning(
           "[MigrationGate] MigrationJournalEntry rows=\(count) — back-stop threshold exceeded"

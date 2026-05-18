@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Phase 5.1 — pre-push-review cleanup of the Phase 5 work:
+  - `Scramble/Scramble/Persistence/Migrations/ZoneMigrationCoordinator.swift` — `globalsContext` / `tripsLocalContext` are now `private`; new `journalCount() throws -> Int` exposes the back-stop count without leaking the context. Steps 12 and 13 of `startOrResume` are merged — the in-memory `expectedRecordNames` set already covers every reachable snapshot, so the defensive second fetch is dropped. `deleteFromGlobals` now uses the explicit `packingItems → tasks → participantSnapshots → trip` reverse-cascade order to match the iOS 26.4 workaround documented in `TripDeletion`. `enqueueAll` uses `Set.union` instead of an explicit seen-set. New `zoneName(for:)` + `ownerZoneID(for:)` static helpers centralise the canonical zone naming.
+  - `Scramble/Scramble/Sharing/LocalWriteHook.swift`, `Scramble/Scramble/Sharing/Translators/TripZoneStateRecordTranslator.swift`, `Scramble/Scramble/Sharing/UITestSharingService.swift` — call `ZoneMigrationCoordinator.ownerZoneID(for:)` / `zoneName(for:)` instead of inlining `"trip-\(uuid)"`.
+  - `Scramble/Scramble/RulesEngine/RulesEngineTriggerOrchestrator.swift`, `Scramble/Scramble/Sharing/Translators/TripZoneStateRecordTranslator.swift` — drop the two duplicate private `parseTripID(from:)` helpers; both call sites now route through `ZoneMigrationCoordinator.parseTripID`.
+  - `Scramble/Scramble/App/SignInResumeCoordinator.swift` — `deinit` removes the two `NotificationCenter` observers it installs in `start()`; production lifetime is forever but the cleanup matters for tests that create+drop coordinators.
+  - `Scramble/Scramble/ScrambleApp.swift` — switches from `migrationCoordinator.globalsContext.fetchCount(...)` to `migrationCoordinator.journalCount()` for the back-stop visibility log.
+  - `Scramble/ScrambleTests/App/SignInResumeCoordinatorTests.swift` — storm-collapse test rewritten with a `ResumeGate` checked-continuation gate so the inflight run is sequenced deterministically; `delta == 1` assertion now holds without scheduling-jitter races.
+  - `CLAUDE.md` — project status updated to mention Phase 5.1 (container topology, chokepoint extension, 15-step migration coordinator, event bus, sign-in resume) so future agent sessions inherit the right context.
+  - `specs/phase-5.1-wire-trip-crud-tripslocal/decision_log.md` — adds Decision 7: `SignInResumeCoordinator.init` drops the unused `CKContainer` parameter; `migrationCoordinator.isCloudAvailable()` is the single source of truth for the availability check.
+
 ### Added
 
 - Phase 5.1 — migration coordinator + engine event multicast + sign-in resume (tasks 29–39):

@@ -41,18 +41,14 @@ final class RulesEngineTriggerOrchestrator {
     switch event {
     case .zoneChanged(let zoneID, _, let isSelfOriginated):
       guard !isSelfOriginated else { return }
-      guard let tripID = parseTripID(from: zoneID.zoneName) else { return }
+      guard let tripID = ZoneMigrationCoordinator.parseTripID(from: zoneID.zoneName) else {
+        return
+      }
       tracker?.record(tripID: tripID, at: now())
       run(tripID)
     case .recordsFetched, .shareAccepted, .zoneRemoved,
       .zoneSaved, .recordsSaved, .recordsFailed, .error:
       break
     }
-  }
-
-  private func parseTripID(from zoneName: String) -> UUID? {
-    guard zoneName.hasPrefix("trip-") else { return nil }
-    let suffix = zoneName.dropFirst("trip-".count)
-    return UUID(uuidString: String(suffix))
   }
 }

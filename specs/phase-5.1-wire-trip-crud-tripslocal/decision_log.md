@@ -227,3 +227,39 @@ Production continues to inject the real hook (notifier = `TripSyncEngine`) from 
 - Detection of the misconfigured-injection case is at first commit, not at view mount; a view that never commits could still ship with a broken injection chain. Tolerable: the same view that never commits also never causes data loss.
 
 ---
+
+## Decision 7: `SignInResumeCoordinator.init` drops the `CKContainer` parameter
+
+**Date**: 2026-05-18
+**Status**: accepted
+
+### Context
+
+The design document (`design.md` § "SignInResumeCoordinator (new)") gave the production init signature as `init(migrationCoordinator: ZoneMigrationCoordinator, container: CKContainer)`. The intent was for the resume coordinator to perform an independent `CKContainer.accountStatus()` re-check distinct from `ZoneMigrationCoordinator.isCloudAvailable()`. During Phase 5 implementation it became clear that the only check `runResumeIfNeeded` needs is `migrationCoordinator.isCloudAvailable()` — the coordinator already encapsulates the account-status probe, and adding a second probe inside `SignInResumeCoordinator` would duplicate the logic and risk drift between two answers to the same question.
+
+### Decision
+
+The production `SignInResumeCoordinator.init` takes only `migrationCoordinator: ZoneMigrationCoordinator`. The `CKContainer` parameter is removed. The immediate re-check on `start()` calls `runResumeIfNeeded`, which gates on `migrationCoordinator.isCloudAvailable()`.
+
+### Rationale
+
+- One source of truth for "is iCloud available right now" prevents the two-probes-can-disagree race the original design quietly accepted.
+- The coordinator's `isCloudAvailable` closure is already test-injectable; `SignInResumeCoordinator` inherits that testability for free.
+- The unused parameter would have invited future bugs ("why is this here? let me find a use for it") that the lint pass would not catch.
+
+### Alternatives Considered
+
+- **Keep the `CKContainer` parameter and call `accountStatus()` directly**: Rejected because it duplicates `migrationCoordinator.isCloudAvailable()` and forces tests to mock CloudKit through a second seam.
+- **Pass a closure `accountStatusProvider` instead of `CKContainer`**: Rejected as gratuitous indirection; the test init already accepts an `isCloudAvailable: () -> Bool` closure that covers the same need.
+
+### Consequences
+
+**Positive:**
+- Single source of truth for the availability check.
+- Production init signature matches the test-friendly init's intent (one closure does the gating).
+- No drift between the design's two CloudKit probes.
+
+**Negative:**
+- The design document's signature is now stale; readers reaching for the spec see a parameter that no longer exists in the code. Mitigated by this decision-log entry — the design document is not edited retroactively per the project's convention of preserving as-shipped specs.
+
+---

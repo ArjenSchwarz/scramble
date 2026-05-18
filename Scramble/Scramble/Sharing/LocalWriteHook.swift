@@ -111,10 +111,7 @@ final class LocalWriteHook {
     var byTripID: [UUID: ZoneChange] = [:]
 
     func touch(tripID: UUID, recordName: String, deleted: Bool) {
-      let zoneID = CKRecordZone.ID(
-        zoneName: "trip-\(tripID.uuidString)",
-        ownerName: CKCurrentUserDefaultName
-      )
+      let zoneID = ZoneMigrationCoordinator.ownerZoneID(for: tripID)
       var change = byTripID[tripID] ?? ZoneChange(zoneID: zoneID, tripID: tripID)
       if deleted {
         change.deletedRecordNames.insert(recordName)

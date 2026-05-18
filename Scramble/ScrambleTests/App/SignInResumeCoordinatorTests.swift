@@ -70,32 +70,65 @@ struct SignInResumeCoordinatorTests {
 
   @Test("Storm-fire collapses to exactly one trailing replay")
   func stormCollapse() async throws {
+    let gate = ResumeGate()
     let counter = RunCounter()
     let coordinator = SignInResumeCoordinator(
       isCloudAvailable: { true },
       resume: {
         counter.bump()
-        // Yield so the storm-fire below lands while this run is in
-        // flight; pendingReplay collapses every subsequent trigger to a
-        // single trailing replay.
-        try? await Task.sleep(nanoseconds: 30_000_000)
+        // Block the in-flight run until the test releases the gate.
+        // Deterministic: every storm trigger is guaranteed to land
+        // while inFlight is non-nil, so pendingReplay collapses them
+        // to a single trailing replay regardless of scheduling jitter.
+        await gate.wait()
       }
     )
     coordinator.start()
     await counter.waitForAtLeast(1)
     let baseline = counter.value
 
-    // Fire the storm while the initial run's sleep is still pending.
+    // Fire the storm while the initial run is parked on the gate.
     for _ in 0..<10 {
       coordinator.runResumeIfNeeded()
     }
-    await counter.waitForStable(checks: 10, intervalNanos: 20_000_000)
+    // Release the gate; the in-flight run completes, then the trailing
+    // replay runs once, then the gate has to release that too.
+    gate.release()
+    await counter.waitForAtLeast(baseline + 1)
+    gate.release()
+    await counter.waitForStable(checks: 10, intervalNanos: 10_000_000)
 
     let delta = counter.value - baseline
     #expect(delta == 1, "Exactly one trailing replay (saw \(delta))")
   }
 
   // MARK: - Helpers
+
+  /// Single-shot gate that the `resume` closure can `await` on. The
+  /// test calls `release()` once per in-flight run so the storm-collapse
+  /// path is sequenced deterministically (no scheduling-jitter races).
+  @MainActor
+  final class ResumeGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var pendingReleases: Int = 0
+
+    func wait() async {
+      if pendingReleases > 0 {
+        pendingReleases -= 1
+        return
+      }
+      await withCheckedContinuation { continuation = $0 }
+    }
+
+    func release() {
+      if let continuation {
+        self.continuation = nil
+        continuation.resume()
+      } else {
+        pendingReleases += 1
+      }
+    }
+  }
 
   @MainActor
   final class RunCounter {

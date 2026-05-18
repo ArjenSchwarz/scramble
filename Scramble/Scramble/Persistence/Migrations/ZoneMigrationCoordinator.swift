@@ -25,8 +25,8 @@ import os
 /// `handleRecordsSaved`, and `handleRecordsFailed` as the events arrive.
 @MainActor
 final class ZoneMigrationCoordinator {
-  let globalsContext: ModelContext
-  let tripsLocalContext: ModelContext
+  private let globalsContext: ModelContext
+  private let tripsLocalContext: ModelContext
   let driver: ZoneMigrationDriver
   let isCloudAvailable: () -> Bool
   let now: () -> Date
@@ -65,13 +65,11 @@ final class ZoneMigrationCoordinator {
     let existingStates = try tripsLocalContext.fetch(FetchDescriptor<TripZoneState>())
     let migratedTripIDs = Set(existingStates.map(\.tripID))
 
-    var seenTripIDs: Set<UUID> = []
     let tripsLocalTrips = try tripsLocalContext.fetch(FetchDescriptor<Trip>())
     let globalsTrips = try globalsContext.fetch(FetchDescriptor<Trip>())
-    let allTripIDs = tripsLocalTrips.map(\.id) + globalsTrips.map(\.id)
+    let allTripIDs = Set(tripsLocalTrips.map(\.id)).union(globalsTrips.map(\.id))
 
     for tripID in allTripIDs where !migratedTripIDs.contains(tripID) {
-      guard seenTripIDs.insert(tripID).inserted else { continue }
       if existingByTrip[tripID] != nil { continue }
       let entry = MigrationJournalEntry(
         tripID: tripID,
@@ -103,6 +101,13 @@ final class ZoneMigrationCoordinator {
         continue
       }
     }
+  }
+
+  /// Count of `MigrationJournalEntry` rows currently persisted in
+  /// `globals`. Surfaces the back-stop visibility metric without
+  /// leaking the underlying `ModelContext` to callers.
+  func journalCount() throws -> Int {
+    try globalsContext.fetchCount(FetchDescriptor<MigrationJournalEntry>())
   }
 
   /// Re-runs Stage B for a `.failed` entry. Clears the error, transitions
@@ -173,7 +178,7 @@ final class ZoneMigrationCoordinator {
 
   // MARK: - Private
 
-  // swiftlint:disable cyclomatic_complexity function_body_length
+  // swiftlint:disable function_body_length
 
   /// Phase 5.1 — 15-step relocation + Stage B start. See spec
   /// `phase-5.1-wire-trip-crud-tripslocal/design.md § ZoneMigrationCoordinator`.
@@ -189,10 +194,7 @@ final class ZoneMigrationCoordinator {
     if journal.state == .completed { return }
 
     // Step 3 — canonical zone ID for the trip (private DB, owner-side).
-    let zoneID = CKRecordZone.ID(
-      zoneName: "trip-\(tripID.uuidString)",
-      ownerName: CKCurrentUserDefaultName
-    )
+    let zoneID = Self.ownerZoneID(for: tripID)
 
     // Steps 4–6 — four-quadrant existence branch over (tripsLocal, globals).
     // Each branch is written explicitly so the code maps 1:1 to the
@@ -255,32 +257,16 @@ final class ZoneMigrationCoordinator {
       journal.errorMessage = nil
     }
 
-    // Step 12 — dirty-flag every expected record name.
-    var dirtyRecordNames = expectedNames
+    // Steps 12 + 13 — dirty-flag every expected record name. The set
+    // already includes every TripPersonSnapshot reachable through
+    // `trip.participantSnapshots` (built in step 9 via
+    // `expectedRecordNames`), so Stage A's pre-Phase-5.1-empty snapshot
+    // rows are retroactively dirty-flagged here on Stage B entry per
+    // Req 4.9 — no second fetch needed.
+    let dirtyRecordNames = expectedNames
     var flags = PendingUploadFlags.decode(state.pendingUploadFlags)
     for name in expectedNames {
       flags.markDirty(recordName: name)
-    }
-
-    // Step 13 — retroactively dirty-flag every existing
-    // TripPersonSnapshot for the trip (Req 4.9). The Stage A backfill
-    // created these against the pre-Phase-5.1 empty production state and
-    // they have never been marked dirty for upload; entering Stage B is
-    // their first opportunity to be sent. Step 12 already covers the
-    // snapshots reachable through `trip.participantSnapshots`; this
-    // step also flags any snapshot rows that exist for this trip ID but
-    // aren't in the in-memory collection (defensive — both should be
-    // identical, but the requirement is for "every snapshot row for
-    // the trip").
-    let snapshots = try tripsLocalContext.fetch(
-      FetchDescriptor<TripPersonSnapshot>(
-        predicate: #Predicate { $0.trip?.id == tripID }
-      )
-    )
-    for snapshot in snapshots {
-      let name = snapshot.id.uuidString
-      flags.markDirty(recordName: name)
-      dirtyRecordNames.insert(name)
     }
     state.pendingUploadFlags = flags.encode()
 
@@ -388,12 +374,19 @@ final class ZoneMigrationCoordinator {
   /// Phase 5.1 — delete a Trip + dependents from `globals` after the
   /// relocation has committed in `tripsLocal`. The single
   /// `globalsContext.save()` is the resume-from-(both) step.
+  ///
+  /// Uses the explicit reverse-cascade order documented in
+  /// `TripDeletion` (`packingItems` → `tasks` → `participantSnapshots` →
+  /// `trip`) to avoid the iOS 26.4 SwiftData cascade-traversal panic
+  /// when the snapshot ↔ packing-item nullify pair enters the chain.
   private func deleteFromGlobals(tripID: UUID) throws {
     guard let trip = try fetchTrip(tripID: tripID, in: globalsContext) else { return }
-    // SwiftData cascades `tasks` / `packingItems` (deleteRule .cascade)
-    // and nullifies `participants`. Snapshots use `.nullify` — see Trip
-    // declaration for the V3 cascade-traversal workaround — so delete
-    // them explicitly first.
+    for item in trip.packingItems ?? [] {
+      globalsContext.delete(item)
+    }
+    for task in trip.tasks ?? [] {
+      globalsContext.delete(task)
+    }
     for snapshot in trip.participantSnapshots ?? [] {
       globalsContext.delete(snapshot)
     }
@@ -401,7 +394,7 @@ final class ZoneMigrationCoordinator {
     try globalsContext.save()
   }
 
-  // swiftlint:enable cyclomatic_complexity function_body_length
+  // swiftlint:enable function_body_length
 
   private func ensureZoneState(
     for tripID: UUID, zoneID: CKRecordZone.ID
@@ -467,6 +460,18 @@ final class ZoneMigrationCoordinator {
     guard zoneName.hasPrefix("trip-") else { return nil }
     let suffix = zoneName.dropFirst("trip-".count)
     return UUID(uuidString: String(suffix))
+  }
+
+  /// Canonical zone-name string for a trip. Inverse of `parseTripID`.
+  static func zoneName(for tripID: UUID) -> String {
+    "trip-\(tripID.uuidString)"
+  }
+
+  /// Owner-side canonical zone ID for a trip (`CKCurrentUserDefaultName`
+  /// owner; private DB). Participant zones carry the share owner's name
+  /// and are constructed elsewhere from server-supplied IDs.
+  static func ownerZoneID(for tripID: UUID) -> CKRecordZone.ID {
+    CKRecordZone.ID(zoneName: zoneName(for: tripID), ownerName: CKCurrentUserDefaultName)
   }
 }
 

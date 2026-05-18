@@ -23,10 +23,7 @@
     }
 
     func createShare(forTrip tripID: UUID) async throws -> CKShare {
-      let zoneID = CKRecordZone.ID(
-        zoneName: "trip-\(tripID.uuidString)",
-        ownerName: CKCurrentUserDefaultName
-      )
+      let zoneID = ZoneMigrationCoordinator.ownerZoneID(for: tripID)
       let share = CKShare(recordZoneID: zoneID)
       share.publicPermission = .none
       return share

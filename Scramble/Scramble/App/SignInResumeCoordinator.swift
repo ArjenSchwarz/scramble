@@ -58,6 +58,9 @@ final class SignInResumeCoordinator {
 
   deinit {
     inFlight?.cancel()
+    for token in observers {
+      NotificationCenter.default.removeObserver(token)
+    }
   }
 
   /// Install the notification observers and perform an immediate
