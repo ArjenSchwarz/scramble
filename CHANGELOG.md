@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 6 Phase 11 — documentation:
+  - `docs/agent-notes/notifications.md` — full topology of the notifications subsystem: service triggers + reasons, module map, identifier scheme, 60-cap and tie-break, deep-link routing, foreground delivery, authorization flow. Documents the deferred `@Observable` decision and the deferred routing state machine.
+  - `docs/agent-notes/accessibility.md` — VoiceOver label conventions, custom-action gating, Dynamic Type AX2 boundaries, haptics matrix, Reduce Motion behaviour. Lists known limitations.
+  - `CLAUDE.md` — project-status sentence updated to mark Phase 6 shipped.
+
 - Phase 6 Phase 5 — notification-tap routing:
   - `Scramble/Scramble/Features/Trips/TripsTab.swift` — `path` is now a `@Binding`. A default `.constant(NavigationPath())` keeps existing call sites and tests building unchanged.
   - `Scramble/Scramble/Features/Root/RootView.swift` — owns the `tripsPath: NavigationPath` so a notification-tap consumption can push to the Trips tab's stack regardless of which tab is showing. `consumeActivationRoute()` drains the router's `pendingRoute` (Req 5.1, 5.2): switches the tab to `.trips`, resets the navigation stack to root, and pushes the looked-up `Trip`. Trip lookups that miss (`tripID` no longer on device) clear the route without modifying navigation state (Req 5.4). Observed via `.onChange(of: activationRouter?.pendingRoute)` plus a `.task` drain for cold-launch taps.
