@@ -24,34 +24,34 @@ references:
 
 ## Phase 2: Notification pure primitives
 
-- [ ] 4. [test] NotificationIdentifier round-trip + parse rejects malformed inputs <!-- id:mwaej3b -->
+- [x] 4. [test] NotificationIdentifier round-trip + parse rejects malformed inputs <!-- id:mwaej3b -->
   - Stream: 2
   - Requirements: [2.3](requirements.md#2.3), [2.4](requirements.md#2.4)
 
-- [ ] 5. Implement NotificationIdentifier.make / parse / threadID <!-- id:mwaej3c -->
+- [x] 5. Implement NotificationIdentifier.make / parse / threadID <!-- id:mwaej3c -->
   - Blocked-by: mwaej3b ([test] NotificationIdentifier round-trip + parse rejects malformed inputs)
   - Stream: 2
   - Requirements: [2.3](requirements.md#2.3), [2.4](requirements.md#2.4)
 
-- [ ] 6. [test] NotificationPlanner table-driven cases: eligibility, past-day skip, ordering, 60-cap, tie-break, body text <!-- id:mwaej3d -->
+- [x] 6. [test] NotificationPlanner table-driven cases: eligibility, past-day skip, ordering, 60-cap, tie-break, body text <!-- id:mwaej3d -->
   - Stream: 2
   - Requirements: [1.2](requirements.md#1.2), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [2.1](requirements.md#2.1), [2.2](requirements.md#2.2)
 
-- [ ] 7. [test] NotificationPlanner property test: no plan has fire-date ≤ now's calendar day <!-- id:mwaej3e -->
+- [x] 7. [test] NotificationPlanner property test: no plan has fire-date ≤ now's calendar day <!-- id:mwaej3e -->
   - Stream: 2
   - Requirements: [1.5](requirements.md#1.5)
 
-- [ ] 8. Implement NotificationPlanner.plan + body helper <!-- id:mwaej3f -->
+- [x] 8. Implement NotificationPlanner.plan + body helper <!-- id:mwaej3f -->
   - Blocked-by: mwaej3d ([test] NotificationPlanner table-driven cases: eligibility, past-day skip, ordering, 60-cap, tie-break, body text), mwaej3e ([test] NotificationPlanner property test: no plan has fire-date ≤ now's calendar day)
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [1.4](requirements.md#1.4), [1.5](requirements.md#1.5), [2.1](requirements.md#2.1), [2.2](requirements.md#2.2)
 
-- [ ] 9. [test] NotificationReconciler diff: add/remove/no-op including body-match no-op detection <!-- id:mwaej3g -->
+- [x] 9. [test] NotificationReconciler diff: add/remove/no-op including body-match no-op detection <!-- id:mwaej3g -->
   - Blocked-by: mwaej3f (Implement NotificationPlanner.plan + body helper)
   - Stream: 2
   - Requirements: [2.3](requirements.md#2.3)
 
-- [ ] 10. Implement NotificationReconciler.diff <!-- id:mwaej3h -->
+- [x] 10. Implement NotificationReconciler.diff <!-- id:mwaej3h -->
   - Blocked-by: mwaej3g ([test] NotificationReconciler diff: add/remove/no-op including body-match no-op detection)
   - Stream: 2
   - Requirements: [2.3](requirements.md#2.3)
@@ -92,7 +92,7 @@ references:
   - Requirements: [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
 - [ ] 18. Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop) <!-- id:mwaej3p -->
-  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
+  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
@@ -281,5 +281,5 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.5](requirements.md#9.5), [10.5](requirements.md#10.5)
 
 - [ ] 55. Update CHANGELOG.md and CLAUDE.md project-status sentence to mark Phase 6 shipped <!-- id:mwaej4p -->
-  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing
+  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
   - Stream: 8

@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 6 Phase 2 — notification pure primitives:
+  - `Scramble/Scramble/Notifications/NotificationIdentifier.swift` — identifier scheme `scramble.activation.<UUID>.<phase-rawValue>` with `make`, `parse`, and `threadID(for:)`. Activation identifiers are split on `.` into four exact parts; anything else is rejected. Thread identifiers group all of a trip's notifications in Notification Center.
+  - `Scramble/Scramble/Notifications/NotificationPlanner.swift` — pure mapping from `[Trip]` + `[UUID: [TripTask]]` + `now` + `calendar` + `cap` to `[ActivationPlan]`. Skips `weeksBefore`, `afterTrip`, compressed `duringTrip`; skips phases whose activation day ≤ today's `startOfDay`; sorts by fire date then `Trip.startDate` then `Trip.id`; clamps to the 60-pending cap (Req 2.1). `body(tripName:phase:outstandingTasks:)` exposed so the reconciler can no-op detect a body match without rerunning the full plan.
+  - `Scramble/Scramble/Notifications/NotificationReconciler.swift` — diffs the planner output against `pendingNotificationRequests`. `toAdd` includes plans whose `(tripID, phase)` is missing or whose body differs; `toRemove` includes pending identifiers in the activation namespace that are not in the plan. Pending requests outside the activation namespace are ignored. Order-stable: `toAdd` follows plan order, `toRemove` follows pending order.
+  - `Scramble/ScrambleTests/Notifications/NotificationIdentifierTests.swift` — round-trip across every `Phase` case and parser rejection coverage.
+  - `Scramble/ScrambleTests/Notifications/NotificationPlannerTests.swift` — eligibility, past-day skip, body text, 60-cap with deterministic tie-break, outstanding-task-count threading, and a property test asserting no plan ever fires on or before today's calendar day.
+  - `Scramble/ScrambleTests/Notifications/NotificationReconcilerTests.swift` — empty input, body-match no-op, body-differs add, defensive cleanup of stray activation-namespace identifiers, ignore foreign namespace, and order stability.
+
 - Phase 6 Phase 1 — `SchemaV4` + `Trip.countryCode`:
   - `Scramble/Scramble/Models/Trip.swift` — adds `var countryCode: String?` (ISO 3166-1 alpha-2, uppercase) and a default-`nil` initializer parameter. Per-trip presentation metadata for the destination flag emoji (Decision 5); not a rules-engine input.
   - `Scramble/Scramble/Models/Schema.swift` — introduces `SchemaV4` (versionedSchema with the V3 model list plus the new `Trip.countryCode` column) and registers a `.lightweight` V3 → V4 stage on `AppMigrationPlan`. SwiftData adds the column on first open via automatic inference because the property is `Optional` with a `nil` default.
