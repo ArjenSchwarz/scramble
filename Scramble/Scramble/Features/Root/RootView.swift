@@ -14,6 +14,11 @@ import os
   /// never observed by `onChange`.
   @State private var hasBeenBackgrounded: Bool = false
   @Environment(\.scenePhase) private var scenePhase
+
+  /// Phase 6 — owned here so a notification-tap consumption can push to
+  /// the Trips tab's navigation stack regardless of which tab is showing.
+  @State private var tripsPath = NavigationPath()
+  @Environment(\.activationRouter) private var activationRouter
   /// Phase 5.1 — scene-phase rules-engine warm-pass runs against
   /// `tripsLocal`, the container that holds the trip-domain rows the
   /// engine reads and writes. `RootView` itself does not bind a container,
@@ -31,7 +36,7 @@ import os
 
   var body: some View {
     TabView(selection: $tab) {
-      TripsTab()
+      TripsTab(path: $tripsPath)
         .modelContainer(tripsLocalContainer)
         .tabItem {
           Label("Trips", systemImage: "suitcase")
@@ -43,6 +48,13 @@ import os
           Label("Master Lists", systemImage: "list.bullet.rectangle")
         }
         .tag(Tab.masterLists)
+    }
+    .onChange(of: activationRouter?.pendingRoute) { _, _ in
+      consumeActivationRoute()
+    }
+    .task {
+      // Drain any cold-launch route enqueued before this view appeared.
+      consumeActivationRoute()
     }
     .onChange(of: scenePhase) { _, newPhase in
       if newPhase == .background {
@@ -86,6 +98,25 @@ import os
         )
       }
     #endif
+  }
+
+  /// Phase 6 Req 5.1 / 5.4 — drain the router's `pendingRoute` slot and
+  /// navigate. The Trips tab is switched in, the navigation path is reset
+  /// to root and the trip pushed in a single transaction. Trip lookups
+  /// that miss (`tripID` no longer exists) clear the route without
+  /// modifying navigation state.
+  private func consumeActivationRoute() {
+    guard let router = activationRouter,
+      let route = router.consumeRoute()
+    else { return }
+    let tripID = route.tripID
+    let descriptor = FetchDescriptor<Trip>(predicate: #Predicate { $0.id == tripID })
+    guard let trip = try? tripsLocalContainer.mainContext.fetch(descriptor).first else { return }
+    tab = .trips
+    tripsPath = NavigationPath()
+    tripsPath.append(trip)
+    // TripDetailView reads `route.phase` via the router and applies it
+    // as `expandedPhase` once it appears.
   }
 
   #if DEBUG

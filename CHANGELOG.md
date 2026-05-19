@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 6 Phase 5 — notification-tap routing:
+  - `Scramble/Scramble/Features/Trips/TripsTab.swift` — `path` is now a `@Binding`. A default `.constant(NavigationPath())` keeps existing call sites and tests building unchanged.
+  - `Scramble/Scramble/Features/Root/RootView.swift` — owns the `tripsPath: NavigationPath` so a notification-tap consumption can push to the Trips tab's stack regardless of which tab is showing. `consumeActivationRoute()` drains the router's `pendingRoute` (Req 5.1, 5.2): switches the tab to `.trips`, resets the navigation stack to root, and pushes the looked-up `Trip`. Trip lookups that miss (`tripID` no longer on device) clear the route without modifying navigation state (Req 5.4). Observed via `.onChange(of: activationRouter?.pendingRoute)` plus a `.task` drain for cold-launch taps.
+
 - Phase 6 Phase 4 — app-level wiring:
   - `Scramble/Scramble/App/AppDelegate.swift` — `Environment` gains `activationRouter: NotificationRouter` (Phase 6 local-notification delegate) and `notificationsService: NotificationsService` slots alongside the existing `notificationRouter: RemoteNotificationRouter` (Phase 5 silent-push).
   - `Scramble/Scramble/ScrambleApp.swift` — constructs the notification stack via a `makeNotificationsWiring(engine:)` helper (Decision 12). `LocalWriteHook` is now wrapped in a `PendingChangeBroadcaster` fanning out to both `TripSyncEngine` and the notifications service. `UNUserNotificationCenter.delegate` is installed on the local router from `init`. `WindowGroup` gains an `onOpenURL` (Req 5.6) and a `.onChange(of: scenePhase)` bridge that maps `.active`/`.background` transitions into the service's `ScenePhaseTransition` enum (so the service file doesn't import SwiftUI).

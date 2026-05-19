@@ -4,13 +4,19 @@ import SwiftUI
 @MainActor struct TripsTab: View {
   @Query(sort: \Trip.startDate, order: .forward) private var trips: [Trip]
 
-  @State private var path = NavigationPath()
+  /// Phase 6 — externalised so `RootView` can push to the same stack
+  /// when consuming an `ActivationRoute` from a notification tap.
+  @Binding var path: NavigationPath
 
   // NOTE: @State is intentional — NOT @SceneStorage. State restoration would
   // persist `didAttemptAutoOpen` across kill-then-relaunch and re-suppress the
   // auto-open behaviour mandated by requirement 5.6. See design.md
   // "Trip List + auto-open".
   @State private var didAttemptAutoOpen = false
+
+  init(path: Binding<NavigationPath> = .constant(NavigationPath())) {
+    self._path = path
+  }
 
   var body: some View {
     NavigationStack(path: $path) {
