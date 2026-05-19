@@ -8,7 +8,7 @@
 | [Phase 4 Packing Sheet](#phase-4-packing-sheet) | 2026-05-15 | Done | Per-person packing summary block and bottom sheet with pack and repack modes. |
 | [Phase 5 CloudKit Sharing](#phase-5-cloudkit-sharing) | 2026-05-17 | Done | Per-trip CKShare via custom zones, SchemaV3 snapshots, and silent-push subscriptions. |
 | [Phase 5.1 Wire Trip Crud Tripslocal](#phase-5.1-wire-trip-crud-tripslocal) | 2026-05-17 | Done | Route Trip CRUD reads and writes through `tripsLocal` so the sync pipeline carries edits. |
-| [Phase 6 Notifications Polish](#phase-6-notifications-polish) | 2026-05-19 | Planned | Local phase-activation notifications, deep-link routing, country flag, transitions, haptics, VoiceOver, Dynamic Type AX2. |
+| [Phase 6 Notifications Polish](#phase-6-notifications-polish) | 2026-05-19 | In Progress | Local phase-activation notifications, deep-link routing, country flag, transitions, haptics, VoiceOver, Dynamic Type AX2. |
 
 ---
 

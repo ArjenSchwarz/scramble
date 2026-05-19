@@ -58,41 +58,41 @@ references:
 
 ## Phase 3: Notification service + router + broadcaster
 
-- [ ] 11. Define NotificationCenterProtocol and UNUserNotificationCenter conformance extension <!-- id:mwaej3i -->
+- [x] 11. Define NotificationCenterProtocol and UNUserNotificationCenter conformance extension <!-- id:mwaej3i -->
   - Blocked-by: mwaej3h (Implement NotificationReconciler.diff)
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [1.3](requirements.md#1.3), [2.3](requirements.md#2.3), [3.1](requirements.md#3.1)
 
-- [ ] 12. [test] StubNotificationCenter records calls; production conformance bridges to UNUserNotificationCenter <!-- id:mwaej3j -->
+- [x] 12. [test] StubNotificationCenter records calls; production conformance bridges to UNUserNotificationCenter <!-- id:mwaej3j -->
   - Blocked-by: mwaej3i (Define NotificationCenterProtocol and UNUserNotificationCenter conformance extension)
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1)
 
-- [ ] 13. [test] PendingChangeBroadcaster forwards to all children in registration order; one child throwing does not block others <!-- id:mwaej3k -->
+- [x] 13. [test] PendingChangeBroadcaster forwards to all children in registration order; one child throwing does not block others <!-- id:mwaej3k -->
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4)
 
-- [ ] 14. Implement PendingChangeBroadcaster <!-- id:mwaej3l -->
+- [x] 14. Implement PendingChangeBroadcaster <!-- id:mwaej3l -->
   - Blocked-by: mwaej3k ([test] PendingChangeBroadcaster forwards to all children in registration order; one child throwing does not block others)
   - Stream: 2
   - Requirements: [4.3](requirements.md#4.3), [4.4](requirements.md#4.4)
 
-- [ ] 15. [test] NotificationRouter consumeRoute is atomic; willPresent returns [.banner, .sound]; userInfo extraction handles malformed payload <!-- id:mwaej3m -->
+- [x] 15. [test] NotificationRouter consumeRoute is atomic; willPresent returns [.banner, .sound]; userInfo extraction handles malformed payload <!-- id:mwaej3m -->
   - Stream: 2
   - Requirements: [1.3](requirements.md#1.3), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
 
-- [ ] 16. Implement NotificationRouter (@Observable, UNUserNotificationCenterDelegate, async willPresent/didReceive) <!-- id:mwaej3n -->
+- [x] 16. Implement NotificationRouter (@Observable, UNUserNotificationCenterDelegate, async willPresent/didReceive) <!-- id:mwaej3n -->
   - Blocked-by: mwaej3m ([test] NotificationRouter consumeRoute is atomic; willPresent returns [.banner, .sound]; userInfo extraction handles malformed payload)
   - Stream: 2
   - Requirements: [1.3](requirements.md#1.3), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
 
-- [ ] 17. [test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered <!-- id:mwaej3o -->
+- [x] 17. [test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered <!-- id:mwaej3o -->
   - Blocked-by: mwaej3h (Implement NotificationReconciler.diff), mwaej3i (Define NotificationCenterProtocol and UNUserNotificationCenter conformance extension), mwaej3l (Implement PendingChangeBroadcaster), mwaej3n (Implement NotificationRouter (@Observable, UNUserNotificationCenterDelegate, async willPresent/didReceive))
   - Stream: 2
   - Requirements: [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
-- [ ] 18. Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop) <!-- id:mwaej3p -->
-  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
+- [x] 18. Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop) <!-- id:mwaej3p -->
+  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
@@ -281,5 +281,5 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.5](requirements.md#9.5), [10.5](requirements.md#10.5)
 
 - [ ] 55. Update CHANGELOG.md and CLAUDE.md project-status sentence to mark Phase 6 shipped <!-- id:mwaej4p -->
-  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
+  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
   - Stream: 8
