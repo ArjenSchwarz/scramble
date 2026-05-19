@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `specs/phase-6-notifications-polish/` — Phase 6 spec (requirements.md, design.md, decision_log.md, tasks.md). Local phase-activation notifications via `UNCalendarNotificationTrigger`, deep-link routing through `UNUserNotificationCenterDelegate`, country flag emoji on Trip Detail header via `SchemaV4` lightweight migration adding `Trip.countryCode`, `PendingChangeBroadcaster` over `LocalWriteHook` to multicast change events to both `TripSyncEngine` and a new `NotificationsService`, plus the polish pass (transitions, haptics, VoiceOver labels + accessibility custom action for "Why is this here?", Dynamic Type AX2 reflow). 55 tasks across 11 phases.
+
 ### Changed
+
+- `specs/OVERVIEW.md` — marked Phase 5.1 Done and listed Phase 6 as Planned.
 
 - Phase 5.1 — PR #6 review-fixer pass 6 (round-6 P1 items):
   - `Scramble/Scramble/Features/Trips/TripEditorPeoplePicker.swift` — after a successful `Person` delete, the picker now invokes `SnapshotMaintenance.sweep` against `tripsLocal` and commits through `LocalWriteHook.commit` so any non-roster snapshots with no remaining packing-item referrers are swept in the same session. Denormalised snapshots are intentionally preserved per Decision 7; this only catches the orphan-with-no-referrer subset that would otherwise wait for next warm-launch.
