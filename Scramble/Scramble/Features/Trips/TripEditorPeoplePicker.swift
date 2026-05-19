@@ -31,6 +31,8 @@ import SwiftUI
   @Binding var participantIDs: [UUID]
 
   @Environment(\.modelContext) private var globalsContext
+  @Environment(\.tripsLocalContainer) private var tripsLocalContainer
+  @Environment(\.localWriteHook) private var hook
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
 
@@ -179,6 +181,15 @@ import SwiftUI
     globalsContext.delete(person)
     do {
       try globalsContext.save()  // LocalWriteHookContract: allow — globals context, not tripsLocal
+      // Phase 5.1 — sweep any orphan TripPersonSnapshot rows in
+      // tripsLocal whose `personID` matched the just-deleted Person and
+      // are non-roster on every trip with no remaining packing-item
+      // referrers. Denormalised snapshots are intentionally preserved
+      // for shared-trip rendering (Decision 7), so this only touches
+      // the non-roster + no-referrer subset that `sweep` already
+      // handles on next warm-launch — we just fire it earlier so the
+      // post-delete state is consistent within the same session.
+      sweepOrphanSnapshots(deletedPersonID: personID)
     } catch {
       globalsContext.rollback()
       // Rollback restored the Person in the store, so the binding must reflect
@@ -198,6 +209,25 @@ import SwiftUI
       deleteErrorMessage = "Couldn't delete this person — try again."
     }
     personPendingDelete = nil
+  }
+
+  private func sweepOrphanSnapshots(deletedPersonID: UUID) {
+    let tripsLocalContext = tripsLocalContainer.mainContext
+    do {
+      try SnapshotMaintenance.sweep(in: tripsLocalContext)
+      // sweep is mutate-only by Phase 5.1 contract; commit through the
+      // chokepoint so any TripZoneState dirty bits land in the same
+      // hook signal.
+      try hook.commit(tripsLocalContext)
+    } catch {
+      modelLogger.error(
+        """
+        [TripEditorPeoplePicker.sweepOrphanSnapshots] failed after \
+        Person delete personID=\(deletedPersonID, privacy: .public): \
+        \(error.localizedDescription, privacy: .public)
+        """
+      )
+    }
   }
 
   // MARK: - Derived people

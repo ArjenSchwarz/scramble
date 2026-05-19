@@ -68,8 +68,29 @@ final class LocalWriteHook {
     // vanishing zone's TripZoneState row is in the same transaction's
     // deletedModelsArray; writing into it is wasted work and would
     // re-insert a fresh row.
+    //
+    // Per-zone do/catch so a single zone's flag-update failure (rare —
+    // typically a SwiftData fetch error) does not skip the remaining
+    // zones. A skipped zone's notifier signal is dropped too so the
+    // engine doesn't receive a "changes ready" notification for a zone
+    // whose `TripZoneState.pendingUploadFlags` weren't updated.
+    var notifiableZoneNames: Set<String> = Set(
+      summary.zoneChanges.map(\.zoneID.zoneName)
+    )
     for change in summary.zoneChanges where !vanishingZoneNames.contains(change.zoneID.zoneName) {
-      try applyZoneChange(change, in: context)
+      do {
+        try applyZoneChange(change, in: context)
+      } catch {
+        notifiableZoneNames.remove(change.zoneID.zoneName)
+        modelLogger.error(
+          """
+          [LocalWriteHook] applyZoneChange failed for zone \
+          \(change.zoneID.zoneName, privacy: .public): \
+          \(error.localizedDescription, privacy: .public); \
+          notifier skipped for this zone
+          """
+        )
+      }
     }
 
     // Step 2: single save commits both the user mutations and the
@@ -79,7 +100,10 @@ final class LocalWriteHook {
     // Step 3: tell the engine which records to send / delete on the next
     // batch. Vanishing-zone records still notify so the engine queues
     // their `deleteRecord` operations alongside the `deleteZone`.
-    for change in summary.zoneChanges {
+    // Surviving zones whose flag-update failed in step 1 are excluded
+    // from this loop (their name is no longer in `notifiableZoneNames`).
+    for change in summary.zoneChanges
+    where notifiableZoneNames.contains(change.zoneID.zoneName) {
       let recordIDs = change.dirtyRecordNames.map { recordName in
         CKRecord.ID(recordName: recordName, zoneID: change.zoneID)
       }

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Phase 5.1 — PR #6 review-fixer pass 6 (round-6 P1 items):
+  - `Scramble/Scramble/Features/Trips/TripEditorPeoplePicker.swift` — after a successful `Person` delete, the picker now invokes `SnapshotMaintenance.sweep` against `tripsLocal` and commits through `LocalWriteHook.commit` so any non-roster snapshots with no remaining packing-item referrers are swept in the same session. Denormalised snapshots are intentionally preserved per Decision 7; this only catches the orphan-with-no-referrer subset that would otherwise wait for next warm-launch.
+  - `Scramble/Scramble/Sharing/LocalWriteHook.swift` — `commitChanges` now wraps `applyZoneChange` in per-zone do/catch. A flag-update failure on one zone no longer skips the remaining zones, and the notifier loop excludes failed zones so the engine never receives a "changes ready" signal for a zone whose `TripZoneState.pendingUploadFlags` weren't updated. Errors are logged with the zone name.
+
 - Phase 5.1 — PR #6 review-fixer pass 5:
   - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — `deleteTrip`'s catch now calls `modelContext.rollback()` before surfacing the toast. `TripDeletion.delete` stages every record-delete and zone-state delete in the context before calling `hook.commitDeletion`; a thrown commit otherwise leaves staged-but-unsaved deletes pending, which makes the trip vanish from `@Query` results until the next app launch even though the disk still has the data.
   - `Scramble/Scramble/Features/Trips/PackingItemForm.swift` — `performAdd` now guards against `trip.participantSnapshots` containing no entry for the picker-selected Person (mid-roster-removal race). The previous code silently created an ownerless `TripPackingItem` that would render incorrectly across every device. New `PackingItemFormError.missingPersonSnapshot` is thrown so the form's inline-error path surfaces the failure.
