@@ -43,7 +43,7 @@ struct LocalWriteHookPBT {
   /// A small but expressive cross-product. The number of cases stays
   /// bounded so Swift Testing's `-parallel-testing-worker-count 1` simulator
   /// runs don't blow up the suite runtime.
-  static let scenarios: [Scenario] = {
+  nonisolated static let scenarios: [Scenario] = {
     var result: [Scenario] = []
     for vanish in [1, 2] {
       for surviving in [0, 1, 2] {
@@ -186,8 +186,9 @@ struct LocalWriteHookPBT {
     // Invariant 1 — surviving zone flags carry only surviving-zone deltas.
     for (index, trip) in survivingTrips.enumerated() {
       let zoneID = survivingZoneIDs[index]
+      let tripID = trip.id
       let descriptor = FetchDescriptor<TripZoneState>(
-        predicate: #Predicate { $0.tripID == trip.id }
+        predicate: #Predicate { $0.tripID == tripID }
       )
       guard let survivingState = try context.fetch(descriptor).first else {
         Issue.record("Surviving TripZoneState vanished unexpectedly")

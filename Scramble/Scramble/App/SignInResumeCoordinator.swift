@@ -1,6 +1,7 @@
 import CloudKit
 import Foundation
 import UIKit
+import os
 
 /// Phase 5.1 — re-runs `ZoneMigrationCoordinator` enqueue + Stage B when
 /// iCloud becomes available after launch. See design §
@@ -56,7 +57,7 @@ final class SignInResumeCoordinator {
     self.resume = resume
   }
 
-  deinit {
+  isolated deinit {
     inFlight?.cancel()
     for token in observers {
       NotificationCenter.default.removeObserver(token)

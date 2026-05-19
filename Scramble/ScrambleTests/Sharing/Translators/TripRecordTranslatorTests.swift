@@ -125,6 +125,78 @@ struct TripRecordTranslatorTests {
     }
   }
 
+  // MARK: - countryCode round-trip (Phase 6 Req 6.1, 6.5)
+
+  @Test("toRecord stores countryCode when set; from(_:into:) writes it back")
+  func encodesAndDecodesCountryCodeWhenSet() throws {
+    let zoneID = Self.zoneID()
+    let trip = Self.makeTrip(name: "Iceland", days: 7)
+    trip.countryCode = "IS"
+
+    let record = try TripRecordTranslator.toRecord(trip, in: zoneID, existing: nil)
+    #expect(record["countryCode"] as? String == "IS")
+
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    try TripRecordTranslator.from(record, into: context)
+    try context.save()
+
+    let decoded = try #require(try context.fetch(FetchDescriptor<Trip>()).first)
+    #expect(decoded.countryCode == "IS")
+  }
+
+  @Test("toRecord clears countryCode on the CKRecord when trip.countryCode is nil")
+  func encodesNilCountryCodeAsAbsentField() throws {
+    let zoneID = Self.zoneID()
+    let trip = Self.makeTrip(name: "Iceland", days: 7)
+    trip.countryCode = nil
+
+    let record = try TripRecordTranslator.toRecord(trip, in: zoneID, existing: nil)
+    #expect(record["countryCode"] == nil)
+  }
+
+  @Test("Set → unset → set toggle round-trips countryCode through the same CKRecord")
+  func togglesCountryCodeThroughExistingRecord() throws {
+    let zoneID = Self.zoneID()
+    let trip = Self.makeTrip(name: "Toggle", days: 2)
+    trip.countryCode = "NL"
+
+    let initial = try TripRecordTranslator.toRecord(trip, in: zoneID, existing: nil)
+    #expect(initial["countryCode"] as? String == "NL")
+
+    trip.countryCode = nil
+    let cleared = try TripRecordTranslator.toRecord(trip, in: zoneID, existing: initial)
+    #expect(cleared["countryCode"] == nil)
+
+    trip.countryCode = "JP"
+    let updated = try TripRecordTranslator.toRecord(trip, in: zoneID, existing: cleared)
+    #expect(updated["countryCode"] as? String == "JP")
+  }
+
+  @Test("from(_:into:) leaves existing countryCode untouched when the record omits the field")
+  func decodeIgnoresMissingCountryCodeField() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let zoneID = Self.zoneID()
+    let id = UUID()
+    let trip = Trip(id: id, name: "Existing")
+    trip.countryCode = "DE"
+    context.insert(trip)
+    try context.save()
+
+    let record = CKRecord(
+      recordType: TripRecordTranslator.recordType,
+      recordID: CKRecord.ID(recordName: id.uuidString, zoneID: zoneID)
+    )
+    record["name"] = "Renamed" as CKRecordValue
+    try TripRecordTranslator.from(record, into: context)
+    try context.save()
+
+    let stored = try #require(try context.fetch(FetchDescriptor<Trip>()).first)
+    #expect(stored.countryCode == "DE")
+    #expect(stored.name == "Renamed")
+  }
+
   // MARK: - Helpers
 
   private static func zoneID() -> CKRecordZone.ID {

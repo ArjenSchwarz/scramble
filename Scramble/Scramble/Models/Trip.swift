@@ -43,18 +43,25 @@ final class Trip {
   /// pre-Phase-5 records and freshly created trips have no cache yet.
   var ckRecordSystemFields: Data?
 
+  /// V4 — ISO 3166-1 alpha-2 destination country, uppercase or `nil`.
+  /// Used by `CountryFlag.emoji(for:)` to render a flag glyph on the
+  /// Trip Detail header (Phase 6 Decision 5).
+  var countryCode: String?
+
   init(
     id: UUID = UUID(),
     name: String = "",
     startDate: Date = .distantPast,
     endDate: Date = .distantPast,
-    attributes: TripAttributes = TripAttributes()
+    attributes: TripAttributes = TripAttributes(),
+    countryCode: String? = nil
   ) {
     self.id = id
     self.name = name
     self.startDate = startDate
     self.endDate = endDate
     self.attributesData = CodableBridge.encode(attributes, label: "Trip.attributes")
+    self.countryCode = countryCode
   }
 }
 

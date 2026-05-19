@@ -8,16 +8,16 @@ references:
 
 ## Phase 1: Schema V4 + Trip model
 
-- [ ] 1. [test] TripRecordTranslator round-trips countryCode (set, unset, toggle) <!-- id:mwaej38 -->
+- [x] 1. [test] TripRecordTranslator round-trips countryCode (set, unset, toggle) <!-- id:mwaej38 -->
   - Stream: 1
   - Requirements: [5.5](requirements.md#5.5), [6.1](requirements.md#6.1), [6.5](requirements.md#6.5)
 
-- [ ] 2. Add countryCode property on Trip, define SchemaV4, register V3→V4 lightweight migration, update TripRecordTranslator encode/decode <!-- id:mwaej39 -->
+- [x] 2. Add countryCode property on Trip, define SchemaV4, register V3→V4 lightweight migration, update TripRecordTranslator encode/decode <!-- id:mwaej39 -->
   - Blocked-by: mwaej38 ([test] TripRecordTranslator round-trips countryCode (set, unset, toggle))
   - Stream: 1
   - Requirements: [6.1](requirements.md#6.1), [6.2](requirements.md#6.2), [6.5](requirements.md#6.5)
 
-- [ ] 3. [test] V3→V4 lightweight migration preserves existing trips and sets countryCode = nil on both containers <!-- id:mwaej3a -->
+- [x] 3. [test] V3→V4 lightweight migration preserves existing trips and sets countryCode = nil on both containers <!-- id:mwaej3a -->
   - Blocked-by: mwaej39 (Add countryCode property on Trip, define SchemaV4, register V3→V4 lightweight migration, update TripRecordTranslator encode/decode)
   - Stream: 1
   - Requirements: [6.2](requirements.md#6.2)
@@ -92,7 +92,7 @@ references:
   - Requirements: [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
 - [ ] 18. Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop) <!-- id:mwaej3p -->
-  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes
+  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
@@ -281,5 +281,5 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.5](requirements.md#9.5), [10.5](requirements.md#10.5)
 
 - [ ] 55. Update CHANGELOG.md and CLAUDE.md project-status sentence to mark Phase 6 shipped <!-- id:mwaej4p -->
-  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing
+  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing
   - Stream: 8

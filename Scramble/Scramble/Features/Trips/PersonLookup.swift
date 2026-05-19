@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 /// Cross-container helper that resolves a `Person` UUID against a globals
 /// `ModelContext`. Phase 5.1 trip-domain views (rooted in `tripsLocal`)

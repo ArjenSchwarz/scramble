@@ -25,6 +25,9 @@ enum TripRecordTranslator {
       throw TranslatorError.blobTooLarge(field: "attributesData", size: trip.attributesData.count)
     }
     record["attributesData"] = trip.attributesData as CKRecordValue
+    // Assigning `CKRecordValue?(nil)` clears the field so a user who
+    // unsets `countryCode` propagates the deletion to participants.
+    record["countryCode"] = trip.countryCode as CKRecordValue?
     return record
   }
 
@@ -39,6 +42,9 @@ enum TripRecordTranslator {
     if let endDate = record["endDate"] as? Date { trip.endDate = endDate }
     if let attributesData = record["attributesData"] as? Data {
       trip.attributesData = attributesData
+    }
+    if let countryCode = record["countryCode"] as? String {
+      trip.countryCode = countryCode
     }
     trip.ckRecordSystemFields = encodeSystemFields(of: record)
   }

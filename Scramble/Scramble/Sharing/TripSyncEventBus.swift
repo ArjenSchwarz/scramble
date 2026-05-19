@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Phase 5.1 — owns the single `for await event in syncEngine.events`
 /// iteration and re-broadcasts each event to every registered subscriber.

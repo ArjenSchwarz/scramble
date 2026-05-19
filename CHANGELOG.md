@@ -8,11 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 6 Phase 1 — `SchemaV4` + `Trip.countryCode`:
+  - `Scramble/Scramble/Models/Trip.swift` — adds `var countryCode: String?` (ISO 3166-1 alpha-2, uppercase) and a default-`nil` initializer parameter. Per-trip presentation metadata for the destination flag emoji (Decision 5); not a rules-engine input.
+  - `Scramble/Scramble/Models/Schema.swift` — introduces `SchemaV4` (versionedSchema with the V3 model list plus the new `Trip.countryCode` column) and registers a `.lightweight` V3 → V4 stage on `AppMigrationPlan`. SwiftData adds the column on first open via automatic inference because the property is `Optional` with a `nil` default.
+  - `Scramble/Scramble/Persistence/ModelStore.swift` — both `globals` and `tripsLocal` containers now pin to `SchemaV4`. The `globals` container has no `Trip` rows in production (Phase 5.1 moved them to `tripsLocal`), so the data effect on `globals` is zero; the schema still updates so the `Trip` model type stays consistent across containers.
+  - `Scramble/Scramble/Sharing/Translators/TripRecordTranslator.swift` — encodes `countryCode` to the CKRecord using `as CKRecordValue?` so a `nil` assignment clears the field for participants; decode treats a missing field as "leave existing value alone".
+  - `Scramble/ScrambleTests/Sharing/Translators/TripRecordTranslatorTests.swift` — four new round-trip cases covering set, unset, set→unset→set toggle, and missing-field ignored.
+  - `Scramble/ScrambleTests/Persistence/SchemaV4MigrationTests.swift` — plan-shape coverage plus an on-disk V3-seed → V4-reopen round-trip parametrised across two container shapes; verifies trips survive and `countryCode == nil`.
 - `specs/phase-6-notifications-polish/` — Phase 6 spec (requirements.md, design.md, decision_log.md, tasks.md). Local phase-activation notifications via `UNCalendarNotificationTrigger`, deep-link routing through `UNUserNotificationCenterDelegate`, country flag emoji on Trip Detail header via `SchemaV4` lightweight migration adding `Trip.countryCode`, `PendingChangeBroadcaster` over `LocalWriteHook` to multicast change events to both `TripSyncEngine` and a new `NotificationsService`, plus the polish pass (transitions, haptics, VoiceOver labels + accessibility custom action for "Why is this here?", Dynamic Type AX2 reflow). 55 tasks across 11 phases.
 
 ### Changed
 
 - `specs/OVERVIEW.md` — marked Phase 5.1 Done and listed Phase 6 as Planned.
+
+### Fixed
+
+- `import os` added to `Scramble/Scramble/App/SignInResumeCoordinator.swift`, `Scramble/Scramble/Components/PackingSummarySection.swift`, `Scramble/Scramble/Features/Trips/PersonLookup.swift`, `Scramble/Scramble/Features/Trips/TripEditorPeoplePicker.swift`, `Scramble/Scramble/Sharing/LocalWriteHook.swift`, `Scramble/Scramble/Sharing/TripSyncEventBus.swift`. These files use `modelLogger.error` with `os` privacy-string interpolation but the build had been failing without the explicit import; the failure was hidden until other compile errors cleared.
+- `Scramble/Scramble/App/SignInResumeCoordinator.swift` — `deinit` marked `isolated` so it can read `@MainActor`-isolated stored properties (`inFlight`, `observers`) under Swift 6 strict checking. The previous `deinit` triggered "cannot access property … with a non-Sendable type" once the rest of the build was unblocked.
+- `Scramble/ScrambleTests/Sharing/LocalWriteHookPBT.swift` — `static let scenarios` marked `nonisolated` so the `@Test(arguments:)` macro can read it from outside MainActor; the in-place `#Predicate { $0.tripID == trip.id }` was hoisted to a `let tripID = trip.id` capture so the predicate macro receives a `UUID` value, not a `Trip` entity.
+- `Scramble/ScrambleTests/Persistence/ZoneMigrationCoordinatorPBT.swift` — `static let crossProduct` marked `nonisolated` for the same `@Test(arguments:)` reason.
+- `Scramble/ScrambleTests/Persistence/ZoneMigrationCoordinatorPhase51Tests.swift` — stale references to `Phase.daysBefore`, `ItemSource.rules`, and `TripAttributes.climate = .warm` updated to the current names (`Phase.dayBefore`, `ItemSource.rule`, `TripAttributes.setSingle(.weather, value: "warm")`).
+- `Scramble/ScrambleTests/Persistence/SchemaV3MigrationTests.swift` — plan-shape assertion updated to expect three stages (V1→V2, V2→V3, V3→V4) and four schemas in `AppMigrationPlan`.
 
 - Phase 5.1 — PR #6 review-fixer pass 6 (round-6 P1 items):
   - `Scramble/Scramble/Features/Trips/TripEditorPeoplePicker.swift` — after a successful `Person` delete, the picker now invokes `SnapshotMaintenance.sweep` against `tripsLocal` and commits through `LocalWriteHook.commit` so any non-roster snapshots with no remaining packing-item referrers are swept in the same session. Denormalised snapshots are intentionally preserved per Decision 7; this only catches the orphan-with-no-referrer subset that would otherwise wait for next warm-launch.

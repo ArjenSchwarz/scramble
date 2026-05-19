@@ -20,18 +20,19 @@ struct SchemaV3MigrationTests {
 
   // MARK: - Migration plan shape
 
-  @Test("AppMigrationPlan declares V1, V2, and V3")
+  @Test("AppMigrationPlan declares V1, V2, V3, and V4")
   func planLinksAllVersions() {
     let schemaIDs = AppMigrationPlan.schemas.map(ObjectIdentifier.init)
     #expect(schemaIDs.contains(ObjectIdentifier(SchemaV1.self)))
     #expect(schemaIDs.contains(ObjectIdentifier(SchemaV2.self)))
     #expect(schemaIDs.contains(ObjectIdentifier(SchemaV3.self)))
+    #expect(schemaIDs.contains(ObjectIdentifier(SchemaV4.self)))
   }
 
-  @Test("AppMigrationPlan exposes a V1→V2 lightweight stage and a V2→V3 custom stage")
-  func planExposesV1V2LightweightAndV2V3Custom() {
+  @Test("AppMigrationPlan exposes V1→V2 lightweight, V2→V3 custom, V3→V4 lightweight")
+  func planExposesAllStages() {
     let stages = AppMigrationPlan.stages
-    #expect(stages.count == 2, "Expected one stage per consecutive version pair")
+    #expect(stages.count == 3, "Expected one stage per consecutive version pair")
   }
 
   // MARK: - Fresh V3 entity defaults
