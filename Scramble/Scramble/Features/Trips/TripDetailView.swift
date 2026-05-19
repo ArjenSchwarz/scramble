@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 import os
 
 #if canImport(UIKit)
@@ -18,6 +19,7 @@ import os
   @Environment(\.dismiss) private var dismiss
   @Environment(\.sharingService) private var sharingService
   @Environment(\.rulesLastEvaluatedTracker) private var rulesLastEvaluatedTracker
+  @Environment(\.notificationsService) private var notificationsService
 
   @State private var showEditor = false
   @State private var editAttributeFocus: TripAttribute?
@@ -228,7 +230,8 @@ import os
         tripID: tripID,
         in: modelContext,
         hook: hook,
-        zoneDeleter: zoneDeleter
+        zoneDeleter: zoneDeleter,
+        notificationsService: notificationsService
       )
     } catch {
       // `TripDeletion.delete` stages every record-delete and zone-state
@@ -314,6 +317,28 @@ import os
     }
   #endif
 
+  /// Phase 6 Req 3.5 — one-tap affordance to open iOS Settings when
+  /// activation notifications are disabled. Surfaced inside the trip
+  /// header so the user encounters it on a screen they already visit.
+  @ViewBuilder
+  private func notificationSettingsAffordance(variant: ThemeVariant) -> some View {
+    if notificationsService?.authStatus == .denied {
+      Button {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+          UIApplication.shared.open(url)
+        }
+      } label: {
+        HStack(spacing: 6) {
+          Image(systemName: "bell.slash")
+          Text("Notifications are off — open Settings")
+        }
+        .font(.caption)
+        .foregroundStyle(variant.textSecondary)
+      }
+      .accessibilityIdentifier("tripDetail.openNotificationSettings")
+    }
+  }
+
   private func header(variant: ThemeVariant, isParticipantOnShared: Bool) -> some View {
     VStack(alignment: .leading, spacing: 6) {
       HStack(spacing: 8) {
@@ -350,6 +375,8 @@ import os
           .foregroundStyle(variant.textSecondary)
           .accessibilityIdentifier("tripDetail.rulesLastEvaluated")
       }
+
+      notificationSettingsAffordance(variant: variant)
 
       let snapshots = trip.participantSnapshots ?? []
       if !snapshots.isEmpty {

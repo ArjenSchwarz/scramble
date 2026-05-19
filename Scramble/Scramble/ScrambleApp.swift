@@ -8,6 +8,7 @@
 import CloudKit
 import SwiftData
 import SwiftUI
+import UserNotifications
 import os
 
 @main
@@ -40,6 +41,13 @@ struct ScrambleApp: App {
   /// routes through this so a single in-flight invocation collapses
   /// gate-startup + account-changed + scene-activated triggers.
   private let signInResumeCoordinator: SignInResumeCoordinator
+  /// Phase 6 — local activation notification orchestrator. Owns
+  /// `UNUserNotificationCenter` interaction; wired into `LocalWriteHook`
+  /// via `PendingChangeBroadcaster` (Decision 12).
+  private let notificationsService: NotificationsService
+  /// Phase 6 — `UNUserNotificationCenterDelegate` for activation taps.
+  /// Holds the 1-slot pendingRoute consumed by `RootView`.
+  private let activationRouter: NotificationRouter
 
   init() {
     let containers = ModelStore.containers
@@ -47,7 +55,10 @@ struct ScrambleApp: App {
     let globals = containers.globals.mainContext
     let cloudContainer = CKContainer(identifier: ModelStore.cloudKitContainerIdentifier)
     let engine = TripSyncEngine(context: tripsLocal, container: cloudContainer)
-    let hook = LocalWriteHook(notifier: engine)
+    let wiring = Self.makeNotificationsWiring(engine: engine)
+    let router = wiring.router
+    let notifications = wiring.service
+    let hook = wiring.hook
     let service = Self.makeSharingService(engine: engine, tripsLocal: tripsLocal, hook: hook)
     let tracker = RulesLastEvaluatedTracker()
     let coordinator = ZoneMigrationCoordinator(
@@ -71,13 +82,18 @@ struct ScrambleApp: App {
     self.triggerOrchestrator = orchestrator
     self.eventBus = bus
     self.signInResumeCoordinator = resume
+    self.notificationsService = notifications
+    self.activationRouter = router
 
     AppDelegate.environment = AppDelegate.Environment(
       sharingService: service,
       notificationRouter: RemoteNotificationRouter(
         fetcher: TripSyncEngineNotificationFetcher(syncEngine: engine)
-      )
+      ),
+      activationRouter: router,
+      notificationsService: notifications
     )
+    UNUserNotificationCenter.current().delegate = router
     #if DEBUG
       UITestSeed.applyIfRequested(
         globalsContainer: ModelStore.shared,
@@ -85,6 +101,30 @@ struct ScrambleApp: App {
       )
     #endif
     Self.runColdLaunchEnginePass(service: service, hook: localWriteHook)
+  }
+
+  /// Phase 6 — constructs the local activation notification stack and
+  /// the `LocalWriteHook` wrapping a `PendingChangeBroadcaster` that
+  /// fans every commit out to both the sync engine and the
+  /// notifications service (Decision 12).
+  struct NotificationsWiring {
+    let router: NotificationRouter
+    let service: NotificationsService
+    let hook: LocalWriteHook
+  }
+
+  private static func makeNotificationsWiring(
+    engine: TripSyncEngine
+  ) -> NotificationsWiring {
+    let router = NotificationRouter()
+    let notifications = NotificationsService(
+      center: UNUserNotificationCenter.current(),
+      router: router,
+      tripContext: { ModelStore.containers.tripsLocal.mainContext }
+    )
+    let broadcaster = PendingChangeBroadcaster(children: [engine, notifications])
+    let hook = LocalWriteHook(notifier: broadcaster)
+    return NotificationsWiring(router: router, service: notifications, hook: hook)
   }
 
   private static func makeSharingService(
@@ -146,11 +186,32 @@ struct ScrambleApp: App {
     }
   }
 
+  @Environment(\.scenePhase) private var scenePhase
+
   var body: some Scene {
     WindowGroup {
       MigrationGate(prepare: prepareLaunch, content: rootContent)
+        .onOpenURL { url in
+          guard let route = NotificationRouter.route(from: url) else { return }
+          activationRouter.enqueue(route)
+        }
     }
     .modelContainer(ModelStore.containers.globals)
+    .onChange(of: scenePhase) { previous, current in
+      // Phase 6 Req 3.6 / 4.5 — bridge SwiftUI's ScenePhase to the
+      // notifications service. The service has no SwiftUI imports;
+      // we map .active → .becameActive and .background →
+      // .enteredBackground here.
+      if previous != .active, current == .active {
+        Task { @MainActor in
+          await notificationsService.handleScenePhase(.becameActive)
+        }
+      } else if previous == .active, current == .background {
+        Task { @MainActor in
+          await notificationsService.handleScenePhase(.enteredBackground)
+        }
+      }
+    }
   }
 
   @MainActor
@@ -200,5 +261,7 @@ struct ScrambleApp: App {
       .environment(\.sharingService, sharingService)
       .environment(\.rulesLastEvaluatedTracker, rulesLastEvaluatedTracker)
       .environment(\.zoneMigrationCoordinator, migrationCoordinator)
+      .environment(\.notificationsService, notificationsService)
+      .environment(\.activationRouter, activationRouter)
   }
 }

@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 6 Phase 4 — app-level wiring:
+  - `Scramble/Scramble/App/AppDelegate.swift` — `Environment` gains `activationRouter: NotificationRouter` (Phase 6 local-notification delegate) and `notificationsService: NotificationsService` slots alongside the existing `notificationRouter: RemoteNotificationRouter` (Phase 5 silent-push).
+  - `Scramble/Scramble/ScrambleApp.swift` — constructs the notification stack via a `makeNotificationsWiring(engine:)` helper (Decision 12). `LocalWriteHook` is now wrapped in a `PendingChangeBroadcaster` fanning out to both `TripSyncEngine` and the notifications service. `UNUserNotificationCenter.delegate` is installed on the local router from `init`. `WindowGroup` gains an `onOpenURL` (Req 5.6) and a `.onChange(of: scenePhase)` bridge that maps `.active`/`.background` transitions into the service's `ScenePhaseTransition` enum (so the service file doesn't import SwiftUI).
+  - `Scramble/Scramble/Notifications/NotificationsServiceEnvironmentKey.swift` — `EnvironmentValues.notificationsService` and `.activationRouter` for trip-domain views.
+  - `Scramble/Scramble/Info.plist` — registers `scramble://` as a custom URL type (Req 5.6).
+  - `Scramble/Scramble/Features/Trips/TripListView.swift` — create-trip onSave closure now calls `requestAuthorizationIfNeeded(forTrip:)` after the rules-engine pass (Req 3.1).
+  - `Scramble/Scramble/Sharing/TripDeletion.swift` — accepts an optional `notificationsService` and calls `.tripDeleted(tripID:)` after `commitDeletion` succeeds (Req 4.2). `TripDetailView` threads its environment service through.
+  - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — adds the "Notifications are off — open Settings" affordance (Req 3.5) inside the header when `notificationsService.authStatus == .denied`. Tap calls `UIApplication.shared.open(UIApplication.openSettingsURLString)`.
+
 - Phase 6 Phase 7 + 8 — polish (animations + haptics):
   - `Scramble/Scramble/Theme/Animations.swift` — shared `Animation.scrambleStandard` constant (ease-in-out, 0.22 s) so phase toggles and checkbox toggles share the same motion language (Req 7.1, 7.2).
   - `Scramble/Scramble/Features/Trips/AccordionTimeline.swift` — toggle path now uses `.scrambleStandard` inside a single `withAnimation` block.

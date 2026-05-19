@@ -36,7 +36,8 @@ enum TripDeletion {
     tripID: UUID,
     in context: ModelContext,
     hook: LocalWriteHook,
-    zoneDeleter: TripZoneDeleter? = nil
+    zoneDeleter: TripZoneDeleter? = nil,
+    notificationsService: NotificationsService? = nil
   ) throws {
     let zoneStates = try context.fetch(
       FetchDescriptor<TripZoneState>(predicate: #Predicate { $0.tripID == tripID })
@@ -67,6 +68,10 @@ enum TripDeletion {
     }
 
     try hook.commitDeletion(context, zoneIDsBeingDeleted: Set(zoneIDs))
+
+    // Phase 6 Req 4.2 — cancel pending + delivered activation
+    // notifications for this trip on the commit-succeeded path.
+    notificationsService?.requestReschedule(reason: .tripDeleted(tripID: tripID))
 
     // Owner-side: ask the engine to remove the zone from CloudKit.
     if let zoneDeleter, isOwnerScope {

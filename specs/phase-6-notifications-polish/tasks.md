@@ -92,43 +92,43 @@ references:
   - Requirements: [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
 - [x] 18. Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop) <!-- id:mwaej3p -->
-  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
+  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
 ## Phase 4: App-level wiring
 
-- [ ] 19. Extend AppDelegate.Environment with notificationRouter slot; install UNUserNotificationCenter.delegate in ScrambleApp.init <!-- id:mwaej3q -->
+- [x] 19. Extend AppDelegate.Environment with notificationRouter slot; install UNUserNotificationCenter.delegate in ScrambleApp.init <!-- id:mwaej3q -->
   - Blocked-by: mwaej3n (Implement NotificationRouter (@Observable, UNUserNotificationCenterDelegate, async willPresent/didReceive))
   - Stream: 2
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
 
-- [ ] 20. Wire PendingChangeBroadcaster(children: [tripSyncEngine, notificationsService]) into LocalWriteHook construction in ScrambleApp <!-- id:mwaej3r -->
+- [x] 20. Wire PendingChangeBroadcaster(children: [tripSyncEngine, notificationsService]) into LocalWriteHook construction in ScrambleApp <!-- id:mwaej3r -->
   - Blocked-by: mwaej3l (Implement PendingChangeBroadcaster), mwaej3p (Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop))
   - Stream: 2
   - Requirements: [4.3](requirements.md#4.3), [4.4](requirements.md#4.4)
 
-- [ ] 21. Add ScenePhase observer at WindowGroup level → notificationsService.handleScenePhase(previous:current:) <!-- id:mwaej3s -->
+- [x] 21. Add ScenePhase observer at WindowGroup level → notificationsService.handleScenePhase(previous:current:) <!-- id:mwaej3s -->
   - Blocked-by: mwaej3p (Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop))
   - Stream: 2
   - Requirements: [3.6](requirements.md#3.6), [4.5](requirements.md#4.5)
 
-- [ ] 22. Add onOpenURL handler in ScrambleApp parsing scramble://trip/<UUID>?phase=<raw> into NotificationRouter.enqueue; register scramble URL scheme in Info.plist <!-- id:mwaej3t -->
+- [x] 22. Add onOpenURL handler in ScrambleApp parsing scramble://trip/<UUID>?phase=<raw> into NotificationRouter.enqueue; register scramble URL scheme in Info.plist <!-- id:mwaej3t -->
   - Blocked-by: mwaej3n (Implement NotificationRouter (@Observable, UNUserNotificationCenterDelegate, async willPresent/didReceive))
   - Stream: 2
   - Requirements: [5.6](requirements.md#5.6)
 
-- [ ] 23. Call notificationsService.requestAuthorizationIfNeeded in TripListView's create onSave closure (TripListView.swift:99) <!-- id:mwaej3u -->
+- [x] 23. Call notificationsService.requestAuthorizationIfNeeded in TripListView's create onSave closure (TripListView.swift:99) <!-- id:mwaej3u -->
   - Blocked-by: mwaej3p (Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop))
   - Stream: 2
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3)
 
-- [ ] 24. Call notificationsService.requestReschedule(.tripDeleted(tripID)) inside TripDeletion.delete after commitDeletion succeeds <!-- id:mwaej3v -->
+- [x] 24. Call notificationsService.requestReschedule(.tripDeleted(tripID)) inside TripDeletion.delete after commitDeletion succeeds <!-- id:mwaej3v -->
   - Blocked-by: mwaej3p (Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop))
   - Stream: 2
   - Requirements: [4.2](requirements.md#4.2)
 
-- [ ] 25. Add 'Open Settings' affordance reading NotificationsService.authStatus; shown when authStatus == .denied on a Trips-tab surface the user already visits (Trip List or Trip Detail). Tap calls UIApplication.shared.open(openSettingsURLString). <!-- id:mwaej4q -->
+- [x] 25. Add 'Open Settings' affordance reading NotificationsService.authStatus; shown when authStatus == .denied on a Trips-tab surface the user already visits (Trip List or Trip Detail). Tap calls UIApplication.shared.open(openSettingsURLString). <!-- id:mwaej4q -->
   - Blocked-by: mwaej3p (Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop))
   - Stream: 2
   - Requirements: [3.5](requirements.md#3.5)
@@ -281,5 +281,5 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.5](requirements.md#9.5), [10.5](requirements.md#10.5)
 
 - [ ] 55. Update CHANGELOG.md and CLAUDE.md project-status sentence to mark Phase 6 shipped <!-- id:mwaej4p -->
-  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
+  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
   - Stream: 8
