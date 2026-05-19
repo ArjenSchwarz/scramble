@@ -92,7 +92,7 @@ references:
   - Requirements: [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
 - [x] 18. Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop) <!-- id:mwaej3p -->
-  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
+  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
@@ -172,45 +172,45 @@ references:
 
 ## Phase 7: Polish — animations
 
-- [ ] 33. Add Animation.scrambleStandard constant in Theme/Animations.swift <!-- id:mwaej43 -->
+- [x] 33. Add Animation.scrambleStandard constant in Theme/Animations.swift <!-- id:mwaej43 -->
   - Stream: 4
   - Requirements: [7.1](requirements.md#7.1)
 
-- [ ] 34. [test] Accordion expand/collapse uses single withAnimation block; reduce-motion swaps to opacity cross-fade <!-- id:mwaej44 -->
+- [x] 34. [test] Accordion expand/collapse uses single withAnimation block; reduce-motion swaps to opacity cross-fade <!-- id:mwaej44 -->
   - Blocked-by: mwaej43 (Add Animation.scrambleStandard constant in Theme/Animations.swift)
   - Stream: 4
   - Requirements: [7.1](requirements.md#7.1), [7.4](requirements.md#7.4)
 
-- [ ] 35. Wrap AccordionTimeline phase toggle in withAnimation(.scrambleStandard); read accessibilityReduceMotion to swap to .opacity transition <!-- id:mwaej45 -->
+- [x] 35. Wrap AccordionTimeline phase toggle in withAnimation(.scrambleStandard); read accessibilityReduceMotion to swap to .opacity transition <!-- id:mwaej45 -->
   - Blocked-by: mwaej43 (Add Animation.scrambleStandard constant in Theme/Animations.swift), mwaej44 ([test] Accordion expand/collapse uses single withAnimation block; reduce-motion swaps to opacity cross-fade)
   - Stream: 4
   - Requirements: [7.1](requirements.md#7.1), [7.4](requirements.md#7.4)
 
-- [ ] 36. [test] TaskRow + PackingItemRow checkbox toggle animates fill↔outline and row opacity/strikethrough atomically <!-- id:mwaej46 -->
+- [x] 36. [test] TaskRow + PackingItemRow checkbox toggle animates fill↔outline and row opacity/strikethrough atomically <!-- id:mwaej46 -->
   - Blocked-by: mwaej43 (Add Animation.scrambleStandard constant in Theme/Animations.swift)
   - Stream: 4
   - Requirements: [7.2](requirements.md#7.2), [7.4](requirements.md#7.4)
 
-- [ ] 37. Wrap TaskRow and PackingItemRow checkbox toggle in withAnimation(.scrambleStandard); apply reduce-motion swap <!-- id:mwaej47 -->
+- [x] 37. Wrap TaskRow and PackingItemRow checkbox toggle in withAnimation(.scrambleStandard); apply reduce-motion swap <!-- id:mwaej47 -->
   - Blocked-by: mwaej43 (Add Animation.scrambleStandard constant in Theme/Animations.swift), mwaej46 ([test] TaskRow + PackingItemRow checkbox toggle animates fill↔outline and row opacity/strikethrough atomically)
   - Stream: 4
   - Requirements: [7.2](requirements.md#7.2), [7.4](requirements.md#7.4)
 
 ## Phase 8: Polish — haptics
 
-- [ ] 38. Add sensoryFeedback(.impact(weight:.light)) modifier on TaskRow checkbox toggle and on PackingItemRow checkbox + skip/restore action events <!-- id:mwaej48 -->
+- [x] 38. Add sensoryFeedback(.impact(weight:.light)) modifier on TaskRow checkbox toggle and on PackingItemRow checkbox + skip/restore action events <!-- id:mwaej48 -->
   - Stream: 5
   - Requirements: [8.1](requirements.md#8.1), [8.4](requirements.md#8.4)
 
-- [ ] 39. Add sensoryFeedback(.impact(weight:.medium)) on PhaseRow tap <!-- id:mwaej49 -->
+- [x] 39. Add sensoryFeedback(.impact(weight:.medium)) on PhaseRow tap <!-- id:mwaej49 -->
   - Stream: 5
   - Requirements: [8.2](requirements.md#8.2)
 
-- [ ] 40. Add sensoryFeedback(.impact(weight:.soft)) on PackingSheet root .onAppear <!-- id:mwaej4a -->
+- [x] 40. Add sensoryFeedback(.impact(weight:.soft)) on PackingSheet root .onAppear <!-- id:mwaej4a -->
   - Stream: 5
   - Requirements: [8.3](requirements.md#8.3)
 
-- [ ] 41. Add sensoryFeedback(.impact(weight:.light)) when WhyDisclosure becomes visible (on isDisclosureOpen toggle) <!-- id:mwaej4b -->
+- [x] 41. Add sensoryFeedback(.impact(weight:.light)) when WhyDisclosure becomes visible (on isDisclosureOpen toggle) <!-- id:mwaej4b -->
   - Stream: 5
   - Requirements: [8.5](requirements.md#8.5)
 
@@ -281,5 +281,5 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.5](requirements.md#9.5), [10.5](requirements.md#10.5)
 
 - [ ] 55. Update CHANGELOG.md and CLAUDE.md project-status sentence to mark Phase 6 shipped <!-- id:mwaej4p -->
-  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
+  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
   - Stream: 8

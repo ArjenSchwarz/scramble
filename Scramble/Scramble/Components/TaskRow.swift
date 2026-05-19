@@ -65,7 +65,7 @@ struct TaskRow: View {
     .frame(minHeight: 44)
     .contentShape(Rectangle())
     .opacity(rowOpacity)
-    .animation(.easeInOut(duration: 0.2), value: task.isCompleted)
+    .animation(.scrambleStandard, value: task.isCompleted)
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       Button(role: .destructive) {
         onDelete()
@@ -144,7 +144,7 @@ struct TaskRow: View {
       #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
       #endif
-      withAnimation(.none) {
+      withAnimation(.scrambleStandard) {
         onToggleComplete()
       }
     } label: {

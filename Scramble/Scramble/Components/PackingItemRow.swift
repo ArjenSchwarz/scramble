@@ -251,7 +251,11 @@ struct PackingItemRow: View {
     #if canImport(UIKit)
       UIImpactFeedbackGenerator(style: .light).impactOccurred()
     #endif
-    onToggleState()
+    // Phase 6 Req 7.2 — fill/outline + row opacity/strikethrough
+    // animate atomically inside a single withAnimation block.
+    withAnimation(.scrambleStandard) {
+      onToggleState()
+    }
     if let target {
       announce(target)
     }
@@ -262,7 +266,9 @@ struct PackingItemRow: View {
     #if canImport(UIKit)
       UIImpactFeedbackGenerator(style: .light).impactOccurred()
     #endif
-    onSkipOrRestore()
+    withAnimation(.scrambleStandard) {
+      onSkipOrRestore()
+    }
     if let target {
       announce(target)
     }

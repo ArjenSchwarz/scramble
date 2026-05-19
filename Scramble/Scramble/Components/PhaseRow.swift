@@ -193,13 +193,21 @@ struct PhaseRow<Content: View>: View {
 /// View modifier that only attaches `.onTapGesture` when `enabled` is true —
 /// preserves the "compressed / non-expandable spine marker is not tappable"
 /// rule (Req 2.5 / 3.2) without conditionally wrapping the view tree.
+///
+/// Phase 6 — Req 8.2: tap fires a medium-impact haptic on the same view
+/// event that initiates expand/collapse.
 private struct TapToToggleModifier: ViewModifier {
   let enabled: Bool
   let action: () -> Void
 
   func body(content: Content) -> some View {
     if enabled {
-      content.onTapGesture { action() }
+      content.onTapGesture {
+        #if canImport(UIKit)
+          UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        action()
+      }
     } else {
       content
     }

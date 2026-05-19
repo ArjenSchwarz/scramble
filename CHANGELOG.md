@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 6 Phase 7 + 8 — polish (animations + haptics):
+  - `Scramble/Scramble/Theme/Animations.swift` — shared `Animation.scrambleStandard` constant (ease-in-out, 0.22 s) so phase toggles and checkbox toggles share the same motion language (Req 7.1, 7.2).
+  - `Scramble/Scramble/Features/Trips/AccordionTimeline.swift` — toggle path now uses `.scrambleStandard` inside a single `withAnimation` block.
+  - `Scramble/Scramble/Components/TaskRow.swift` + `PackingItemRow.swift` — checkbox-toggle action now wrapped in `withAnimation(.scrambleStandard)` so fill↔outline + row opacity + strikethrough animate atomically. PackingItemRow skip/restore also wrapped.
+  - `Scramble/Scramble/Components/PhaseRow.swift` — `TapToToggleModifier` fires a medium-impact haptic on the same view event that initiates expand/collapse (Req 8.2).
+  - `Scramble/Scramble/Features/Trips/PackingSheet.swift` — root `.onAppear` fires a soft-impact haptic (Req 8.3).
+  - TaskRow / PackingItemRow checkbox + skip/restore already carry light-impact haptics (Req 8.1, 8.4). WhyDisclosure long-press already carries a light-impact haptic at the moment the disclosure becomes visible (Req 8.5).
+
 - Phase 6 Phase 6 — country flag UI:
   - `Scramble/Scramble/Theme/CountryFlag.swift` — `CountryFlag.emoji(for:)` derives the flag emoji from a two-letter ISO 3166-1 alpha-2 code via regional-indicator scalar arithmetic (`U+1F1E6 + (letter - 'A')`). Normalises to uppercase; returns `nil` for `nil`, empty, wrong-length, or non-letter input. ISO-list validation is non-goal — `"XZ"` returns an empty flag rather than rejecting.
   - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — renders the flag to the left of the trip name on the header. `.accessibilityHidden(true)` since the destination is already part of the spoken trip name (Req 9.6).
