@@ -1,22 +1,52 @@
+import CloudKit
 import Foundation
 import SwiftData
 import os
 
+/// Default backstop notifier for `RulesEngineRunner` constructed without
+/// a hook. Production wiring injects the real `TripSyncEngine`-backed
+/// hook from `ScrambleApp`; tests that exercise the runner without
+/// sync wiring (most pre-Phase-5.1 tests) get this silent no-op.
+@MainActor
+private final class NoopRunnerNotifier: PendingChangeNotifier {
+  static let shared = NoopRunnerNotifier()
+  func notifyPendingChanges(
+    savedRecordIDs: [CKRecord.ID],
+    deletedRecordIDs: [CKRecord.ID],
+    in zoneID: CKRecordZone.ID
+  ) {}
+}
+
 @MainActor
 struct RulesEngineRunner {
+  /// Trip-domain context — owns `Trip`, `TripTask`, `TripPackingItem`,
+  /// `TripPersonSnapshot`. Phase 5.1: this is `tripsLocal`.
   let context: ModelContext
+  /// Globals context — owns `MasterTaskItem`, `MasterPackingItem`,
+  /// `Person`. Phase 5.1: this is `globals`. Tests that seed both
+  /// trips and masters in a single in-memory container may pass the
+  /// same context for both.
+  let mastersContext: ModelContext
   /// Phase 5 ownership gate (Decision 3 / Req 8.3). Returns the trip's
   /// CloudKit-owner identity so the runner can skip trips owned by other
   /// users. `nil` is treated as "current user owns" so Phase 1 legacy
   /// trips (no `TripZoneState` yet) continue to receive engine runs.
   let ownerIdentity: (UUID) -> OwnerIdentity?
+  /// Phase 5.1 — the chokepoint the runner pushes its plan saves through.
+  /// Tests that exercise the runner without sync wiring can construct a
+  /// hook with a `RecordingNotifier`.
+  let hook: LocalWriteHook
 
   init(
     context: ModelContext,
-    ownerIdentity: @escaping (UUID) -> OwnerIdentity? = { _ in nil }
+    mastersContext: ModelContext? = nil,
+    ownerIdentity: @escaping (UUID) -> OwnerIdentity? = { _ in nil },
+    hook: LocalWriteHook? = nil
   ) {
     self.context = context
+    self.mastersContext = mastersContext ?? context
     self.ownerIdentity = ownerIdentity
+    self.hook = hook ?? LocalWriteHook(notifier: NoopRunnerNotifier.shared)
   }
 
   @discardableResult
@@ -82,7 +112,7 @@ struct RulesEngineRunner {
       masterTasks: masterTasks,
       masterPacking: masterPacking
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: hook)
     return plan
   }
 
@@ -96,7 +126,7 @@ struct RulesEngineRunner {
   }
 
   private func fetchMasterTaskSnapshots() throws -> [MasterTaskSnapshot] {
-    try context.fetch(FetchDescriptor<MasterTaskItem>()).map { master in
+    try mastersContext.fetch(FetchDescriptor<MasterTaskItem>()).map { master in
       MasterTaskSnapshot(
         id: master.id,
         name: master.name,
@@ -108,7 +138,7 @@ struct RulesEngineRunner {
 
   private func fetchMasterPackingSnapshots() throws -> [MasterPackingSnapshot] {
     var snapshots: [MasterPackingSnapshot] = []
-    for master in try context.fetch(FetchDescriptor<MasterPackingItem>()) {
+    for master in try mastersContext.fetch(FetchDescriptor<MasterPackingItem>()) {
       guard let person = master.person else {
         modelLogger.info(
           "[RulesEngine.skip-orphan-master] master=\(master.id, privacy: .public) person=nil"

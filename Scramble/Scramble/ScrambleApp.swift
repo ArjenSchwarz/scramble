@@ -25,28 +25,53 @@ struct ScrambleApp: App {
   private let migrationCoordinator: ZoneMigrationCoordinator
   private let triggerOrchestrator: RulesEngineTriggerOrchestrator
   private let rulesLastEvaluatedTracker: RulesLastEvaluatedTracker
+  /// Phase 5.1 — the single chokepoint for every `tripsLocal` save. The
+  /// hook's notifier is `TripSyncEngine`; trip-domain SwiftUI surfaces
+  /// reach it via `@Environment(\.localWriteHook)` and call
+  /// `hook.commit(_:)` instead of `modelContext.save()`.
+  private let localWriteHook: LocalWriteHook
+  /// Phase 5.1 — single-iteration multicast of `syncEngine.events` to
+  /// both the orchestrator and the migration coordinator. Constructed
+  /// in `init` so subscribers register before `start()` is called from
+  /// `prepareLaunch`.
+  private let eventBus: TripSyncEventBus
+  /// Phase 5.1 — drives `migrationCoordinator.enqueueAll + runStageB`
+  /// on every iCloud sign-in transition. `MigrationGate.prepare` also
+  /// routes through this so a single in-flight invocation collapses
+  /// gate-startup + account-changed + scene-activated triggers.
+  private let signInResumeCoordinator: SignInResumeCoordinator
 
   init() {
     let containers = ModelStore.containers
     let tripsLocal = containers.tripsLocal.mainContext
     let globals = containers.globals.mainContext
-    let engine = TripSyncEngine(
-      context: tripsLocal,
-      container: CKContainer(identifier: ModelStore.cloudKitContainerIdentifier)
-    )
-    let service = Self.makeSharingService(engine: engine, tripsLocal: tripsLocal)
+    let cloudContainer = CKContainer(identifier: ModelStore.cloudKitContainerIdentifier)
+    let engine = TripSyncEngine(context: tripsLocal, container: cloudContainer)
+    let hook = LocalWriteHook(notifier: engine)
+    let service = Self.makeSharingService(engine: engine, tripsLocal: tripsLocal, hook: hook)
     let tracker = RulesLastEvaluatedTracker()
-    self.sharingService = service
-    self.syncEngine = engine
-    self.rulesLastEvaluatedTracker = tracker
-    self.migrationCoordinator = ZoneMigrationCoordinator(
+    let coordinator = ZoneMigrationCoordinator(
       globalsContext: globals,
       tripsLocalContext: tripsLocal,
       driver: TripSyncEngineZoneMigrationDriver(syncEngine: engine)
     )
-    self.triggerOrchestrator = Self.makeTriggerOrchestrator(
-      service: service, tripsLocal: tripsLocal, tracker: tracker
+    let orchestrator = Self.makeTriggerOrchestrator(
+      service: service, tripsLocal: tripsLocal, tracker: tracker, hook: hook
     )
+    let bus = TripSyncEventBus(events: engine.events)
+    bus.subscribeOrchestrator(orchestrator)
+    bus.subscribeCoordinator(coordinator)
+    let resume = SignInResumeCoordinator(migrationCoordinator: coordinator)
+
+    self.sharingService = service
+    self.syncEngine = engine
+    self.rulesLastEvaluatedTracker = tracker
+    self.localWriteHook = hook
+    self.migrationCoordinator = coordinator
+    self.triggerOrchestrator = orchestrator
+    self.eventBus = bus
+    self.signInResumeCoordinator = resume
+
     AppDelegate.environment = AppDelegate.Environment(
       sharingService: service,
       notificationRouter: RemoteNotificationRouter(
@@ -59,11 +84,11 @@ struct ScrambleApp: App {
         tripsLocalContainer: ModelStore.containers.tripsLocal
       )
     #endif
-    Self.runColdLaunchEnginePass(service: service)
+    Self.runColdLaunchEnginePass(service: service, hook: localWriteHook)
   }
 
   private static func makeSharingService(
-    engine: TripSyncEngine, tripsLocal: ModelContext
+    engine: TripSyncEngine, tripsLocal: ModelContext, hook: LocalWriteHook
   ) -> any SharingService {
     #if DEBUG
       if EnvironmentProbe.production.isUITestHost {
@@ -73,17 +98,22 @@ struct ScrambleApp: App {
     return CloudKitSharingService(
       container: engine.container,
       context: tripsLocal,
-      syncEngine: engine
+      syncEngine: engine,
+      hook: hook
     )
   }
 
   private static func makeTriggerOrchestrator(
     service: any SharingService,
     tripsLocal: ModelContext,
-    tracker: RulesLastEvaluatedTracker
+    tracker: RulesLastEvaluatedTracker,
+    hook: LocalWriteHook
   ) -> RulesEngineTriggerOrchestrator {
     let runner = RulesEngineRunner(
-      context: tripsLocal, ownerIdentity: service.ownerIdentity(forTrip:)
+      context: tripsLocal,
+      mastersContext: ModelStore.containers.globals.mainContext,
+      ownerIdentity: service.ownerIdentity(forTrip:),
+      hook: hook
     )
     return RulesEngineTriggerOrchestrator(
       run: { tripID in
@@ -95,14 +125,19 @@ struct ScrambleApp: App {
     )
   }
 
-  /// Cold-launch engine pass over master-listed trips. Runs against the
-  /// globals container — pre-Stage-B trips still live there and the
-  /// ownership gate is permissive for trips without a `TripZoneState`.
-  private static func runColdLaunchEnginePass(service: any SharingService) {
+  /// Cold-launch engine pass over master-listed trips. Phase 5.1: runs
+  /// against the `tripsLocal` container — that is where Trip rows now
+  /// live; the ownership gate remains permissive for trips without a
+  /// `TripZoneState`.
+  private static func runColdLaunchEnginePass(
+    service: any SharingService, hook: LocalWriteHook
+  ) {
     do {
       _ = try RulesEngineRunner(
-        context: ModelStore.shared.mainContext,
-        ownerIdentity: service.ownerIdentity(forTrip:)
+        context: ModelStore.containers.tripsLocal.mainContext,
+        mastersContext: ModelStore.containers.globals.mainContext,
+        ownerIdentity: service.ownerIdentity(forTrip:),
+        hook: hook
       ).runForAllNonPastTrips()
     } catch {
       modelLogger.error(
@@ -126,29 +161,42 @@ struct ScrambleApp: App {
     let probe = EnvironmentProbe.production
     let isHeadless = probe.isTest || probe.isUITestHost || probe.isPreview
     guard !isHeadless else { return }
+
+    // Bus subscribers were registered in init(); start the iteration
+    // first so any events the engine emits as it starts up land on
+    // both the orchestrator and the migration coordinator.
+    eventBus.start()
+    // Route the initial resume through the same single in-flight
+    // pipeline that observes CKAccountChanged / scene-activated. This
+    // collapses MigrationGate startup + later sign-in flips to one
+    // serial pipeline (design § "SignInResumeCoordinator").
+    signInResumeCoordinator.start()
+    // Back-stop visibility: log when the migration journal accumulates
+    // beyond a sane bound (design § "Data Models" — known non-goal of
+    // automatic cleanup). Failure-to-count is itself a regression
+    // signal — surface the error rather than swallowing it.
     do {
-      try migrationCoordinator.enqueueAll()
-      try migrationCoordinator.runStageB()
+      let count = try migrationCoordinator.journalCount()
+      if count > 100 {
+        modelLogger.warning(
+          "[MigrationGate] MigrationJournalEntry rows=\(count) — back-stop threshold exceeded"
+        )
+      }
     } catch {
       modelLogger.error(
-        "[MigrationGate] Stage B failed: \(error.localizedDescription, privacy: .public)"
+        "[MigrationGate] journal back-stop count failed: \(error.localizedDescription, privacy: .public)"
       )
     }
     syncEngine.start()
-    let orchestrator = triggerOrchestrator
-    let engine = syncEngine
-    Task { @MainActor in
-      for await event in engine.events {
-        orchestrator.handle(event: event)
-      }
-    }
   }
 
   @ViewBuilder
   private func rootContent() -> some View {
     RootView()
       .environment(\.theme, .midnightAtlas)
+      .environment(\.globalsContainer, ModelStore.containers.globals)
       .environment(\.tripsLocalContainer, ModelStore.containers.tripsLocal)
+      .environment(\.localWriteHook, localWriteHook)
       .environment(\.sharingService, sharingService)
       .environment(\.rulesLastEvaluatedTracker, rulesLastEvaluatedTracker)
       .environment(\.zoneMigrationCoordinator, migrationCoordinator)

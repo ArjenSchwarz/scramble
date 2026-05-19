@@ -13,6 +13,8 @@ import SwiftUI
 
   @Environment(\.dismiss) private var dismiss
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.tripsLocalContainer) private var tripsLocalContainer
+  @Environment(\.localWriteHook) private var hook
 
   @State private var draft: MasterTaskDraft
   @State private var selections: AttributeSelections
@@ -173,7 +175,14 @@ import SwiftUI
   }
 
   private func runEngineAndDismiss() {
-    let runner = RulesEngineRunner(context: modelContext)
+    // Phase 5.1: trips live in tripsLocal; masters live in globals
+    // (the editor's @Environment(\.modelContext)). The runner reads
+    // masters from `mastersContext` and trips from `context`.
+    let runner = RulesEngineRunner(
+      context: tripsLocalContainer.mainContext,
+      mastersContext: modelContext,
+      hook: hook
+    )
     do {
       _ = try runner.runForAllNonPastTrips()
       dismiss()

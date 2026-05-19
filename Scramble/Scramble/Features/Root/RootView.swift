@@ -14,7 +14,16 @@ import os
   /// never observed by `onChange`.
   @State private var hasBeenBackgrounded: Bool = false
   @Environment(\.scenePhase) private var scenePhase
-  @Environment(\.modelContext) private var modelContext
+  /// Phase 5.1 — scene-phase rules-engine warm-pass runs against
+  /// `tripsLocal`, the container that holds the trip-domain rows the
+  /// engine reads and writes. `RootView` itself does not bind a container,
+  /// so each tab subtree re-roots to the appropriate one (Trips →
+  /// tripsLocal, Master Lists → globals); the warm-pass therefore reaches
+  /// into the environment-injected tripsLocal container directly rather
+  /// than relying on `@Environment(\.modelContext)`.
+  @Environment(\.tripsLocalContainer) private var tripsLocalContainer
+  @Environment(\.globalsContainer) private var globalsContainer
+  @Environment(\.localWriteHook) private var hook
 
   #if DEBUG
     @State private var scenePhaseRunnerCalls: Int = 0
@@ -23,6 +32,7 @@ import os
   var body: some View {
     TabView(selection: $tab) {
       TripsTab()
+        .modelContainer(tripsLocalContainer)
         .tabItem {
           Label("Trips", systemImage: "suitcase")
         }
@@ -42,7 +52,12 @@ import os
       guard newPhase == .active, hasBeenBackgrounded else { return }
       hasBeenBackgrounded = false
       do {
-        _ = try RulesEngineRunner(context: modelContext).runForAllNonPastTrips()
+        _ = try RulesEngineRunner(
+          context: tripsLocalContainer.mainContext,
+          mastersContext: globalsContainer.mainContext,
+          hook: hook
+        )
+        .runForAllNonPastTrips()
       } catch {
         modelLogger.error(
           "[RulesEngine.scenePhase-failed] error=\(String(describing: error), privacy: .public)"

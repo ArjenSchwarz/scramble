@@ -19,6 +19,8 @@ import os
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.globalsContainer) private var globalsContainer
+  @Environment(\.localWriteHook) private var hook
   @Environment(\.zoneMigrationCoordinator) private var zoneMigrationCoordinator
 
   @State private var showCreateEditor = false
@@ -95,15 +97,21 @@ import os
     .navigationTitle("Trips")
     .sheet(isPresented: $showCreateEditor) {
       TripEditorView(mode: .create) { draft in
-        let (newTrip, orphans) = TripPersistence.create(from: draft, in: modelContext)
+        let (newTrip, orphans) = TripPersistence.create(
+          from: draft, in: modelContext, globals: globalsContainer.mainContext
+        )
         do {
-          try modelContext.save()
+          try hook.commit(modelContext)
         } catch {
           modelContext.rollback()
           return false
         }
         do {
-          try RulesEngineRunner(context: modelContext).runForTrip(newTrip)
+          try RulesEngineRunner(
+            context: modelContext,
+            mastersContext: globalsContainer.mainContext,
+            hook: hook
+          ).runForTrip(newTrip)
         } catch {
           modelLogger.error(
             "[RulesEngine.trip-edit-failed] tripID=\(newTrip.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
@@ -157,11 +165,13 @@ private struct TripRow: View {
       .font(.caption)
       .foregroundStyle(.secondary)
 
-      let participants = trip.participants ?? []
-      if !participants.isEmpty {
+      let snapshots = trip.participantSnapshots ?? []
+      if !snapshots.isEmpty {
         HStack(spacing: -4) {
-          ForEach(participants) { person in
-            PersonAvatar(name: person.name, colorKey: person.colorKey, size: .compact)
+          ForEach(snapshots) { snapshot in
+            PersonAvatar(
+              name: snapshot.name, colorKey: snapshot.colourID, size: .compact
+            )
           }
         }
         .padding(.top, 2)

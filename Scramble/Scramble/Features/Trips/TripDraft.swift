@@ -48,12 +48,17 @@ extension TripDraft {
   }
 
   /// Snapshot the current state of `trip` into a draft used by the editor in `.edit` mode.
+  /// Phase 5.1: participant IDs come from `trip.participantSnapshots` so the
+  /// read stays inside `tripsLocal` and avoids the V2-era cross-container
+  /// `Trip.participants → Person` traversal forbidden by constraint C3.
   @MainActor
   init(from trip: Trip) {
     self.name = trip.name
     self.startDate = trip.startDate
     self.endDate = trip.endDate
     self.attributes = trip.attributes
-    self.participantIDs = (trip.participants ?? []).map(\.id)
+    self.participantIDs = (trip.participantSnapshots ?? [])
+      .filter(\.isRosterMember)
+      .map(\.personID)
   }
 }

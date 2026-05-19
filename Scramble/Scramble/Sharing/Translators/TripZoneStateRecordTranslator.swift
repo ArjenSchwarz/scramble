@@ -30,7 +30,7 @@ enum TripZoneStateRecordTranslator {
 
   static func zoneID(for state: TripZoneState) -> CKRecordZone.ID {
     CKRecordZone.ID(
-      zoneName: "trip-\(state.tripID.uuidString)",
+      zoneName: ZoneMigrationCoordinator.zoneName(for: state.tripID),
       ownerName: state.zoneOwnerName.isEmpty ? CKCurrentUserDefaultName : state.zoneOwnerName
     )
   }
@@ -42,7 +42,7 @@ enum TripZoneStateRecordTranslator {
   static func from(_ share: CKShare, into context: ModelContext) throws {
     let zoneID = share.recordID.zoneID
     guard
-      let tripID = parseTripID(from: zoneID.zoneName)
+      let tripID = ZoneMigrationCoordinator.parseTripID(from: zoneID.zoneName)
     else { return }
     let state =
       try existingState(tripID: tripID, in: context)
@@ -50,12 +50,6 @@ enum TripZoneStateRecordTranslator {
     state.shareID = share.recordID.recordName
     state.zoneOwnerName = zoneID.ownerName
     state.ckRecordSystemFields = encodeSystemFields(of: share)
-  }
-
-  private static func parseTripID(from zoneName: String) -> UUID? {
-    guard zoneName.hasPrefix("trip-") else { return nil }
-    let suffix = zoneName.dropFirst("trip-".count)
-    return UUID(uuidString: String(suffix))
   }
 
   private static func existingState(

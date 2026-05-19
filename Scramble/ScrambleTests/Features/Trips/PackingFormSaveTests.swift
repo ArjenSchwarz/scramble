@@ -68,14 +68,25 @@ struct PackingFormSaveTests {
     return try ModelContainer(for: schema, configurations: [config])
   }
 
+  /// Phase 5.1: the form's `performAdd` writes the V3 `personSnapshot`
+  /// relationship by looking up the snapshot from
+  /// `trip.participantSnapshots`. The seed therefore creates a snapshot
+  /// on the trip instead of writing the deprecated V2 `participants`
+  /// relationship.
   private static func seedTripWithPerson(in context: ModelContext) throws -> (Trip, Person) {
     let person = Person(name: "Arjen", colorKey: "blue")
     context.insert(person)
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     context.insert(trip)
-    var participants = trip.participants ?? []
-    participants.append(person)
-    trip.participants = participants
+    let snapshot = TripPersonSnapshot(
+      personID: person.id,
+      name: person.name,
+      colourID: person.colorKey,
+      initialSource: "name",
+      isRosterMember: true,
+      trip: trip
+    )
+    context.insert(snapshot)
     try context.save()
     return (trip, person)
   }
@@ -89,11 +100,13 @@ struct PackingFormSaveTests {
     let (trip, person) = try Self.seedTripWithPerson(in: context)
 
     let raw = "   Sunscreen   "
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
     let inserted = try PackingItemForm.performAdd(
       name: raw,
       person: person,
       trip: trip,
-      context: context
+      context: context,
+      hook: hook
     )
 
     #expect(inserted.name == "Sunscreen")
@@ -102,7 +115,8 @@ struct PackingFormSaveTests {
     #expect(inserted.currentlyMatchesRules == true)
     #expect(inserted.pinnedByUser == false)
     #expect(inserted.masterItemID == nil)
-    #expect(inserted.person?.id == person.id)
+    // Phase 5.1: assignee identity is the V3 personSnapshot relationship.
+    #expect(inserted.personSnapshot?.personID == person.id)
     #expect(inserted.trip?.id == trip.id)
 
     // Item is reachable from the trip's packing relationship.
@@ -144,10 +158,12 @@ struct PackingFormSaveTests {
     context.insert(item)
     try context.save()
 
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
     try PackingItemForm.performEdit(
       item: item,
       name: "  Electric toothbrush  ",
-      context: context
+      context: context,
+      hook: hook
     )
 
     #expect(item.name == "Electric toothbrush")
@@ -177,7 +193,10 @@ struct PackingFormSaveTests {
     context.insert(item)
     try context.save()
 
-    try PackingItemForm.performEdit(item: item, name: "Big umbrella", context: context)
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    try PackingItemForm.performEdit(
+      item: item, name: "Big umbrella", context: context, hook: hook
+    )
 
     #expect(item.masterItemID == masterID)
     #expect(item.source == .rule)

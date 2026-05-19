@@ -4,6 +4,14 @@ import os
 
 /// Sheet presentation identity for `PackingItemForm`. `.add` carries the
 /// active person and trip; `.edit` carries the existing `TripPackingItem`.
+/// Form-internal errors. Currently surfaces only the
+/// `missingPersonSnapshot` case (defensive guard against an add against
+/// a Person who isn't on the trip's roster); the form's catch path
+/// renders an inline error like any other save failure.
+enum PackingItemFormError: Error {
+  case missingPersonSnapshot
+}
+
 enum PackingItemFormPresentation: Identifiable {
   case add(person: Person, trip: Trip)
   case edit(item: TripPackingItem)
@@ -31,6 +39,7 @@ struct PackingItemForm: View {
   let onCancel: () -> Void
 
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.localWriteHook) private var hook
 
   @State private var name: String = ""
   @State private var inlineError: String?
@@ -100,9 +109,11 @@ struct PackingItemForm: View {
     do {
       switch mode {
       case .add(let person, let trip):
-        _ = try Self.performAdd(name: name, person: person, trip: trip, context: modelContext)
+        _ = try Self.performAdd(
+          name: name, person: person, trip: trip, context: modelContext, hook: hook
+        )
       case .edit(let item):
-        try Self.performEdit(item: item, name: name, context: modelContext)
+        try Self.performEdit(item: item, name: name, context: modelContext, hook: hook)
       }
       onSave()
     } catch {
@@ -131,31 +142,52 @@ extension PackingItemForm {
   }
 
   /// Inserts a manual `TripPackingItem` with the documented field values
-  /// (Req 5.3). Throws on `modelContext.save()` failure; on throw the
-  /// inserted instance is removed from the context so the caller's retry does
-  /// not double-insert.
+  /// (Req 5.3). Phase 5.1: writes the V3 `personSnapshot` relationship
+  /// (looked up against `trip.participantSnapshots` by `person.id`)
+  /// instead of the V2 `person → Person` relationship that would span
+  /// containers under the dual-container split. Throws on
+  /// `modelContext.save()` failure; on throw the inserted instance is
+  /// removed from the context so the caller's retry does not
+  /// double-insert.
   @MainActor
   @discardableResult
   static func performAdd(
     name: String,
     person: Person,
     trip: Trip,
-    context: ModelContext
+    context: ModelContext,
+    hook: LocalWriteHook
   ) throws -> TripPackingItem {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard
+      let snapshot = (trip.participantSnapshots ?? [])
+        .first(where: { $0.personID == person.id })
+    else {
+      // Defensive — the picker shouldn't surface a Person who isn't on
+      // the trip's roster, but if the participantSnapshots list is
+      // mid-mutation (e.g. roster removal racing the form), creating
+      // an ownerless TripPackingItem would render incorrectly on every
+      // device. Match `Apply.swift insertAddedPacking`: log info and
+      // throw so the caller surfaces its inline-error toast instead of
+      // saving silently.
+      modelLogger.info(
+        "[PackingItemForm.performAdd] no roster snapshot for personID=\(person.id, privacy: .public); skipping add"
+      )
+      throw PackingItemFormError.missingPersonSnapshot
+    }
     let item = TripPackingItem(
       trip: trip,
-      person: person,
       masterItemID: nil,
       name: trimmed,
       state: .unpacked,
       source: .manual,
       currentlyMatchesRules: true,
-      pinnedByUser: false
+      pinnedByUser: false,
+      personSnapshot: snapshot
     )
     context.insert(item)
     do {
-      try context.save()
+      try hook.commit(context)
     } catch {
       context.delete(item)
       throw error
@@ -170,12 +202,13 @@ extension PackingItemForm {
   static func performEdit(
     item: TripPackingItem,
     name: String,
-    context: ModelContext
+    context: ModelContext,
+    hook: LocalWriteHook
   ) throws {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     item.name = trimmed
     do {
-      try context.save()
+      try hook.commit(context)
     } catch {
       context.rollback()
       throw error

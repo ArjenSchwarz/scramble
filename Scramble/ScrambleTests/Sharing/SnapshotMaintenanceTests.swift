@@ -5,14 +5,18 @@ import Testing
 
 @testable import Scramble
 
-/// Phase 5 — snapshot maintenance coverage (Reqs
+/// Phase 5 / Phase 5.1 — snapshot maintenance coverage (Reqs
 /// [2.3](../../../specs/phase-5-cloudkit-sharing/requirements.md#2.3),
-/// [2.4](../../../specs/phase-5-cloudkit-sharing/requirements.md#2.4)).
+/// [2.4](../../../specs/phase-5-cloudkit-sharing/requirements.md#2.4),
+/// Phase 5.1 [2.3](../../../specs/phase-5.1-wire-trip-crud-tripslocal/requirements.md#2.3),
+/// [6.1](../../../specs/phase-5.1-wire-trip-crud-tripslocal/requirements.md#6.1)–
+/// [6.4](../../../specs/phase-5.1-wire-trip-crud-tripslocal/requirements.md#6.4)).
 ///
 /// Three cleanup triggers + `Person → TripPersonSnapshot` propagation, all
-/// owner-only. The tests below exercise each trigger against an in-memory
-/// container; ownership is provided via a static resolver so the gate is
-/// observable without standing up a full sharing service.
+/// owner-only. Phase 5.1 made every routine mutate-only — the tests drive
+/// the routine and then call `LocalWriteHook.commit(_:)`, asserting both
+/// the behavioural outcome (snapshots updated / removed) and the dirty /
+/// deleted notifier signals the hook emits.
 @Suite("SnapshotMaintenance", .serialized)
 @MainActor
 struct SnapshotMaintenanceTests {
@@ -23,6 +27,7 @@ struct SnapshotMaintenanceTests {
   func personEditPropagatesAcrossTrips() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -36,10 +41,10 @@ struct SnapshotMaintenanceTests {
 
     person.name = "Alicia"
     person.colorKey = "violet"
-    try context.save()
 
     try SnapshotMaintenance.propagatePersonEdit(
       person, in: context, ownerIdentity: { _ in .currentUser })
+    try hook.commit(context)
 
     #expect(snap1.name == "Alicia")
     #expect(snap1.colourID == "violet")
@@ -47,10 +52,14 @@ struct SnapshotMaintenanceTests {
     #expect(snap2.colourID == "violet")
   }
 
-  @Test("Person edit propagation marks each affected snapshot dirty via the upload flags")
+  @Test(
+    "Person edit propagation: the post-routine LocalWriteHook commit marks each affected snapshot dirty"
+  )
   func personEditFlagsSnapshotsDirty() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let notifier = RecordingNotifier()
+    let hook = LocalWriteHook(notifier: notifier)
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -66,19 +75,24 @@ struct SnapshotMaintenanceTests {
     try context.save()
 
     person.name = "Alicia"
-    try context.save()
+    notifier.calls.removeAll()
 
     try SnapshotMaintenance.propagatePersonEdit(
       person, in: context, ownerIdentity: { _ in .currentUser })
+    try hook.commit(context)
 
     let flags = PendingUploadFlags.decode(zoneState.pendingUploadFlags)
     #expect(flags.dirtyRecordNames.contains(snapshot.id.uuidString))
+
+    let snapshotIDs = notifier.calls.flatMap { $0.savedRecordIDs.map(\.recordName) }
+    #expect(snapshotIDs.contains(snapshot.id.uuidString))
   }
 
   @Test("Person edit propagation is a no-op for trips not owned by the current user")
   func personEditSkipsParticipantOwnedTrips() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -88,13 +102,13 @@ struct SnapshotMaintenanceTests {
     try context.save()
 
     person.name = "Alicia"
-    try context.save()
 
     try SnapshotMaintenance.propagatePersonEdit(
       person,
       in: context,
       ownerIdentity: { _ in .otherUser(displayName: "Friend") }
     )
+    try hook.commit(context)
 
     #expect(snapshot.name == "Alice", "Participant-owned trip's snapshot must not be touched")
   }
@@ -106,6 +120,8 @@ struct SnapshotMaintenanceTests {
   func rosterRemovalDeletesUnreferencedSnapshot() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let notifier = RecordingNotifier()
+    let hook = LocalWriteHook(notifier: notifier)
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -113,22 +129,28 @@ struct SnapshotMaintenanceTests {
     context.insert(trip)
     let snapshot = Self.makeSnapshot(person: person, trip: trip, in: context)
     try context.save()
+    let snapshotID = snapshot.id
 
     try SnapshotMaintenance.handleRosterRemoval(
       tripID: trip.id,
       personID: person.id,
       in: context
     )
+    try hook.commit(context)
 
     let snapshots = try context.fetch(FetchDescriptor<TripPersonSnapshot>())
     #expect(snapshots.isEmpty, "Unreferenced snapshot must be deleted")
-    _ = snapshot  // silence unused-var warning in tests
+
+    let deletedNames = notifier.calls.flatMap { $0.deletedRecordIDs.map(\.recordName) }
+    #expect(deletedNames.contains(snapshotID.uuidString))
   }
 
   @Test("Roster removal: snapshot referenced by packing items stays but is flagged non-roster")
   func rosterRemovalKeepsReferencedSnapshotAsNonRoster() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let notifier = RecordingNotifier()
+    let hook = LocalWriteHook(notifier: notifier)
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -138,25 +160,36 @@ struct SnapshotMaintenanceTests {
     let item = TripPackingItem(trip: trip, name: "Socks", personSnapshot: snapshot)
     context.insert(item)
     try context.save()
+    notifier.calls.removeAll()
 
     try SnapshotMaintenance.handleRosterRemoval(
       tripID: trip.id,
       personID: person.id,
       in: context
     )
+    try hook.commit(context)
 
     let snapshots = try context.fetch(FetchDescriptor<TripPersonSnapshot>())
     #expect(snapshots.count == 1)
     #expect(snapshots.first?.isRosterMember == false)
+
+    let dirtyNames = notifier.calls.flatMap { $0.savedRecordIDs.map(\.recordName) }
+    #expect(dirtyNames.contains(snapshot.id.uuidString))
   }
 
   // MARK: - Packing item deletion cleanup
 
   @Test(
-    "Packing item delete: snapshot with isRosterMember == false and no other items is deleted")
+    """
+    Packing item delete: orphan-snapshot cleanup + caller's context.delete(item) \
+    + single LocalWriteHook commit deletes the non-roster snapshot and the item in one transaction
+    """
+  )
   func packingItemDeleteRemovesNonRosterSnapshotWithLastItem() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let notifier = RecordingNotifier()
+    let hook = LocalWriteHook(notifier: notifier)
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -167,11 +200,24 @@ struct SnapshotMaintenanceTests {
     let item = TripPackingItem(trip: trip, name: "Socks", personSnapshot: snapshot)
     context.insert(item)
     try context.save()
+    notifier.calls.removeAll()
+    let snapshotID = snapshot.id
+    let itemID = item.id
 
+    // Caller invariant: mutate-only routine runs, then delete the item,
+    // then commit once via the hook so the user action is one transaction.
     try SnapshotMaintenance.handlePackingItemDeletion(item, in: context)
+    context.delete(item)
+    try hook.commit(context)
 
     let snapshots = try context.fetch(FetchDescriptor<TripPersonSnapshot>())
     #expect(snapshots.isEmpty, "Non-roster snapshot with no remaining items must be deleted")
+
+    // Both deletions go through the same hook commit and show up in one
+    // notifier call for the trip's zone.
+    let deletedNames = notifier.calls.flatMap { $0.deletedRecordIDs.map(\.recordName) }
+    #expect(deletedNames.contains(snapshotID.uuidString))
+    #expect(deletedNames.contains(itemID.uuidString))
   }
 
   @Test(
@@ -179,6 +225,7 @@ struct SnapshotMaintenanceTests {
   func packingItemDeleteKeepsRosterSnapshot() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -191,6 +238,7 @@ struct SnapshotMaintenanceTests {
     try context.save()
 
     try SnapshotMaintenance.handlePackingItemDeletion(item, in: context)
+    try hook.commit(context)
 
     let snapshots = try context.fetch(FetchDescriptor<TripPersonSnapshot>())
     #expect(snapshots.count == 1, "Roster-member snapshot must survive item deletion")
@@ -201,6 +249,7 @@ struct SnapshotMaintenanceTests {
   func packingItemDeleteKeepsSnapshotWithRemainingReferences() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -215,6 +264,7 @@ struct SnapshotMaintenanceTests {
     try context.save()
 
     try SnapshotMaintenance.handlePackingItemDeletion(item1, in: context)
+    try hook.commit(context)
 
     let snapshots = try context.fetch(FetchDescriptor<TripPersonSnapshot>())
     #expect(snapshots.count == 1, "Other items still reference the snapshot")
@@ -227,6 +277,8 @@ struct SnapshotMaintenanceTests {
   func sweepDeletesOrphanedSnapshots() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let notifier = RecordingNotifier()
+    let hook = LocalWriteHook(notifier: notifier)
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -237,18 +289,25 @@ struct SnapshotMaintenanceTests {
     let active = Self.makeSnapshot(person: person, trip: trip, in: context)
     active.isRosterMember = true
     try context.save()
+    notifier.calls.removeAll()
+    let orphanID = orphan.id
 
     try SnapshotMaintenance.sweep(in: context)
+    try hook.commit(context)
 
     let snapshots = try context.fetch(FetchDescriptor<TripPersonSnapshot>())
     #expect(snapshots.count == 1, "Only the orphan should be removed")
     #expect(snapshots.first?.id == active.id)
+
+    let deletedNames = notifier.calls.flatMap { $0.deletedRecordIDs.map(\.recordName) }
+    #expect(deletedNames.contains(orphanID.uuidString))
   }
 
   @Test("Sweep is a no-op when there are no orphaned snapshots")
   func sweepLeavesActiveSnapshotsAlone() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let person = Person(name: "Alice", colorKey: "cyan")
     context.insert(person)
@@ -258,6 +317,7 @@ struct SnapshotMaintenanceTests {
     try context.save()
 
     try SnapshotMaintenance.sweep(in: context)
+    try hook.commit(context)
 
     let snapshots = try context.fetch(FetchDescriptor<TripPersonSnapshot>())
     #expect(snapshots.count == 1)

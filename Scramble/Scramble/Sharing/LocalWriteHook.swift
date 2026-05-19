@@ -26,12 +26,71 @@ final class LocalWriteHook {
   /// `TripZoneState` rows, save once, then notify the sync engine. Errors
   /// from `save()` propagate to the caller.
   func commit(_ context: ModelContext) throws {
-    let summary = collectChanges(in: context)
+    try commitChanges(in: context, zoneIDsBeingDeleted: [])
+  }
 
-    // Step 1: update TripZoneState rows so they include the dirty/deleted
-    // record names, before the save flushes everything together.
-    for change in summary.zoneChanges {
-      try applyZoneChange(change, in: context)
+  /// Phase 5.1 — same contract as `commit(_:)` but partitions changes by
+  /// whether their mapped zone is in `zoneIDsBeingDeleted`. For records
+  /// whose zone is vanishing in this same transaction, the per-
+  /// `TripZoneState` flag update is skipped (the row is also being
+  /// deleted); the notifier is still called with the deleted record IDs
+  /// so the engine queues `deleteRecord` operations alongside the
+  /// `deleteZone`. Records whose zone is not vanishing follow the
+  /// regular `commit(_:)` path (flag update + notifier signal).
+  ///
+  /// Used by `TripDeletion.delete` so the entire reverse-cascade ends in
+  /// a single chokepoint call.
+  func commitDeletion(
+    _ context: ModelContext,
+    zoneIDsBeingDeleted: Set<CKRecordZone.ID>
+  ) throws {
+    try commitChanges(in: context, zoneIDsBeingDeleted: zoneIDsBeingDeleted)
+  }
+
+  // MARK: - Unified commit path
+
+  private func commitChanges(
+    in context: ModelContext,
+    zoneIDsBeingDeleted: Set<CKRecordZone.ID>
+  ) throws {
+    let summary = collectChanges(in: context)
+    // Partition by zoneName only (trip-{uuid}). The hook synthesises
+    // zone IDs with `CKCurrentUserDefaultName`, but a participant
+    // trip's `TripZoneState` carries the remote owner's name; matching
+    // on full `CKRecordZone.ID` would misclassify those zones as
+    // surviving and trigger a re-insert of the just-deleted
+    // `TripZoneState` row inside `applyZoneChange`. Zone names are
+    // owner-agnostic and unique per trip, so a name-only comparison
+    // partitions correctly for both private-DB and shared-DB scopes.
+    let vanishingZoneNames: Set<String> = Set(zoneIDsBeingDeleted.map(\.zoneName))
+
+    // Step 1: update TripZoneState rows for surviving zones only. A
+    // vanishing zone's TripZoneState row is in the same transaction's
+    // deletedModelsArray; writing into it is wasted work and would
+    // re-insert a fresh row.
+    //
+    // Per-zone do/catch so a single zone's flag-update failure (rare —
+    // typically a SwiftData fetch error) does not skip the remaining
+    // zones. A skipped zone's notifier signal is dropped too so the
+    // engine doesn't receive a "changes ready" notification for a zone
+    // whose `TripZoneState.pendingUploadFlags` weren't updated.
+    var notifiableZoneNames: Set<String> = Set(
+      summary.zoneChanges.map(\.zoneID.zoneName)
+    )
+    for change in summary.zoneChanges where !vanishingZoneNames.contains(change.zoneID.zoneName) {
+      do {
+        try applyZoneChange(change, in: context)
+      } catch {
+        notifiableZoneNames.remove(change.zoneID.zoneName)
+        modelLogger.error(
+          """
+          [LocalWriteHook] applyZoneChange failed for zone \
+          \(change.zoneID.zoneName, privacy: .public): \
+          \(error.localizedDescription, privacy: .public); \
+          notifier skipped for this zone
+          """
+        )
+      }
     }
 
     // Step 2: single save commits both the user mutations and the
@@ -39,9 +98,12 @@ final class LocalWriteHook {
     try context.save()
 
     // Step 3: tell the engine which records to send / delete on the next
-    // batch. The notifier is responsible for choosing the database scope
-    // (private vs shared) based on each zone's state.
-    for change in summary.zoneChanges {
+    // batch. Vanishing-zone records still notify so the engine queues
+    // their `deleteRecord` operations alongside the `deleteZone`.
+    // Surviving zones whose flag-update failed in step 1 are excluded
+    // from this loop (their name is no longer in `notifiableZoneNames`).
+    for change in summary.zoneChanges
+    where notifiableZoneNames.contains(change.zoneID.zoneName) {
       let recordIDs = change.dirtyRecordNames.map { recordName in
         CKRecord.ID(recordName: recordName, zoneID: change.zoneID)
       }
@@ -73,10 +135,7 @@ final class LocalWriteHook {
     var byTripID: [UUID: ZoneChange] = [:]
 
     func touch(tripID: UUID, recordName: String, deleted: Bool) {
-      let zoneID = CKRecordZone.ID(
-        zoneName: "trip-\(tripID.uuidString)",
-        ownerName: CKCurrentUserDefaultName
-      )
+      let zoneID = ZoneMigrationCoordinator.ownerZoneID(for: tripID)
       var change = byTripID[tripID] ?? ZoneChange(zoneID: zoneID, tripID: tripID)
       if deleted {
         change.deletedRecordNames.insert(recordName)

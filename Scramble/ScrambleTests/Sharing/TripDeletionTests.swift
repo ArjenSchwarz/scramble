@@ -19,6 +19,7 @@ struct TripDeletionTests {
   func deletionCascadesEverythingLocally() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     let task = TripTask(trip: trip, name: "Pack")
@@ -44,7 +45,9 @@ struct TripDeletionTests {
     try context.save()
 
     let zoneDeleter = RecordingZoneDeleter()
-    try TripDeletion.delete(tripID: trip.id, in: context, zoneDeleter: zoneDeleter)
+    try TripDeletion.delete(
+      tripID: trip.id, in: context, hook: hook, zoneDeleter: zoneDeleter
+    )
 
     #expect(try context.fetch(FetchDescriptor<TripPackingItem>()).isEmpty)
     #expect(try context.fetch(FetchDescriptor<TripTask>()).isEmpty)
@@ -57,6 +60,7 @@ struct TripDeletionTests {
   func deletionAsksDriverToDeleteZone() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     let zoneState = TripZoneState(
@@ -69,7 +73,9 @@ struct TripDeletionTests {
     try context.save()
 
     let zoneDeleter = RecordingZoneDeleter()
-    try TripDeletion.delete(tripID: trip.id, in: context, zoneDeleter: zoneDeleter)
+    try TripDeletion.delete(
+      tripID: trip.id, in: context, hook: hook, zoneDeleter: zoneDeleter
+    )
 
     let expectedZone = CKRecordZone.ID(
       zoneName: "trip-\(trip.id.uuidString)",
@@ -82,6 +88,7 @@ struct TripDeletionTests {
   func participantSideCleanupWithoutZoneDeletion() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     let task = TripTask(trip: trip, name: "Pack")
@@ -95,7 +102,7 @@ struct TripDeletionTests {
     context.insert(zoneState)
     try context.save()
 
-    try TripDeletion.delete(tripID: trip.id, in: context, zoneDeleter: nil)
+    try TripDeletion.delete(tripID: trip.id, in: context, hook: hook, zoneDeleter: nil)
 
     #expect(try context.fetch(FetchDescriptor<Trip>()).isEmpty)
     #expect(try context.fetch(FetchDescriptor<TripTask>()).isEmpty)
@@ -106,12 +113,13 @@ struct TripDeletionTests {
   func deletionWithoutZoneStateStillRemovesTrip() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     context.insert(trip)
     try context.save()
 
-    try TripDeletion.delete(tripID: trip.id, in: context, zoneDeleter: nil)
+    try TripDeletion.delete(tripID: trip.id, in: context, hook: hook, zoneDeleter: nil)
     #expect(try context.fetch(FetchDescriptor<Trip>()).isEmpty)
   }
 
@@ -119,6 +127,7 @@ struct TripDeletionTests {
   func deletionFollowsReverseCascadeOrder() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
 
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     let task = TripTask(trip: trip, name: "Pack")
@@ -144,13 +153,115 @@ struct TripDeletionTests {
     try context.save()
 
     let zoneDeleter = RecordingZoneDeleter()
-    try TripDeletion.delete(tripID: trip.id, in: context, zoneDeleter: zoneDeleter)
+    try TripDeletion.delete(
+      tripID: trip.id, in: context, hook: hook, zoneDeleter: zoneDeleter
+    )
 
     // No orphans: every entity tied to the trip is gone.
     let allItems = try context.fetch(FetchDescriptor<TripPackingItem>())
     let allTasks = try context.fetch(FetchDescriptor<TripTask>())
     let allSnapshots = try context.fetch(FetchDescriptor<TripPersonSnapshot>())
     #expect(allItems.isEmpty && allTasks.isEmpty && allSnapshots.isEmpty)
+  }
+
+  // MARK: - Phase 5.1: routes through LocalWriteHook.commitDeletion
+
+  @Test(
+    """
+    Phase 5.1: delete routes through LocalWriteHook.commitDeletion — \
+    the recording notifier observes the trip's vanishing-zone deleted record IDs \
+    in a single signal
+    """
+  )
+  func deletionRoutesThroughCommitDeletionNotifier() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let notifier = RecordingNotifier()
+    let hook = LocalWriteHook(notifier: notifier)
+
+    let trip = Trip(name: "T", startDate: .now, endDate: .now)
+    let task = TripTask(trip: trip, name: "Pack")
+    let snapshot = TripPersonSnapshot(
+      personID: UUID(),
+      name: "Alice",
+      colourID: "cyan",
+      initialSource: "name",
+      isRosterMember: true,
+      trip: trip
+    )
+    let item = TripPackingItem(trip: trip, name: "Socks", personSnapshot: snapshot)
+    let zoneState = TripZoneState(
+      tripID: trip.id,
+      zoneOwnerName: CKCurrentUserDefaultName,
+      zoneScope: "private"
+    )
+    context.insert(trip)
+    context.insert(task)
+    context.insert(snapshot)
+    context.insert(item)
+    context.insert(zoneState)
+    try hook.commit(context)
+    notifier.calls.removeAll()
+
+    let tripIDValue = trip.id
+    let taskID = task.id
+    let snapshotID = snapshot.id
+    let itemID = item.id
+
+    try TripDeletion.delete(
+      tripID: trip.id, in: context, hook: hook, zoneDeleter: RecordingZoneDeleter()
+    )
+
+    let expectedZone = CKRecordZone.ID(
+      zoneName: "trip-\(tripIDValue.uuidString)",
+      ownerName: CKCurrentUserDefaultName
+    )
+    let call = try #require(notifier.calls.first { $0.zoneID == expectedZone })
+    let deletedNames = Set(call.deletedRecordIDs.map(\.recordName))
+    #expect(deletedNames.contains(tripIDValue.uuidString))
+    #expect(deletedNames.contains(taskID.uuidString))
+    #expect(deletedNames.contains(snapshotID.uuidString))
+    #expect(deletedNames.contains(itemID.uuidString))
+    #expect(call.savedRecordIDs.isEmpty)
+  }
+
+  @Test("Participant-side deletion does not call the zone deleter")
+  func participantSideSkipsZoneDeleter() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+
+    let trip = Trip(name: "T", startDate: .now, endDate: .now)
+    let zoneState = TripZoneState(
+      tripID: trip.id,
+      zoneOwnerName: "remote-owner",
+      zoneScope: "shared"
+    )
+    context.insert(trip)
+    context.insert(zoneState)
+    try context.save()
+
+    let zoneDeleter = RecordingZoneDeleter()
+    try TripDeletion.delete(
+      tripID: trip.id, in: context, hook: hook, zoneDeleter: zoneDeleter
+    )
+
+    #expect(
+      zoneDeleter.deletedZones.isEmpty,
+      "Participant-scope deletions must not enqueue a private-DB zone delete"
+    )
+  }
+
+  @Test("Deleting a non-existent trip is idempotent — no throw, no notifier signal")
+  func deletionOfMissingTripIsIdempotent() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let notifier = RecordingNotifier()
+    let hook = LocalWriteHook(notifier: notifier)
+
+    try TripDeletion.delete(tripID: UUID(), in: context, hook: hook, zoneDeleter: nil)
+
+    #expect(notifier.calls.isEmpty)
   }
 
   // MARK: - Helpers

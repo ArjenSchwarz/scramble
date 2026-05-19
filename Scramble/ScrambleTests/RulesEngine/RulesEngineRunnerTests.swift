@@ -54,6 +54,18 @@ struct RulesEngineRunnerTests {
     let trip = Trip(
       name: "Beach", startDate: .now, endDate: .now, attributes: Self.rainyAttributes())
     context.insert(trip)
+    // Phase 5.1: insertAddedPacking writes the V3 personSnapshot
+    // relationship; the trip needs a snapshot for the master's personID
+    // or the packing item is skipped as an orphan.
+    let snapshot = TripPersonSnapshot(
+      personID: person.id,
+      name: person.name,
+      colourID: person.colorKey,
+      initialSource: "name",
+      isRosterMember: true,
+      trip: trip
+    )
+    context.insert(snapshot)
     try context.save()
 
     let runner = RulesEngineRunner(context: context)
@@ -66,7 +78,7 @@ struct RulesEngineRunnerTests {
     #expect(tasks.first?.name == "Bring umbrella")
     let packs = try context.fetch(FetchDescriptor<TripPackingItem>())
     #expect(packs.count == 1)
-    #expect(packs.first?.person?.id == person.id)
+    #expect(packs.first?.personSnapshot?.personID == person.id)
   }
 
   @Test("Idempotency: second runForTrip against unchanged state returns empty plan")
@@ -248,6 +260,19 @@ struct RulesEngineRunnerTests {
     context.insert(master)
     let trip = Trip(name: "Trip", startDate: .now, endDate: .now)
     context.insert(trip)
+    // Phase 5.1: trip needs snapshots for both Alice (initial) and Bob
+    // (post-change) so the engine has a valid snapshot to link to under
+    // either master.person value.
+    let aliceSnap = TripPersonSnapshot(
+      personID: alice.id, name: alice.name, colourID: alice.colorKey,
+      initialSource: "name", isRosterMember: true, trip: trip
+    )
+    let bobSnap = TripPersonSnapshot(
+      personID: bob.id, name: bob.name, colourID: bob.colorKey,
+      initialSource: "name", isRosterMember: true, trip: trip
+    )
+    context.insert(aliceSnap)
+    context.insert(bobSnap)
     try context.save()
 
     let runner = RulesEngineRunner(context: context)
@@ -259,7 +284,7 @@ struct RulesEngineRunnerTests {
 
     let packs = try context.fetch(FetchDescriptor<TripPackingItem>())
     #expect(packs.count == 1)
-    #expect(packs.first?.person?.id == alice.id)
+    #expect(packs.first?.personSnapshot?.personID == alice.id)
   }
 
   // MARK: - Per-trip catch — bad trip in middle does not abort the loop

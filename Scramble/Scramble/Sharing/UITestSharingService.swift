@@ -23,10 +23,7 @@
     }
 
     func createShare(forTrip tripID: UUID) async throws -> CKShare {
-      let zoneID = CKRecordZone.ID(
-        zoneName: "trip-\(tripID.uuidString)",
-        ownerName: CKCurrentUserDefaultName
-      )
+      let zoneID = ZoneMigrationCoordinator.ownerZoneID(for: tripID)
       let share = CKShare(recordZoneID: zoneID)
       share.publicPermission = .none
       return share
@@ -42,11 +39,6 @@
     }
 
     func leaveShare(forTrip tripID: UUID) async throws {}
-
-    func deleteOwnedTrip(forTrip tripID: UUID) async throws {
-      Self.ownerIdentitiesByTrip.removeValue(forKey: tripID)
-      Self.participantsByTrip.removeValue(forKey: tripID)
-    }
 
     func participants(forTrip tripID: UUID) async throws -> [ShareParticipant] {
       Self.participantsByTrip[tripID] ?? []

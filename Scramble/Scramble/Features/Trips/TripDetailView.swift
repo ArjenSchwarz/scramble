@@ -13,6 +13,8 @@ import os
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.globalsContainer) private var globalsContainer
+  @Environment(\.localWriteHook) private var hook
   @Environment(\.dismiss) private var dismiss
   @Environment(\.sharingService) private var sharingService
   @Environment(\.rulesLastEvaluatedTracker) private var rulesLastEvaluatedTracker
@@ -176,15 +178,22 @@ import os
     }
     .sheet(isPresented: $showEditor) {
       TripEditorView(mode: .edit(trip), focusAttribute: editAttributeFocus) { draft in
-        let orphans = TripPersistence.apply(draft, to: trip, in: modelContext)
+        let orphans: [UUID]
         do {
-          try modelContext.save()
+          orphans = try TripPersistence.apply(
+            draft, to: trip, in: modelContext, globals: globalsContainer.mainContext
+          )
+          try hook.commit(modelContext)
         } catch {
           modelContext.rollback()
           return false
         }
         do {
-          try RulesEngineRunner(context: modelContext).runForTrip(trip)
+          try RulesEngineRunner(
+            context: modelContext,
+            mastersContext: globalsContainer.mainContext,
+            hook: hook
+          ).runForTrip(trip)
         } catch {
           modelLogger.error(
             "[RulesEngine.trip-edit-failed] tripID=\(trip.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
@@ -202,30 +211,38 @@ import os
     #endif
   }
 
-  /// Owner-side delete (Req 1.4). Removes the trip from the globals
-  /// container and asks `SharingService` to tear down the trip's
-  /// `TripZoneState` + queue the `CKRecordZone` deletion on the private
-  /// engine.
+  /// Owner-side delete (Req 1.4 / Phase 5.1 Req 5). Phase 5.1: routes
+  /// through `TripDeletion.delete(tripID:in:hook:zoneDeleter:)` which
+  /// performs the reverse-cascade in one `LocalWriteHook.commitDeletion`
+  /// transaction (records first, `TripZoneState` last) and asks the
+  /// supplied zone deleter to enqueue `deleteZone` on the private engine.
+  /// The `SharingService.deleteOwnedTrip` round-trip is no longer
+  /// needed; the engine's own pending-database-changes path handles
+  /// remote teardown.
   private func deleteTrip() {
     let tripID = trip.id
-    modelContext.delete(trip)
+    let zoneDeleter: TripZoneDeleter? = (sharingService as? CloudKitSharingService)
+      .map { TripSyncEngineZoneDeleter(syncEngine: $0.syncEngine) }
     do {
-      try modelContext.save()
+      try TripDeletion.delete(
+        tripID: tripID,
+        in: modelContext,
+        hook: hook,
+        zoneDeleter: zoneDeleter
+      )
     } catch {
+      // `TripDeletion.delete` stages every record-delete and zone-state
+      // delete in the context BEFORE calling `hook.commitDeletion`. A
+      // throw from the commit leaves those staged deletes pending,
+      // which would make the trip vanish from `@Query` results until
+      // the next app launch even though the disk still has the data.
+      // Rollback restores the pre-delete view state.
       modelContext.rollback()
       toastMessage = "Delete failed — try again."
+      modelLogger.error(
+        "[TripDetailView.delete-failed] tripID=\(tripID, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
+      )
       return
-    }
-    if let sharingService {
-      Task {
-        do {
-          try await sharingService.deleteOwnedTrip(forTrip: tripID)
-        } catch {
-          modelLogger.error(
-            "[TripDetailView.delete-zone-failed] tripID=\(tripID, privacy: .public) error=\(error.localizedDescription, privacy: .public)"
-          )
-        }
-      }
     }
     dismiss()
   }
@@ -251,7 +268,7 @@ import os
 
   private func handlePackingSheetDismiss() {
     guard let person = lastOpenedPackingPerson else { return }
-    let participantIDs = (trip.participants ?? []).map(\.id)
+    let participantIDs = (trip.participantSnapshots ?? []).map(\.personID)
     if participantIDs.contains(person.id) {
       packingSummaryFocus = person.id
     } else {
@@ -327,11 +344,13 @@ import os
           .accessibilityIdentifier("tripDetail.rulesLastEvaluated")
       }
 
-      let participants = trip.participants ?? []
-      if !participants.isEmpty {
+      let snapshots = trip.participantSnapshots ?? []
+      if !snapshots.isEmpty {
         HStack(spacing: -6) {
-          ForEach(participants) { person in
-            PersonAvatar(name: person.name, colorKey: person.colorKey, size: .standard)
+          ForEach(snapshots) { snapshot in
+            PersonAvatar(
+              name: snapshot.name, colorKey: snapshot.colourID, size: .standard
+            )
           }
         }
         .padding(.top, 4)

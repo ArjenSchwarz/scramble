@@ -37,7 +37,7 @@ struct ApplyTests {
       toFlagUnmatched: [],
       toFlagMatched: []
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
     #expect(context.hasChanges == false)
   }
 
@@ -66,7 +66,7 @@ struct ApplyTests {
       toFlagUnmatched: [],
       toFlagMatched: []
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let tasks = try context.fetch(FetchDescriptor<TripTask>())
     #expect(tasks.count == 1)
@@ -92,6 +92,18 @@ struct ApplyTests {
     context.insert(person)
     let trip = Trip(name: "Test", startDate: .now, endDate: .now)
     context.insert(trip)
+    // Phase 5.1: rule-driven packing items resolve identity through the
+    // trip's `TripPersonSnapshot`, not the V2 `Person` relationship. Seed
+    // a snapshot for the master's `personID`.
+    let snapshot = TripPersonSnapshot(
+      personID: person.id,
+      name: person.name,
+      colourID: person.colorKey,
+      initialSource: "name",
+      isRosterMember: true,
+      trip: trip
+    )
+    context.insert(snapshot)
     try context.save()
 
     let masterID = UUID()
@@ -108,7 +120,7 @@ struct ApplyTests {
       toFlagUnmatched: [],
       toFlagMatched: []
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let items = try context.fetch(FetchDescriptor<TripPackingItem>())
     #expect(items.count == 1)
@@ -119,7 +131,8 @@ struct ApplyTests {
     #expect(inserted.currentlyMatchesRules == true)
     #expect(inserted.pinnedByUser == false)
     #expect(inserted.state == .unpacked)
-    #expect(inserted.person?.id == person.id)
+    // Phase 5.1: assignee identity is via the V3 personSnapshot.
+    #expect(inserted.personSnapshot?.personID == person.id)
     #expect(inserted.trip?.id == trip.id)
   }
 
@@ -142,7 +155,7 @@ struct ApplyTests {
       toFlagUnmatched: [],
       toFlagMatched: []
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let items = try context.fetch(FetchDescriptor<TripPackingItem>())
     #expect(items.isEmpty)
@@ -177,7 +190,7 @@ struct ApplyTests {
       toFlagUnmatched: [TripItemRef(kind: .task, id: task.id)],
       toFlagMatched: []
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let fetched = try context.fetch(FetchDescriptor<TripTask>())
     let updated = try #require(fetched.first)
@@ -215,7 +228,7 @@ struct ApplyTests {
       toFlagUnmatched: [],
       toFlagMatched: [TripItemRef(kind: .packing, id: item.id)]
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let fetched = try context.fetch(FetchDescriptor<TripPackingItem>())
     let updated = try #require(fetched.first)
@@ -254,7 +267,7 @@ struct ApplyTests {
       toFlagUnmatched: [],
       toFlagMatched: [TripItemRef(kind: .task, id: task.id)]
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let fetched = try context.fetch(FetchDescriptor<TripTask>())
     let stored = try #require(fetched.first)
@@ -292,7 +305,7 @@ struct ApplyTests {
       toFlagUnmatched: [TripItemRef(kind: .task, id: task.id)],
       toFlagMatched: []
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let fetched = try context.fetch(FetchDescriptor<TripTask>())
     let stored = try #require(fetched.first)
@@ -319,7 +332,7 @@ struct ApplyTests {
       toFlagUnmatched: [],
       toFlagMatched: []
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let tasks = try context.fetch(FetchDescriptor<TripTask>())
     #expect(tasks.isEmpty)
@@ -343,7 +356,7 @@ struct ApplyTests {
       toFlagUnmatched: [TripItemRef(kind: .task, id: UUID())],
       toFlagMatched: []
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
     // No throw; nothing to assert beyond that.
   }
 
@@ -363,7 +376,7 @@ struct ApplyTests {
       toFlagUnmatched: [],
       toFlagMatched: [TripItemRef(kind: .packing, id: UUID())]
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
   }
 
   // MARK: - Multi-section plan
@@ -372,11 +385,7 @@ struct ApplyTests {
   func mixedPlanFullPath() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
-
-    let person = Person(name: "P", colorKey: "blue")
-    context.insert(person)
-    let trip = Trip(name: "Test", startDate: .now, endDate: .now)
-    context.insert(trip)
+    let (trip, person) = try Self.seedMixedPlanFixture(in: context)
     let existingMatched = TripTask(
       trip: trip,
       masterItemID: UUID(),
@@ -409,7 +418,7 @@ struct ApplyTests {
       toFlagUnmatched: [TripItemRef(kind: .task, id: existingMatched.id)],
       toFlagMatched: [TripItemRef(kind: .packing, id: existingUnmatched.id)]
     )
-    try apply(plan: plan, context: context)
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
 
     let tasks = try context.fetch(FetchDescriptor<TripTask>()).sorted { $0.name < $1.name }
     #expect(tasks.count == 2)
@@ -423,6 +432,26 @@ struct ApplyTests {
     let matchedPack = try #require(packs.first { $0.id == existingUnmatched.id })
     #expect(matchedPack.currentlyMatchesRules == true)
     let addedPack = try #require(packs.first { $0.masterItemID == addedPackID })
-    #expect(addedPack.person?.id == person.id)
+    #expect(addedPack.personSnapshot?.personID == person.id)
+  }
+
+  /// Phase 5.1: rule-driven packing inserts look up the trip's
+  /// `TripPersonSnapshot` for the master's `personID`. The shared seed
+  /// keeps `mixedPlanFullPath` under the function-length limit.
+  private static func seedMixedPlanFixture(in context: ModelContext) throws -> (Trip, Person) {
+    let person = Person(name: "P", colorKey: "blue")
+    context.insert(person)
+    let trip = Trip(name: "Test", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let snapshot = TripPersonSnapshot(
+      personID: person.id,
+      name: person.name,
+      colourID: person.colorKey,
+      initialSource: "name",
+      isRosterMember: true,
+      trip: trip
+    )
+    context.insert(snapshot)
+    return (trip, person)
   }
 }

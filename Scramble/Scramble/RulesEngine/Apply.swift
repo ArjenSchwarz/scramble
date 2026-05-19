@@ -3,7 +3,7 @@ import SwiftData
 import os
 
 @MainActor
-func apply(plan: Plan, context: ModelContext) throws {
+func apply(plan: Plan, context: ModelContext, hook: LocalWriteHook) throws {
   guard !plan.isEmpty else { return }
 
   let tripID = plan.tripID
@@ -14,11 +14,11 @@ func apply(plan: Plan, context: ModelContext) throws {
   }
 
   insertAddedTasks(plan.toAddTasks, on: trip, context: context)
-  try insertAddedPacking(plan.toAddPacking, on: trip, context: context)
+  insertAddedPacking(plan.toAddPacking, on: trip, context: context)
   try applyFlags(plan, context: context)
 
   do {
-    try context.save()
+    try hook.commit(context)
   } catch {
     modelLogger.error(
       "[RulesEngine.save-failed] tripID=\(tripID, privacy: .public) error=\(String(describing: error), privacy: .public)"
@@ -49,27 +49,34 @@ private func insertAddedTasks(
 @MainActor
 private func insertAddedPacking(
   _ masters: [MasterPackingSnapshot], on trip: Trip, context: ModelContext
-) throws {
+) {
   guard !masters.isEmpty else { return }
-  let personIDs = Array(Set(masters.map(\.personID)))
-  let descriptor = FetchDescriptor<Person>(predicate: #Predicate { personIDs.contains($0.id) })
-  let byID = Dictionary(uniqueKeysWithValues: try context.fetch(descriptor).map { ($0.id, $0) })
+  // Phase 5.1: look up the trip's `TripPersonSnapshot` rather than
+  // fetching `Person` from the (now tripsLocal-bound) context. Master
+  // items reference a `personID`; the snapshot is the in-zone source
+  // of identity and a one-hop read that doesn't cross containers.
+  let snapshotsByPersonID = Dictionary(
+    uniqueKeysWithValues: (trip.participantSnapshots ?? []).map { ($0.personID, $0) }
+  )
   for master in masters {
-    guard let person = byID[master.personID] else {
+    guard let snapshot = snapshotsByPersonID[master.personID] else {
       modelLogger.info(
-        "[RulesEngine.skip-packing-orphan] master=\(master.id, privacy: .public) personID=\(master.personID, privacy: .public) not found"
+        """
+        [RulesEngine.skip-packing-orphan] master=\(master.id, privacy: .public) \
+        personID=\(master.personID, privacy: .public) snapshot not found on trip
+        """
       )
       continue
     }
     let item = TripPackingItem(
       trip: trip,
-      person: person,
       masterItemID: master.id,
       name: master.name,
       state: .unpacked,
       source: .rule,
       currentlyMatchesRules: true,
-      pinnedByUser: false
+      pinnedByUser: false,
+      personSnapshot: snapshot
     )
     context.insert(item)
   }

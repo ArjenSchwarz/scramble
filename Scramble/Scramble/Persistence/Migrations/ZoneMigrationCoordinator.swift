@@ -25,8 +25,8 @@ import os
 /// `handleRecordsSaved`, and `handleRecordsFailed` as the events arrive.
 @MainActor
 final class ZoneMigrationCoordinator {
-  let globalsContext: ModelContext
-  let tripsLocalContext: ModelContext
+  private let globalsContext: ModelContext
+  private let tripsLocalContext: ModelContext
   let driver: ZoneMigrationDriver
   let isCloudAvailable: () -> Bool
   let now: () -> Date
@@ -47,19 +47,16 @@ final class ZoneMigrationCoordinator {
 
   // MARK: - Phase 1: enqueue
 
-  /// Insert a `.pending` `MigrationJournalEntry` for every trip in
-  /// `tripsLocal` that has not been moved into its trip zone yet (no
-  /// matching `TripZoneState`). Idempotent — skips trips that already
-  /// have a journal row.
+  /// Insert a `.pending` `MigrationJournalEntry` for every trip that has
+  /// not been moved into its trip zone yet (no matching
+  /// `TripZoneState`). Idempotent — skips trips that already have a
+  /// journal row.
   ///
-  /// Until Phase 5.1 routes Trip CRUD through `tripsLocal`, the source
-  /// fetch deliberately stays on `tripsLocalContext`. Switching it to
-  /// `globalsContext` in isolation queues journals for trips whose
-  /// records the engine can't find on upload, leaving every entry stuck
-  /// in `.stageBInProgress` indefinitely (with a permanent "Syncing…"
-  /// badge per trip). The cleaner state is the current silent no-op:
-  /// nothing queues until Phase 5.1 lands the record-relocation step at
-  /// the same time. See `docs/implementation-phases.md`.
+  /// Phase 5.1 — scans BOTH containers so that pre-Phase-5.1 trips still
+  /// in `globals` get a journal entry (their records are relocated to
+  /// `tripsLocal` by `startOrResume`'s relocation step) and trips
+  /// already in `tripsLocal` (post-Phase-5.1 creates) also get a
+  /// journal entry until their `TripZoneState` is created.
   func enqueueAll() throws {
     let existingJournals = try globalsContext.fetch(FetchDescriptor<MigrationJournalEntry>())
     let existingByTrip = Dictionary(
@@ -68,11 +65,19 @@ final class ZoneMigrationCoordinator {
     let existingStates = try tripsLocalContext.fetch(FetchDescriptor<TripZoneState>())
     let migratedTripIDs = Set(existingStates.map(\.tripID))
 
-    let trips = try tripsLocalContext.fetch(FetchDescriptor<Trip>())
-    for trip in trips where !migratedTripIDs.contains(trip.id) {
-      if existingByTrip[trip.id] != nil { continue }
+    let tripsLocalTrips = try tripsLocalContext.fetch(FetchDescriptor<Trip>())
+    let globalsTrips = try globalsContext.fetch(FetchDescriptor<Trip>())
+    // Sort the union for deterministic journal-insertion order across
+    // runs — Set iteration is non-deterministic, which makes Stage B
+    // logs and PBT failure traces harder to reason about.
+    let allTripIDs = Set(tripsLocalTrips.map(\.id))
+      .union(globalsTrips.map(\.id))
+      .sorted { $0.uuidString < $1.uuidString }
+
+    for tripID in allTripIDs where !migratedTripIDs.contains(tripID) {
+      if existingByTrip[tripID] != nil { continue }
       let entry = MigrationJournalEntry(
-        tripID: trip.id,
+        tripID: tripID,
         stateRaw: MigrationStageState.pending.rawValue,
         updatedAt: now()
       )
@@ -101,6 +106,13 @@ final class ZoneMigrationCoordinator {
         continue
       }
     }
+  }
+
+  /// Count of `MigrationJournalEntry` rows currently persisted in
+  /// `globals`. Surfaces the back-stop visibility metric without
+  /// leaking the underlying `ModelContext` to callers.
+  func journalCount() throws -> Int {
+    try globalsContext.fetchCount(FetchDescriptor<MigrationJournalEntry>())
   }
 
   /// Re-runs Stage B for a `.failed` entry. Clears the error, transitions
@@ -171,17 +183,44 @@ final class ZoneMigrationCoordinator {
 
   // MARK: - Private
 
+  // swiftlint:disable function_body_length
+
+  /// Phase 5.1 — 15-step relocation + Stage B start. See spec
+  /// `phase-5.1-wire-trip-crud-tripslocal/design.md § ZoneMigrationCoordinator`.
+  /// The algorithm derives its resume invariant from container contents,
+  /// not from a journal field: which of the two stores currently holds
+  /// the trip is the canonical signal of where the previous run was
+  /// interrupted.
   private func startOrResume(_ journal: MigrationJournalEntry) throws {
     let tripID = journal.tripID
-    let zoneID = CKRecordZone.ID(
-      zoneName: "trip-\(tripID.uuidString)",
-      ownerName: CKCurrentUserDefaultName
-    )
 
-    let trip = try fetchTrip(tripID: tripID)
-    guard let trip else {
-      // Trip vanished between enqueue and run — leave the journal in
-      // place but mark it failed so the banner surfaces something.
+    // Step 2 — `.completed` is a terminal no-op. Re-running against a
+    // completed entry must not re-issue driver work.
+    if journal.state == .completed { return }
+
+    // Step 3 — canonical zone ID for the trip (private DB, owner-side).
+    let zoneID = Self.ownerZoneID(for: tripID)
+
+    // Steps 4–6 — four-quadrant existence branch over (tripsLocal, globals).
+    // Each branch is written explicitly so the code maps 1:1 to the
+    // design doc's algorithm sketch.
+    let tripInTripsLocal = try fetchTrip(tripID: tripID, in: tripsLocalContext)
+    let tripInGlobals = try fetchTrip(tripID: tripID, in: globalsContext)
+
+    switch (tripInTripsLocal, tripInGlobals) {
+    case (.some, .some):
+      // Insert step done; only the delete remains.
+      try deleteFromGlobals(tripID: tripID)
+    case (.some, .none):
+      // Relocation complete; continue with upload.
+      break
+    case (.none, .some):
+      // Not yet relocated — perform both steps.
+      try relocateToTripsLocal(tripID: tripID)
+      try deleteFromGlobals(tripID: tripID)
+    case (.none, .none):
+      // Trip vanished — leave a `.failed` journal entry so the banner
+      // surfaces something. The entry stays around as audit data.
       journal.state = .failed
       journal.errorMessage = "Trip not found"
       journal.updatedAt = now()
@@ -189,12 +228,33 @@ final class ZoneMigrationCoordinator {
       return
     }
 
+    // After step 6 the trip lives in tripsLocal exclusively. Re-fetch
+    // because the relocation inserts a new instance.
+    guard let trip = try fetchTrip(tripID: tripID, in: tripsLocalContext) else {
+      journal.state = .failed
+      journal.errorMessage = "Trip not found after relocation"
+      journal.updatedAt = now()
+      try globalsContext.save()
+      return
+    }
+
+    // Step 8 — ensure TripZoneState exists in tripsLocal.
     let state = try ensureZoneState(for: tripID, zoneID: zoneID)
     if trip.tripZoneID != tripID {
       trip.tripZoneID = tripID
     }
 
+    // Step 9 — compute the expected record-name set from current state.
     let expectedNames = expectedRecordNames(for: trip)
+
+    // Step 10 — clear stale sub-state from any prior aborted run before
+    // re-marking the journal `.stageBInProgress` with fresh expected
+    // names. This is the cross-run contamination guard (design §
+    // "Concurrency and ordering contracts").
+    journal.sentRecordNames = []
+    journal.zoneSaved = false
+
+    // Step 11 — mark journal `.stageBInProgress`.
     journal.expectedRecordNames = expectedNames
     journal.state = .stageBInProgress
     journal.updatedAt = now()
@@ -202,21 +262,158 @@ final class ZoneMigrationCoordinator {
       journal.errorMessage = nil
     }
 
+    // Steps 12 + 13 — dirty-flag every expected record name. The set
+    // already includes every TripPersonSnapshot reachable through
+    // `trip.participantSnapshots` (built in step 9 via
+    // `expectedRecordNames`), so Stage A's pre-Phase-5.1-empty snapshot
+    // rows are retroactively dirty-flagged here on Stage B entry per
+    // Req 4.9 — no second fetch needed.
+    let dirtyRecordNames = expectedNames
     var flags = PendingUploadFlags.decode(state.pendingUploadFlags)
     for name in expectedNames {
       flags.markDirty(recordName: name)
     }
     state.pendingUploadFlags = flags.encode()
 
+    // Step 14 — sequential saves; the @MainActor invocations do not
+    // await between, so no engine event can interleave.
     try tripsLocalContext.save()
     try globalsContext.save()
 
+    // Step 15 — signal the driver after both saves return. Use the
+    // in-memory `dirtyRecordNames` set built above rather than re-
+    // decoding the freshly-saved flags: encode/decode is value-
+    // preserving today, but the driver contract is "queue everything
+    // this run dirty-flagged", and that set lives in this stack frame.
     driver.saveZone(zoneID)
-    let recordIDs = expectedNames.map { CKRecord.ID(recordName: $0, zoneID: zoneID) }
+    let recordIDs = dirtyRecordNames.map { CKRecord.ID(recordName: $0, zoneID: zoneID) }
     if !recordIDs.isEmpty {
       driver.saveRecords(recordIDs)
     }
   }
+
+  /// Phase 5.1 — copy a Trip + dependents from `globals` into
+  /// `tripsLocal`, preserving every persisted field per Req 4.2.
+  /// Commits `tripsLocalContext` so a subsequent crash leaves the trip
+  /// duplicated rather than vanished — the resume branch will then
+  /// detect the (both) quadrant and only re-run the delete step.
+  ///
+  /// Only `startOrResume` calls this; the (none, some) branch is the
+  /// single production caller. The function tolerates being invoked
+  /// against a trip that already exists in tripsLocal (no-op).
+  private func relocateToTripsLocal(tripID: UUID) throws {
+    guard let trip = try fetchTrip(tripID: tripID, in: globalsContext) else { return }
+
+    // Bail out if a copy already exists (defence-in-depth against
+    // double-invocation — the public callers all check the existence
+    // quadrant first).
+    if try fetchTrip(tripID: tripID, in: tripsLocalContext) != nil { return }
+
+    let copiedTrip = Trip(
+      id: trip.id,
+      name: trip.name,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      attributes: trip.attributes
+    )
+    copiedTrip.tripZoneID = trip.tripZoneID
+    copiedTrip.ckRecordSystemFields = trip.ckRecordSystemFields
+    tripsLocalContext.insert(copiedTrip)
+
+    for task in trip.tasks ?? [] {
+      let copiedTask = TripTask(
+        id: task.id,
+        trip: copiedTrip,
+        masterItemID: task.masterItemID,
+        name: task.name,
+        phase: task.phase,
+        isCompleted: task.isCompleted,
+        source: task.source,
+        currentlyMatchesRules: task.currentlyMatchesRules,
+        pinnedByUser: task.pinnedByUser,
+        assigneePersonID: task.assigneePersonID,
+        userDeletedOnThisTrip: task.userDeletedOnThisTrip
+      )
+      copiedTask.ckRecordSystemFields = task.ckRecordSystemFields
+      tripsLocalContext.insert(copiedTask)
+    }
+
+    // Build snapshots first so packing items can reference them.
+    var snapshotsByID: [UUID: TripPersonSnapshot] = [:]
+    for snapshot in trip.participantSnapshots ?? [] {
+      let copiedSnapshot = TripPersonSnapshot(
+        id: snapshot.id,
+        personID: snapshot.personID,
+        name: snapshot.name,
+        colourID: snapshot.colourID,
+        initialSource: snapshot.initialSource,
+        isRosterMember: snapshot.isRosterMember,
+        trip: copiedTrip
+      )
+      copiedSnapshot.ckRecordSystemFields = snapshot.ckRecordSystemFields
+      tripsLocalContext.insert(copiedSnapshot)
+      snapshotsByID[snapshot.id] = copiedSnapshot
+    }
+
+    for item in trip.packingItems ?? [] {
+      let mappedSnapshot = item.personSnapshot.flatMap { snapshotsByID[$0.id] }
+      let copiedItem = TripPackingItem(
+        id: item.id,
+        trip: copiedTrip,
+        person: nil,  // V2 relationship is latent in V3; not relocated.
+        masterItemID: item.masterItemID,
+        name: item.name,
+        state: item.state,
+        source: item.source,
+        currentlyMatchesRules: item.currentlyMatchesRules,
+        pinnedByUser: item.pinnedByUser,
+        personSnapshot: mappedSnapshot
+      )
+      copiedItem.ckRecordSystemFields = item.ckRecordSystemFields
+      tripsLocalContext.insert(copiedItem)
+    }
+
+    try tripsLocalContext.save()
+  }
+
+  /// Phase 5.1 — delete a Trip + dependents from `globals` after the
+  /// relocation has committed in `tripsLocal`. The single
+  /// `globalsContext.save()` is the resume-from-(both) step.
+  ///
+  /// Uses the explicit reverse-cascade order documented in
+  /// `TripDeletion` (`packingItems` → `tasks` → `participantSnapshots` →
+  /// `trip`) to avoid the iOS 26.4 SwiftData cascade-traversal panic
+  /// when the snapshot ↔ packing-item nullify pair enters the chain.
+  ///
+  /// Production code only ever inserts `TripZoneState` into
+  /// `tripsLocal` (see `ensureZoneState`, `TripPersistence.create`,
+  /// `CloudKitSharingService.fetchZoneState`, and the share/translator
+  /// paths), so an orphan in `globals` is not expected. Defence-in-depth
+  /// nevertheless: any `TripZoneState` row matching the trip is deleted
+  /// from `globals` so a future relocation that happens to seed one
+  /// (e.g., a translator change) cannot leave a stranded row.
+  private func deleteFromGlobals(tripID: UUID) throws {
+    guard let trip = try fetchTrip(tripID: tripID, in: globalsContext) else { return }
+    for item in trip.packingItems ?? [] {
+      globalsContext.delete(item)
+    }
+    for task in trip.tasks ?? [] {
+      globalsContext.delete(task)
+    }
+    for snapshot in trip.participantSnapshots ?? [] {
+      globalsContext.delete(snapshot)
+    }
+    globalsContext.delete(trip)
+    let orphanZoneStates = try globalsContext.fetch(
+      FetchDescriptor<TripZoneState>(predicate: #Predicate { $0.tripID == tripID })
+    )
+    for state in orphanZoneStates {
+      globalsContext.delete(state)
+    }
+    try globalsContext.save()
+  }
+
+  // swiftlint:enable function_body_length
 
   private func ensureZoneState(
     for tripID: UUID, zoneID: CKRecordZone.ID
@@ -248,9 +445,9 @@ final class ZoneMigrationCoordinator {
     return names
   }
 
-  private func fetchTrip(tripID: UUID) throws -> Trip? {
+  private func fetchTrip(tripID: UUID, in context: ModelContext) throws -> Trip? {
     let descriptor = FetchDescriptor<Trip>(predicate: #Predicate { $0.id == tripID })
-    return try tripsLocalContext.fetch(descriptor).first
+    return try context.fetch(descriptor).first
   }
 
   private func fetchJournal(tripID: UUID) -> MigrationJournalEntry? {
@@ -282,6 +479,18 @@ final class ZoneMigrationCoordinator {
     guard zoneName.hasPrefix("trip-") else { return nil }
     let suffix = zoneName.dropFirst("trip-".count)
     return UUID(uuidString: String(suffix))
+  }
+
+  /// Canonical zone-name string for a trip. Inverse of `parseTripID`.
+  static func zoneName(for tripID: UUID) -> String {
+    "trip-\(tripID.uuidString)"
+  }
+
+  /// Owner-side canonical zone ID for a trip (`CKCurrentUserDefaultName`
+  /// owner; private DB). Participant zones carry the share owner's name
+  /// and are constructed elsewhere from server-supplied IDs.
+  static func ownerZoneID(for tripID: UUID) -> CKRecordZone.ID {
+    CKRecordZone.ID(zoneName: zoneName(for: tripID), ownerName: CKCurrentUserDefaultName)
   }
 }
 
