@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 6 Phase 6 — country flag UI:
+  - `Scramble/Scramble/Theme/CountryFlag.swift` — `CountryFlag.emoji(for:)` derives the flag emoji from a two-letter ISO 3166-1 alpha-2 code via regional-indicator scalar arithmetic (`U+1F1E6 + (letter - 'A')`). Normalises to uppercase; returns `nil` for `nil`, empty, wrong-length, or non-letter input. ISO-list validation is non-goal — `"XZ"` returns an empty flag rather than rejecting.
+  - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — renders the flag to the left of the trip name on the header. `.accessibilityHidden(true)` since the destination is already part of the spoken trip name (Req 9.6).
+  - `Scramble/Scramble/Features/Trips/TripDraft.swift` — adds `countryCode: String?` and a `normaliseCountryCode(_:)` helper returning `.clear` / `.set(<uppercase>)` / `.invalid`.
+  - `Scramble/Scramble/Features/Trips/TripEditorView.swift` — new "Destination" section with a 2-letter country code field, live flag preview on the trailing edge, inline validation error for non-letter input, and a separate text buffer so transient invalid input (mid-typing) does not overwrite the last valid value.
+  - `Scramble/Scramble/Features/Trips/TripPersistence.swift` — propagates `draft.countryCode` to both `create(...)` and `apply(_:to:...)` paths.
+  - `Scramble/ScrambleTests/Theme/CountryFlagTests.swift` — table-driven valid alpha-2 mapping + invalid-input nil coverage.
+  - `Scramble/ScrambleTests/Features/TripDraftCountryCodeTests.swift` — normalisation cases (empty → clear, two letters → uppercase, anything else → invalid).
+
 - Phase 6 Phase 3 — notification service + router + broadcaster:
   - `Scramble/Scramble/Notifications/NotificationCenterProtocol.swift` — abstraction over `UNUserNotificationCenter` (authorization, settings re-read, add, list pending, remove pending/delivered, setDelegate). Returns `UNAuthorizationStatus` directly so tests don't need to fabricate `UNNotificationSettings`. `UNUserNotificationCenter` conforms via a small extension.
   - `Scramble/Scramble/Notifications/PendingChangeBroadcaster.swift` — multicast wrapper over `PendingChangeNotifier` (Decision 12). Forwards `notifyPendingChanges(...)` to N children in registration order. Strong references — both `TripSyncEngine` and `NotificationsService` are owned for the app's lifetime by `ScrambleApp`.

@@ -25,6 +25,11 @@ import SwiftUI
 
   @State private var draft: TripDraft
   @State private var errors: [TripDraft.Field: String] = [:]
+  /// Text buffer for the country-code field. Kept separate from
+  /// `draft.countryCode` so the editor can hold transient invalid input
+  /// (e.g. mid-typing "N") without overwriting the draft's validated
+  /// value (Phase 6 Req 6.5).
+  @State private var countryCodeInput: String
 
   init(
     mode: Mode,
@@ -37,8 +42,10 @@ import SwiftUI
     switch mode {
     case .create:
       _draft = State(initialValue: TripDraft.newDraft())
+      _countryCodeInput = State(initialValue: "")
     case .edit(let trip):
       _draft = State(initialValue: TripDraft(from: trip))
+      _countryCodeInput = State(initialValue: trip.countryCode ?? "")
     }
   }
 
@@ -48,6 +55,7 @@ import SwiftUI
         Form {
           nameSection
           datesSection
+          countrySection
           attributesSection
           TripEditorPeoplePicker(participantIDs: $draft.participantIDs)
         }
@@ -84,6 +92,42 @@ import SwiftUI
       TextField("Trip name", text: $draft.name)
         .textInputAutocapitalization(.words)
       if let message = errors[.name] {
+        Text(message)
+          .font(.footnote)
+          .foregroundStyle(.red)
+      }
+    }
+  }
+
+  private var countrySection: some View {
+    Section("Destination") {
+      HStack {
+        TextField("Country code (e.g. NL)", text: $countryCodeInput)
+          .textInputAutocapitalization(.characters)
+          .autocorrectionDisabled()
+          .onChange(of: countryCodeInput) { _, newValue in
+            switch TripDraft.normaliseCountryCode(newValue) {
+            case .clear:
+              draft.countryCode = nil
+              errors[.countryCode] = nil
+              if countryCodeInput != "" && !newValue.isEmpty {
+                countryCodeInput = ""
+              }
+            case .set(let code):
+              draft.countryCode = code
+              errors[.countryCode] = nil
+              if countryCodeInput != code {
+                countryCodeInput = code
+              }
+            case .invalid:
+              errors[.countryCode] = "Enter two letters (e.g. NL)"
+            }
+          }
+        if let flag = CountryFlag.emoji(for: draft.countryCode) {
+          Text(flag).font(.title2).accessibilityHidden(true)
+        }
+      }
+      if let message = errors[.countryCode] {
         Text(message)
           .font(.footnote)
           .foregroundStyle(.red)

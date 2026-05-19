@@ -316,9 +316,16 @@ import os
 
   private func header(variant: ThemeVariant, isParticipantOnShared: Bool) -> some View {
     VStack(alignment: .leading, spacing: 6) {
-      Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
-        .font(.title2.weight(.semibold))
-        .foregroundStyle(variant.textPrimary)
+      HStack(spacing: 8) {
+        if let flag = CountryFlag.emoji(for: trip.countryCode) {
+          Text(flag)
+            .font(.title2)
+            .accessibilityHidden(true)
+        }
+        Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
+          .font(.title2.weight(.semibold))
+          .foregroundStyle(variant.textPrimary)
+      }
 
       Text(formatTripDateRange(start: trip.startDate, end: trip.endDate))
         .font(.subheadline)

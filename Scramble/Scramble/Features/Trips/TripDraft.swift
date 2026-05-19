@@ -10,10 +10,13 @@ nonisolated struct TripDraft: Equatable, Sendable {
   var endDate: Date
   var attributes: TripAttributes
   var participantIDs: [UUID]
+  /// ISO 3166-1 alpha-2, uppercase or `nil`. Phase 6 — Decision 5.
+  var countryCode: String?
 
   nonisolated enum Field: Hashable, Sendable {
     case name
     case dateRange
+    case countryCode
   }
 
   func validate(calendar: Calendar = .current) -> [Field: String] {
@@ -43,8 +46,30 @@ extension TripDraft {
       startDate: day,
       endDate: day,
       attributes: TripAttributes(),
-      participantIDs: []
+      participantIDs: [],
+      countryCode: nil
     )
+  }
+
+  /// Normalises a user-entered country code. Returns `nil` if the
+  /// stripped string is empty (the editor treats this as "clear"), or
+  /// the uppercased two-letter code if the input is exactly two ASCII
+  /// letters. Any other input is rejected by returning `.invalid`.
+  nonisolated enum CountryCodeNormalisation: Equatable {
+    case clear
+    case set(String)
+    case invalid
+  }
+
+  nonisolated static func normaliseCountryCode(_ raw: String) -> CountryCodeNormalisation {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty { return .clear }
+    guard trimmed.count == 2,
+      trimmed.allSatisfy({ $0.isASCII && $0.isLetter })
+    else {
+      return .invalid
+    }
+    return .set(trimmed.uppercased())
   }
 
   /// Snapshot the current state of `trip` into a draft used by the editor in `.edit` mode.
@@ -60,5 +85,6 @@ extension TripDraft {
     self.participantIDs = (trip.participantSnapshots ?? [])
       .filter(\.isRosterMember)
       .map(\.personID)
+    self.countryCode = trip.countryCode
   }
 }

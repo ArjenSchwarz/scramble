@@ -82,7 +82,8 @@ import os
       name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
       startDate: draft.startDate,
       endDate: draft.endDate,
-      attributes: draft.attributes
+      attributes: draft.attributes,
+      countryCode: draft.countryCode
     )
     tripsLocal.insert(trip)
 
@@ -130,6 +131,7 @@ import os
     trip.startDate = draft.startDate
     trip.endDate = draft.endDate
     trip.attributes = draft.attributes
+    trip.countryCode = draft.countryCode
 
     let existing = trip.participantSnapshots ?? []
     let existingByID = Dictionary(uniqueKeysWithValues: existing.map { ($0.personID, $0) })
