@@ -47,8 +47,20 @@ final class NotificationsService: PendingChangeNotifier {
   // MARK: - Observable state
 
   /// Surfaced to UI so the "Open Settings" affordance can read the live
-  /// authorization status (Req 3.5).
-  private(set) var authStatus: UNAuthorizationStatus = .notDetermined
+  /// authorization status (Req 3.5). Mirrored to `authStatusHolder` —
+  /// an `@Observable` companion that SwiftUI views subscribe to (see
+  /// Decision 15).
+  private(set) var authStatus: UNAuthorizationStatus = .notDetermined {
+    didSet { authStatusHolder.authStatus = authStatus }
+  }
+
+  /// `@Observable` mirror of `authStatus`. Owning view models read this
+  /// instead of the service directly so SwiftUI re-evaluates their body
+  /// when the status flips. The service itself stays plain `@MainActor`
+  /// because marking it `@Observable` while it owns a closure returning
+  /// a SwiftData `ModelContext` crashes SwiftUI's AttributeGraph layout
+  /// traversal under Swift Testing's parameter machinery (Decision 15).
+  let authStatusHolder: NotificationAuthStatusHolder
 
   // MARK: - Injection points
 
@@ -61,6 +73,11 @@ final class NotificationsService: PendingChangeNotifier {
 
   private var pendingCoalesce: Task<Void, Never>?
   private var coalesceGeneration: UInt64 = 0
+  /// Immediate-flush tasks cancel the previously in-flight immediate so
+  /// rapid bursts (e.g. `.tripDeleted` + `.authChanged` in the same
+  /// run-loop turn) collapse into a single reconcile rather than two
+  /// concurrent ones racing on `pendingNotificationRequests`.
+  private var pendingImmediate: Task<Void, Never>?
 
   // MARK: - Init
 
@@ -78,13 +95,16 @@ final class NotificationsService: PendingChangeNotifier {
     self.calendar = calendar
     self.now = now
     self.coalesceWindow = coalesceWindow
+    self.authStatusHolder = NotificationAuthStatusHolder()
   }
 
   // MARK: - Lifecycle
 
-  /// Installs the delegate and seeds `authStatus`. Idempotent.
+  /// Seeds `authStatus` from the current center authorisation. The
+  /// `UNUserNotificationCenter.delegate` is installed at init time in
+  /// `ScrambleApp.init` (so a cold-launch tap arriving before
+  /// `prepareLaunch` runs is still routed), not from `start()`.
   func start() async {
-    center.setDelegate(router)
     authStatus = await center.authorizationStatus()
   }
 
@@ -151,7 +171,8 @@ final class NotificationsService: PendingChangeNotifier {
     if reason.requiresImmediateFlush {
       pendingCoalesce?.cancel()
       pendingCoalesce = nil
-      Task { @MainActor in
+      pendingImmediate?.cancel()
+      pendingImmediate = Task { @MainActor in
         await runReconcile()
       }
       return
@@ -185,6 +206,12 @@ final class NotificationsService: PendingChangeNotifier {
   // MARK: - Internal — reconciliation
 
   func flushCoalesce() async {
+    // Wait for an in-flight immediate-flush task to finish (its
+    // `runReconcile` is what callers expect to observe), then collapse
+    // any pending coalesced reschedule.
+    if let immediate = pendingImmediate {
+      await immediate.value
+    }
     guard pendingCoalesce != nil else { return }
     pendingCoalesce?.cancel()
     pendingCoalesce = nil

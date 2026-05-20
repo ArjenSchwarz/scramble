@@ -111,7 +111,24 @@ import os
     else { return }
     let tripID = route.tripID
     let descriptor = FetchDescriptor<Trip>(predicate: #Predicate { $0.id == tripID })
-    guard let trip = try? tripsLocalContainer.mainContext.fetch(descriptor).first else {
+    let trip: Trip?
+    do {
+      trip = try tripsLocalContainer.mainContext.fetch(descriptor).first
+    } catch {
+      // Transient fetch failure (store unavailable mid-migration, etc.).
+      // Surface for crash reports; consume the route so we do not retry
+      // a doomed lookup on every re-render.
+      modelLogger.error(
+        """
+        [RootView.consumeActivationRoute] fetch failed \
+        tripID=\(tripID, privacy: .public) \
+        error=\(error.localizedDescription, privacy: .public)
+        """
+      )
+      _ = router.consumeRoute()
+      return
+    }
+    guard let trip else {
       _ = router.consumeRoute()
       return
     }

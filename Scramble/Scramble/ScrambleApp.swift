@@ -251,9 +251,9 @@ struct ScrambleApp: App {
     syncEngine.start()
     // Phase 6 — seed `authStatus` so the "Open Settings" affordance can
     // render `.denied` on cold launch (before any scene-phase transition
-    // fires). `start()` also re-installs `UNUserNotificationCenter.delegate`;
-    // that is harmless because the init-time install (line 96) already
-    // points at the same router instance.
+    // fires). The `UNUserNotificationCenter.delegate` is installed at
+    // init time so a cold-launch tap that arrives before this runs is
+    // still routed correctly.
     await notificationsService.start()
   }
 
@@ -269,5 +269,6 @@ struct ScrambleApp: App {
       .environment(\.zoneMigrationCoordinator, migrationCoordinator)
       .environment(\.notificationsService, notificationsService)
       .environment(\.activationRouter, activationRouter)
+      .environment(\.notificationAuthStatus, notificationsService.authStatusHolder)
   }
 }

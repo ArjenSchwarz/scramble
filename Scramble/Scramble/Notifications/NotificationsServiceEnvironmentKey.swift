@@ -14,6 +14,10 @@ private struct ActivationRouterKey: EnvironmentKey {
   static let defaultValue: NotificationRouter? = nil
 }
 
+private struct NotificationAuthStatusKey: EnvironmentKey {
+  static let defaultValue: NotificationAuthStatusHolder? = nil
+}
+
 extension EnvironmentValues {
   var notificationsService: NotificationsService? {
     get { self[NotificationsServiceKey.self] }
@@ -23,5 +27,14 @@ extension EnvironmentValues {
   var activationRouter: NotificationRouter? {
     get { self[ActivationRouterKey.self] }
     set { self[ActivationRouterKey.self] = newValue }
+  }
+
+  /// `@Observable` mirror of `NotificationsService.authStatus`. Views
+  /// reading this re-render when the status flips; reading
+  /// `notificationsService?.authStatus` directly does NOT subscribe to
+  /// changes (Decision 15).
+  var notificationAuthStatus: NotificationAuthStatusHolder? {
+    get { self[NotificationAuthStatusKey.self] }
+    set { self[NotificationAuthStatusKey.self] = newValue }
   }
 }

@@ -102,7 +102,8 @@ enum NotificationPlanner {
   /// re-running `plan`.
   static func body(tripName: String, phase: Phase, outstandingTasks: Int) -> String {
     if outstandingTasks > 0 {
-      return "\(outstandingTasks) outstanding task(s) for '\(phase.displayName)'"
+      let noun = outstandingTasks == 1 ? "task" : "tasks"
+      return "\(outstandingTasks) outstanding \(noun) for '\(phase.displayName)'"
     }
     return "'\(phase.displayName)' has started"
   }

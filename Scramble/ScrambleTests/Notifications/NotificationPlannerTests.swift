@@ -100,7 +100,7 @@ struct NotificationPlannerTests {
     let body = NotificationPlanner.body(
       tripName: "Iceland", phase: .departureDay, outstandingTasks: 3
     )
-    #expect(body == "3 outstanding task(s) for 'Departure day'")
+    #expect(body == "3 outstanding tasks for 'Departure day'")
   }
 
   @Test("Body for outstandingTaskCount == 0 uses 'has started' form and omits the count")
@@ -187,7 +187,7 @@ struct NotificationPlannerTests {
     )
     let dayBeforePlan = try #require(plans.first { $0.phase == .dayBefore })
     #expect(dayBeforePlan.outstandingTaskCount == 1)
-    #expect(dayBeforePlan.body == "1 outstanding task(s) for 'Day before'")
+    #expect(dayBeforePlan.body == "1 outstanding task for 'Day before'")
   }
 
   @Test("User-deleted tasks are excluded from outstanding count")

@@ -17,6 +17,7 @@ import os
   @Environment(\.rulesLastEvaluatedTracker) private var rulesLastEvaluatedTracker
   @Environment(\.notificationsService) private var notificationsService
   @Environment(\.activationRouter) private var activationRouter
+  @Environment(\.notificationAuthStatus) private var notificationAuthStatus
 
   @State private var showEditor = false
   @State private var editAttributeFocus: TripAttribute?
@@ -358,7 +359,10 @@ import os
   /// header so the user encounters it on a screen they already visit.
   @ViewBuilder
   private func notificationSettingsAffordance(variant: ThemeVariant) -> some View {
-    if notificationsService?.authStatus == .denied {
+    // Reading `notificationAuthStatus` (the `@Observable` holder)
+    // subscribes the view to changes; reading
+    // `notificationsService?.authStatus` directly would not (Decision 15).
+    if notificationAuthStatus?.authStatus == .denied {
       Button {
         if let url = URL(string: UIApplication.openSettingsURLString) {
           UIApplication.shared.open(url)
