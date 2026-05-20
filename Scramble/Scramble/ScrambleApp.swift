@@ -249,6 +249,12 @@ struct ScrambleApp: App {
       )
     }
     syncEngine.start()
+    // Phase 6 — seed `authStatus` so the "Open Settings" affordance can
+    // render `.denied` on cold launch (before any scene-phase transition
+    // fires). `start()` also re-installs `UNUserNotificationCenter.delegate`;
+    // that is harmless because the init-time install (line 96) already
+    // points at the same router instance.
+    await notificationsService.start()
   }
 
   @ViewBuilder

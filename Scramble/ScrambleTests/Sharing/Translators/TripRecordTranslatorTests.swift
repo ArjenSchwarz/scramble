@@ -173,8 +173,14 @@ struct TripRecordTranslatorTests {
     #expect(updated["countryCode"] as? String == "JP")
   }
 
-  @Test("from(_:into:) leaves existing countryCode untouched when the record omits the field")
-  func decodeIgnoresMissingCountryCodeField() throws {
+  @Test(
+    """
+    from(_:into:) clears countryCode when the record omits the field — \
+    propagating an owner-side clear (which toRecord serialises by removing \
+    the field) to participants.
+    """
+  )
+  func decodeClearsCountryCodeOnMissingField() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
     let zoneID = Self.zoneID()
@@ -193,7 +199,7 @@ struct TripRecordTranslatorTests {
     try context.save()
 
     let stored = try #require(try context.fetch(FetchDescriptor<Trip>()).first)
-    #expect(stored.countryCode == "DE")
+    #expect(stored.countryCode == nil)
     #expect(stored.name == "Renamed")
   }
 

@@ -43,9 +43,12 @@ enum TripRecordTranslator {
     if let attributesData = record["attributesData"] as? Data {
       trip.attributesData = attributesData
     }
-    if let countryCode = record["countryCode"] as? String {
-      trip.countryCode = countryCode
-    }
+    // Unconditional assignment so a clear from the owner (which the
+    // encode side serialises by removing the field) reaches the
+    // participant. `CKSyncEngine` delivers full record snapshots, not
+    // partial diffs, so an absent field on the wire means "cleared",
+    // not "unchanged" (Phase 6 / Decision 5).
+    trip.countryCode = record["countryCode"] as? String
     trip.ckRecordSystemFields = encodeSystemFields(of: record)
   }
 

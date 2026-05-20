@@ -152,7 +152,16 @@ than silently suppressed (Req 1.3).
   with signal trap`). The "Open Settings" affordance reads `authStatus`
   on every body re-evaluation, which is sufficient for the affordance
   to appear/disappear when the status flips after a foreground
-  reconcile.
+  reconcile. **However, because the service is not `@Observable`,
+  reading `notificationsService?.authStatus` from `TripDetailView`
+  does not subscribe to changes — the view re-renders only when some
+  other observed state on the view changes.** In practice Trip Detail
+  has enough observed state that the affordance flips within one user
+  interaction, but this is fragile. A future settings screen that
+  needs reactive binding to `authStatus` should revisit Decision 15:
+  either wrap `authStatus` in a small `@Observable AuthStatusHolder`
+  owned by the service, or thread a `Binding<UNAuthorizationStatus>`
+  to the consumer view.
 - `NotificationRouter` is `@Observable` and exposes `pendingRoute`. The
   `RootView` consumer uses `.onChange(of: activationRouter?.pendingRoute)`
   to drain it.

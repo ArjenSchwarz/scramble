@@ -126,10 +126,15 @@ final class NotificationsService: PendingChangeNotifier {
       let nextStatus = await center.authorizationStatus()
       let oldStatus = authStatus
       authStatus = nextStatus
+      // When auth flipped, `.authChanged` is itself a full reconcile pass
+      // (Req 3.6) — no need for the additional `.appActivation` reschedule
+      // which would spawn a second concurrent `runReconcile`. Only one
+      // immediate-flush is enqueued per scene-active.
       if oldStatus != nextStatus {
         requestReschedule(reason: .authChanged(nextStatus))
+      } else {
+        requestReschedule(reason: .appActivation)
       }
-      requestReschedule(reason: .appActivation)
       await flushCoalesce()
     case .enteredBackground:
       requestReschedule(reason: .scenePhaseBackground)
