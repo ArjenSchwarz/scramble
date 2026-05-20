@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 6 Phase 9 + 10 — VoiceOver labels + Dynamic Type:
+  - `Scramble/Scramble/Components/PhaseRow.swift` — combined accessibility label of the form `"{phase display name}, {state}, {N of M tasks complete}"` per Req 9.1 (state words: `past` / `current phase` / `upcoming`; count clause omitted entirely for zero-task phases). New `accessibilityHint(expandable:isExpanded:)` flips between `"double tap to expand"` and `"double tap to collapse"`; non-expandable spine markers expose an empty hint.
+  - `Scramble/Scramble/Components/TaskRow.swift` — `accessibilityLabel(for:)` static helper composes name + completion + optional assignee + phase. `hasWhyJustification(task:context:hideOnUnresolvedMaster:)` gates the `"Why is this here?"` custom action behind `WhyResolver.reason(...) != nil`, mirroring the long-press disclosure's existing gate (Req 9.5).
+  - `Scramble/Scramble/Components/PackingItemRow.swift` — `composedAccessibilityLabel(item:group:)` returns `"{name}, {state}, owned by {owner}"` with read-only groups substituting `"left behind"` / `"not bringing"` for the raw state word (Req 9.3). `hasWhyJustification(item:context:hideOnUnresolvedMaster:)` + a new `WhyAccessibilityAction` view modifier gate the `"Why is this here?"` action behind the same `WhyResolver` check (Req 9.5).
+  - `Scramble/Scramble/Components/PackingSummarySection.swift` — `composedAccessibilityValue(personName:counts:mode:)` returns `"{name}'s packing, {packed} of {total} packed"` and is set via `.accessibilityValue(...)` on the row, sitting alongside the existing label (Req 9.4).
+  - `Scramble/ScrambleTests/Components/PhaseRowAccessibilityTests.swift`, `TaskRowAccessibilityTests.swift`, `PackingItemRowAccessibilityTests.swift`, `PackingProgressBarA11yTests.swift`, `DynamicTypeLayoutTests.swift` — pure-string assertion coverage of the wording + gates and layout-primitive sanity (44 pt hit-target constant, every `PackingState` produces a non-empty label).
+  - `specs/phase-6-notifications-polish/implementation.md` — shipped-vs-deferred matrix and "Known limitations at AX5" per Req 10.5.
+
 - Phase 6 Phase 11 — documentation:
   - `docs/agent-notes/notifications.md` — full topology of the notifications subsystem: service triggers + reasons, module map, identifier scheme, 60-cap and tie-break, deep-link routing, foreground delivery, authorization flow. Documents the deferred `@Observable` decision and the deferred routing state machine.
   - `docs/agent-notes/accessibility.md` — VoiceOver label conventions, custom-action gating, Dynamic Type AX2 boundaries, haptics matrix, Reduce Motion behaviour. Lists known limitations.

@@ -162,6 +162,11 @@ struct PackingSummaryRow: View {
     .disabled(!isEnabled)
     .accessibilityElement(children: .combine)
     .accessibilityLabel(accessibilityLabel)
+    .accessibilityValue(
+      PackingSummaryRow.composedAccessibilityValue(
+        personName: snapshot.name, counts: counts, mode: mode
+      )
+    )
     .accessibilityFocused($focusOnDismiss, equals: snapshot.personID)
     #if DEBUG
       .accessibilityIdentifier("tripDetail.packingSummary.\(snapshot.personID.uuidString)")
@@ -187,6 +192,22 @@ struct PackingSummaryRow: View {
     }
     return
       "\(snapshot.name)'s packing, \(numerator) of \(denominator) \(action), double tap to open packing sheet"
+  }
+
+  /// Phase 6 Req 9.4 — `accessibilityValue` of the form
+  /// `"{name}'s packing, {packed} of {total} packed"`. Surfaced on top
+  /// of the existing label so VoiceOver users hear both the
+  /// progress-bar value and the row's action hint.
+  static func composedAccessibilityValue(
+    personName: String, counts: PackingCounts, mode: PackingMode
+  ) -> String {
+    let action = (mode == .pack) ? "packed" : "repacked"
+    let total: Int =
+      (mode == .pack)
+      ? counts.toPack + counts.packed
+      : counts.packed + counts.repacked
+    let done: Int = (mode == .pack) ? counts.packed : counts.repacked
+    return "\(personName)'s packing, \(done) of \(total) \(action)"
   }
 }
 

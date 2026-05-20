@@ -92,7 +92,7 @@ references:
   - Requirements: [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
 - [x] 18. Implement NotificationsService (PendingChangeNotifier conformance, ReschedReason dispatch, coalesce task, requestAuthorizationIfNeeded, handleScenePhase, reconcile loop) <!-- id:mwaej3p -->
-  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
+  - Blocked-by: mwaej3o ([test] NotificationsService — coalesce window collapses bursts; immediate-flush reasons (.tripDeleted, .scenePhaseBackground, .authChanged, .appActivation) bypass coalesce; auth gate + backfill; trip-delete cancels pending and removes delivered), cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes, cancels, pending, removes
   - Stream: 2
   - Requirements: [1.1](requirements.md#1.1), [1.6](requirements.md#1.6), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4), [4.5](requirements.md#4.5)
 
@@ -216,54 +216,54 @@ references:
 
 ## Phase 9: Polish — VoiceOver
 
-- [ ] 42. [test] PhaseRow accessibility label: '{display name}, {state}, {N of M tasks complete}'; hint reflects expand/collapse state <!-- id:mwaej4c -->
+- [x] 42. [test] PhaseRow accessibility label: '{display name}, {state}, {N of M tasks complete}'; hint reflects expand/collapse state <!-- id:mwaej4c -->
   - Stream: 6
   - Requirements: [9.1](requirements.md#9.1)
 
-- [ ] 43. Update PhaseRow combined accessibility label + dynamic hint <!-- id:mwaej4d -->
+- [x] 43. Update PhaseRow combined accessibility label + dynamic hint <!-- id:mwaej4d -->
   - Blocked-by: mwaej4c ([test] PhaseRow accessibility label: '{display name}, {state}, {N of M tasks complete}'; hint reflects expand/collapse state)
   - Stream: 6
   - Requirements: [9.1](requirements.md#9.1)
 
-- [ ] 44. [test] TaskRow accessibility label includes name + completion + assignee + phase; custom 'Why is this here?' accessibility action present only when justification is non-nil <!-- id:mwaej4e -->
+- [x] 44. [test] TaskRow accessibility label includes name + completion + assignee + phase; custom 'Why is this here?' accessibility action present only when justification is non-nil <!-- id:mwaej4e -->
   - Stream: 6
   - Requirements: [9.2](requirements.md#9.2), [9.5](requirements.md#9.5)
 
-- [ ] 45. Update TaskRow combined label + accessibilityActions { Button("Why is this here?") }, gated by WhyResolver result <!-- id:mwaej4f -->
+- [x] 45. Update TaskRow combined label + accessibilityActions { Button("Why is this here?") }, gated by WhyResolver result <!-- id:mwaej4f -->
   - Blocked-by: mwaej4e ([test] TaskRow accessibility label includes name + completion + assignee + phase; custom 'Why is this here?' accessibility action present only when justification is non-nil)
   - Stream: 6
   - Requirements: [9.2](requirements.md#9.2), [9.5](requirements.md#9.5)
 
-- [ ] 46. [test] PackingItemRow accessibility label includes name + state + owner; 'not bringing' / 'left behind' labels for excluded and Left Behind groups; Why action gated by justification <!-- id:mwaej4g -->
+- [x] 46. [test] PackingItemRow accessibility label includes name + state + owner; 'not bringing' / 'left behind' labels for excluded and Left Behind groups; Why action gated by justification <!-- id:mwaej4g -->
   - Stream: 6
   - Requirements: [9.3](requirements.md#9.3), [9.5](requirements.md#9.5)
 
-- [ ] 47. Update PackingItemRow combined label + Why custom action across pack and repack modes <!-- id:mwaej4h -->
+- [x] 47. Update PackingItemRow combined label + Why custom action across pack and repack modes <!-- id:mwaej4h -->
   - Blocked-by: mwaej4g ([test] PackingItemRow accessibility label includes name + state + owner; 'not bringing' / 'left behind' labels for excluded and Left Behind groups; Why action gated by justification)
   - Stream: 6
   - Requirements: [9.3](requirements.md#9.3), [9.5](requirements.md#9.5)
 
-- [ ] 48. [test] Per-person packing progress bar accessibilityValue: '{name}'s packing, {packed} of {total} packed' <!-- id:mwaej4i -->
+- [x] 48. [test] Per-person packing progress bar accessibilityValue: '{name}'s packing, {packed} of {total} packed' <!-- id:mwaej4i -->
   - Stream: 6
   - Requirements: [9.4](requirements.md#9.4)
 
-- [ ] 49. Update PackingSummarySection progress bar accessibilityValue <!-- id:mwaej4j -->
+- [x] 49. Update PackingSummarySection progress bar accessibilityValue <!-- id:mwaej4j -->
   - Blocked-by: mwaej4i ([test] Per-person packing progress bar accessibilityValue: '{name}'s packing, {packed} of {total} packed')
   - Stream: 6
   - Requirements: [9.4](requirements.md#9.4)
 
 ## Phase 10: Polish — Dynamic Type
 
-- [ ] 50. [test] Snapshot or layout-assertion tests across xSmall → AX2 on Trip List, Trip Detail (each phase expanded), Trip Editor, Master Lists, PackingSheet on iPhone SE <!-- id:mwaej4k -->
+- [x] 50. [test] Snapshot or layout-assertion tests across xSmall → AX2 on Trip List, Trip Detail (each phase expanded), Trip Editor, Master Lists, PackingSheet on iPhone SE <!-- id:mwaej4k -->
   - Stream: 7
   - Requirements: [10.1](requirements.md#10.1), [10.3](requirements.md#10.3)
 
-- [ ] 51. Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter <!-- id:mwaej4l -->
+- [x] 51. Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter <!-- id:mwaej4l -->
   - Blocked-by: mwaej4k ([test] Snapshot or layout-assertion tests across xSmall → AX2 on Trip List, Trip Detail (each phase expanded), Trip Editor, Master Lists, PackingSheet on iPhone SE)
   - Stream: 7
   - Requirements: [10.1](requirements.md#10.1), [10.2](requirements.md#10.2), [10.3](requirements.md#10.3), [10.4](requirements.md#10.4)
 
-- [ ] 52. Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md <!-- id:mwaej4m -->
+- [x] 52. Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md <!-- id:mwaej4m -->
   - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter)
   - Stream: 7
   - Requirements: [10.5](requirements.md#10.5)
@@ -281,5 +281,5 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.5](requirements.md#9.5), [10.5](requirements.md#10.5)
 
 - [x] 55. Update CHANGELOG.md and CLAUDE.md project-status sentence to mark Phase 6 shipped <!-- id:mwaej4p -->
-  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
+  - Blocked-by: mwaej4l (Apply AX2 reflow fixes: label wrapping, top-aligned checkbox on multi-line rows, invisible-padding hit targets, fixed phase-node diameter), mwaej4m (Run AX5 sanity pass and append 'Known limitations at AX5' section to specs/phase-6-notifications-polish/implementation.md), mwaej4n (Add docs/agent-notes/notifications.md (service topology, broadcaster, identifier scheme, 60-cap, deep-link routing, foreground delivery)), service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing, service, routing
   - Stream: 8

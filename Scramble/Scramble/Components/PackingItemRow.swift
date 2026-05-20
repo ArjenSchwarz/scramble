@@ -149,7 +149,16 @@ struct PackingItemRow: View {
     }
     .accessibilityElement(children: .combine)
     .accessibilityLabel(accessibilityLabel)
-    .accessibilityAction(named: Text("Why is this here?")) { onLongPress() }
+    .modifier(
+      WhyAccessibilityAction(
+        enabled: PackingItemRow.hasWhyJustification(
+          item: item,
+          context: modelContext,
+          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
+        ),
+        onWhy: onLongPress
+      )
+    )
     .modifier(EditAccessibilityAction(enabled: !group.isReadOnly, onEdit: onEdit))
     .modifier(
       SkipRestoreAccessibilityAction(
@@ -334,14 +343,53 @@ struct PackingItemRow: View {
     }
   }
 
-  /// Combined VoiceOver label. Read-only groups append a state suffix per
-  /// Req 9.6 so the "left behind" / "not bringing" status is audible.
+  /// Combined VoiceOver label per Phase 6 Req 9.3 — item name + current
+  /// `PackingState` + owning person. Read-only groups (`.leftBehind`,
+  /// `.notBringing`) substitute the special state suffix the spec
+  /// mandates ("left behind", "not bringing") rather than the raw
+  /// PackingState word.
   private var accessibilityLabel: String {
+    PackingItemRow.composedAccessibilityLabel(item: item, group: group)
+  }
+
+  static func composedAccessibilityLabel(
+    item: TripPackingItem,
+    group: SheetGroup
+  ) -> String {
+    var parts: [String] = [item.name]
     switch group {
-    case .leftBehind: return "\(item.name), left behind"
-    case .notBringing: return "\(item.name), not bringing"
-    default: return item.name
+    case .leftBehind:
+      parts.append("left behind")
+    case .notBringing:
+      parts.append("not bringing")
+    default:
+      parts.append(stateWord(for: item.state))
     }
+    if let ownerName = item.personSnapshot?.name, !ownerName.isEmpty {
+      parts.append("owned by \(ownerName)")
+    }
+    return parts.joined(separator: ", ")
+  }
+
+  private static func stateWord(for state: PackingState) -> String {
+    switch state {
+    case .unpacked: return "not packed"
+    case .packed: return "packed"
+    case .repacked: return "repacked"
+    case .excluded: return "not bringing"
+    }
+  }
+
+  // Phase 6 Req 9.5 — "Why is this here?" gate, mirrors the long-press
+  // disclosure's resolved-reason check.
+  static func hasWhyJustification(
+    item: TripPackingItem,
+    context: ModelContext,
+    hideOnUnresolvedMaster: Bool
+  ) -> Bool {
+    WhyResolver.reason(
+      for: item, context: context, hideOnUnresolvedMaster: hideOnUnresolvedMaster
+    ) != nil
   }
 
   /// Flat 0.5 dimming for unmatched-non-pinned rows per Req 3.9 / 4.8.
@@ -364,6 +412,21 @@ private struct EditAccessibilityAction: ViewModifier {
   func body(content: Content) -> some View {
     if enabled {
       content.accessibilityAction(named: Text("Edit")) { onEdit() }
+    } else {
+      content
+    }
+  }
+}
+
+/// Phase 6 Req 9.5 — exposes the "Why is this here?" custom action only
+/// when the underlying item has a non-nil `WhyResolver.reason(...)`.
+private struct WhyAccessibilityAction: ViewModifier {
+  let enabled: Bool
+  let onWhy: () -> Void
+
+  func body(content: Content) -> some View {
+    if enabled {
+      content.accessibilityAction(named: Text("Why is this here?")) { onWhy() }
     } else {
       content
     }
