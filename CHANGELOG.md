@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Phase 6 PR #7 review iteration 4 (nits only):
+  - `Scramble/Scramble/Notifications/NotificationsService.swift` — `flushCoalesce` now nils `pendingImmediate` after `await immediate.value` so the slot self-clears, keeping hygiene parity with the `pendingCoalesce` path. Removed the unused `.tripSaved(tripID:wasInsert:)` case from `ReschedReason` — every save funnels through `LocalWriteHook.commit` which fires `.localWrite`, so the separate case was redundant.
+  - `Scramble/Scramble/Notifications/NotificationIdentifier.swift` — doc-comment for `parse` now describes the four-segment shape `scramble.activation.<UUID>.<rawValue>` explicitly, instead of the previous "three-part" wording that contradicted the inline "Expect exactly four parts" guard.
+  - `Scramble/Scramble/Features/Trips/TripEditorView.swift` — added an eight-line comment to the `.set` branch of `countrySection`'s `onChange` explaining the intentional two-pass normalisation (writing the canonical uppercase form back into `countryCodeInput` re-fires the handler; the `countryCodeInput != code` guard terminates the recursion on the second pass).
+  - `Scramble/ScrambleTests/Components/DynamicTypeLayoutTests.swift` — renamed `hitTargetConstant` to `hitTargetSanityConstantIs44`. The test asserts a test-target constant, not row behaviour at runtime; the new name makes that explicit, and the expanded comment spells out that AX2 layout regressions need a manual pass.
+  - `specs/phase-6-notifications-polish/design.md` — updated the reasons table and the example `ReschedReason` enum sketch to reflect that `.tripSaved` was dropped during iteration 4.
+
 - Phase 6 PR #7 review iteration 3:
   - `Scramble/ScrambleTests/Notifications/NotificationPlannerTests.swift` — `standardTripProducesFourPlans` renamed to `standardTripProducesFivePlans`; the test had been asserting five phases (`dayBefore`, `departureDay`, `duringTrip`, `dayBeforeReturn`, `returnDay`) with a description and inline comment that said four. Added `#expect(plans.count == 5)` to lock in the count.
   - `Scramble/ScrambleTests/Persistence/SchemaV4MigrationTests.swift` — seed comment rewritten to state explicitly that this is not a true legacy-shape seed (SwiftData adds the `countryCode` column on first open regardless of which versioned schema is named) and to name what the test actually covers (`AppMigrationPlan` round-trip wiring) vs what it doesn't (the lightweight stage's column-addition path itself, which would need a binary `.store` fixture from an older build).

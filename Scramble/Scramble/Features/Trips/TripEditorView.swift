@@ -122,6 +122,13 @@ import SwiftUI
             case .set(let code):
               draft.countryCode = code
               errors[.countryCode] = nil
+              // Re-writing the buffer normalises the user's input to the
+              // canonical uppercase form. Doing so inside this onChange
+              // re-fires the handler one more time — on the second pass
+              // `code` already matches `countryCodeInput`, the guard is
+              // false, and no further write occurs. Two evaluations per
+              // keypress for the normalising path is intentional; do not
+              // remove the guard.
               if countryCodeInput != code {
                 countryCodeInput = code
               }

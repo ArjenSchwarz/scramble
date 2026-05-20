@@ -15,11 +15,17 @@ struct DynamicTypeLayoutTests {
 
   // MARK: - 44pt hit target (Req 10.4)
 
-  @Test("Phase 6 hit-target constant remains 44pt")
-  func hitTargetConstant() {
-    // The 44pt hit-target frame is hardcoded in row components.
-    // Asserting this here means the value can be referenced in one
-    // place rather than chased through every row.
+  @Test("Test-target hit-target sanity constant is 44pt")
+  func hitTargetSanityConstantIs44() {
+    // The 44pt hit-target frame is hardcoded in row components and not
+    // exported as a public constant (exposing it would imply a contract
+    // wider than "rows currently use 44 pt frames" — see the
+    // `MinimumHitTarget` doc-comment below). This test pins the
+    // test-target sanity value, not a runtime check on the rows. If
+    // someone changes the rows from 44 to 48, this test still passes —
+    // an explicit reminder that AX2 layout regressions need a manual
+    // pass plus the "Known limitations at AX5" doc check rather than
+    // an automated assertion.
     #expect(MinimumHitTarget.size == 44)
   }
 

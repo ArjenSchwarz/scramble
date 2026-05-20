@@ -10,7 +10,8 @@ import Foundation
 /// delivered notifications together in Notification Center.
 ///
 /// `parse` is the inverse of `make`. It returns `nil` for any string that
-/// does not exactly match the three-part shape, has an unparseable UUID in
+/// does not exactly match the four-segment shape
+/// (`scramble.activation.<UUID>.<rawValue>`), has an unparseable UUID in
 /// the trip slot, or has a phase raw value that does not correspond to a
 /// `Phase` case.
 nonisolated enum NotificationIdentifier {

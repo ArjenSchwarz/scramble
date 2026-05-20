@@ -41,7 +41,12 @@ Trigger sources and the reason they carry:
 | `TripDeletion.delete` invocation | `.tripDeleted(tripID)` | Immediate (cancellations cannot wait) |
 | Authorization status flip on foreground re-read | `.authChanged(newStatus)` | Immediate |
 | `PendingChangeBroadcaster` callback (every `LocalWriteHook.commit`) | `.localWrite` | 2s coalesce |
-| `TripEditorView` parent save closure | `.tripSaved(tripID, wasInsert)` | 2s coalesce (used to gate auth-request, not strictly needed for reconcile) |
+
+> **Implementation note:** A `.tripSaved(tripID, wasInsert)` case was sketched
+> in this design table for the trip-editor save path, but the broadcaster
+> wiring made it redundant — every save funnels through `LocalWriteHook.commit`
+> which already fires `.localWrite`. The case was dropped from `ReschedReason`
+> during PR review iteration 4.
 
 #### Why the broadcaster rather than `TripSyncEventBus`
 
@@ -229,7 +234,9 @@ final class NotificationsService: NSObject, PendingChangeNotifier {
     case tripDeleted(tripID: UUID)              // Immediate flush
     case authChanged(UNAuthorizationStatus)     // Immediate flush
     case localWrite                             // 2s coalesce
-    case tripSaved(tripID: UUID, wasInsert: Bool)  // 2s coalesce
+    // The `.tripSaved` case sketched here was dropped during PR review
+    // iteration 4 — every save funnels through `LocalWriteHook.commit`
+    // which fires `.localWrite`, so the separate case was redundant.
   }
 }
 

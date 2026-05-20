@@ -32,13 +32,12 @@ final class NotificationsService: PendingChangeNotifier {
     case tripDeleted(tripID: UUID)
     case authChanged(UNAuthorizationStatus)
     case localWrite
-    case tripSaved(tripID: UUID, wasInsert: Bool)
 
     var requiresImmediateFlush: Bool {
       switch self {
       case .appActivation, .scenePhaseBackground, .tripDeleted, .authChanged:
         return true
-      case .localWrite, .tripSaved:
+      case .localWrite:
         return false
       }
     }
@@ -172,7 +171,7 @@ final class NotificationsService: PendingChangeNotifier {
   /// phase handling that wants to observe the result) must call
   /// `await flushCoalesce()` after `requestReschedule`.
   ///
-  /// **Coalesced reasons** (`.localWrite`, `.tripSaved`) start a 2-second
+  /// **Coalesced reasons** (`.localWrite`) start a 2-second
   /// debounce timer. The slot is identified by a generation counter so
   /// completion of the timer only clears the slot if it still owns it.
   func requestReschedule(reason: ReschedReason) {
@@ -219,9 +218,13 @@ final class NotificationsService: PendingChangeNotifier {
   func flushCoalesce() async {
     // Wait for an in-flight immediate-flush task to finish (its
     // `runReconcile` is what callers expect to observe), then collapse
-    // any pending coalesced reschedule.
+    // any pending coalesced reschedule. Clearing the slot keeps the
+    // hygiene consistent with `pendingCoalesce` — without the nil-out,
+    // a subsequent `flushCoalesce` would re-await an already-completed
+    // task (harmless, but reads as a leak).
     if let immediate = pendingImmediate {
       await immediate.value
+      pendingImmediate = nil
     }
     guard pendingCoalesce != nil else { return }
     pendingCoalesce?.cancel()
