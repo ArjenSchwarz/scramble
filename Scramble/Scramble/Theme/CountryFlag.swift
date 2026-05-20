@@ -14,13 +14,15 @@ nonisolated enum CountryFlag {
     let normalised = code.uppercased()
     guard normalised.count == 2 else { return nil }
 
+    let asciiUppercaseA: UInt8 = 0x41
+    let regionalIndicatorA: Int = 0x1F1E6
     var scalars: [Unicode.Scalar] = []
     for character in normalised {
       guard
         character.isASCII,
         let asciiValue = character.asciiValue,
         ("A"...("Z" as Character)).contains(character),
-        let scalar = Unicode.Scalar(0x1F1E6 + Int(asciiValue - Character("A").asciiValue!))
+        let scalar = Unicode.Scalar(regionalIndicatorA + Int(asciiValue - asciiUppercaseA))
       else {
         return nil
       }

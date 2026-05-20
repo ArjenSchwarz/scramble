@@ -100,23 +100,24 @@ import os
     #endif
   }
 
-  /// Phase 6 Req 5.1 / 5.4 — drain the router's `pendingRoute` slot and
-  /// navigate. The Trips tab is switched in, the navigation path is reset
-  /// to root and the trip pushed in a single transaction. Trip lookups
-  /// that miss (`tripID` no longer exists) clear the route without
-  /// modifying navigation state.
+  /// Phase 6 Req 5.1 / 5.4 — peek at the router's `pendingRoute`, navigate
+  /// to the referenced trip, and leave the slot filled so `TripDetailView`
+  /// can consume it on appear and apply `route.phase` to its
+  /// `expandedPhase`. A miss on the trip lookup discards the route per
+  /// Req 5.4 without modifying navigation state.
   private func consumeActivationRoute() {
     guard let router = activationRouter,
-      let route = router.consumeRoute()
+      let route = router.pendingRoute
     else { return }
     let tripID = route.tripID
     let descriptor = FetchDescriptor<Trip>(predicate: #Predicate { $0.id == tripID })
-    guard let trip = try? tripsLocalContainer.mainContext.fetch(descriptor).first else { return }
+    guard let trip = try? tripsLocalContainer.mainContext.fetch(descriptor).first else {
+      _ = router.consumeRoute()
+      return
+    }
     tab = .trips
     tripsPath = NavigationPath()
     tripsPath.append(trip)
-    // TripDetailView reads `route.phase` via the router and applies it
-    // as `expandedPhase` once it appears.
   }
 
   #if DEBUG

@@ -3,10 +3,6 @@ import SwiftUI
 import UIKit
 import os
 
-#if canImport(UIKit)
-  import UIKit
-#endif
-
 @MainActor struct TripDetailView: View {
   let trip: Trip
   let today: Date
@@ -20,6 +16,7 @@ import os
   @Environment(\.sharingService) private var sharingService
   @Environment(\.rulesLastEvaluatedTracker) private var rulesLastEvaluatedTracker
   @Environment(\.notificationsService) private var notificationsService
+  @Environment(\.activationRouter) private var activationRouter
 
   @State private var showEditor = false
   @State private var editAttributeFocus: TripAttribute?
@@ -208,9 +205,39 @@ import os
       }
     }
     .transientToast(message: $toastMessage)
+    .task {
+      consumeActivationRouteIfMatching()
+    }
+    .onChange(of: activationRouter?.pendingRoute) { _, _ in
+      consumeActivationRouteIfMatching()
+    }
     #if DEBUG
       .background { inspectionMarkers }
     #endif
+  }
+
+  /// Phase 6 Req 5.1 / 5.5 — when the notification router holds a route
+  /// pointing at this trip, consume it and expand the routed phase. If the
+  /// phase is no longer eligible for this trip (e.g. the user shortened the
+  /// trip so a `daysBefore` phase has zero days, or `duringTrip` collapsed
+  /// to compressed) the existing auto-expand phase computed in `init` is
+  /// left in place.
+  private func consumeActivationRouteIfMatching() {
+    guard let router = activationRouter,
+      let route = router.pendingRoute,
+      route.tripID == trip.id
+    else { return }
+    _ = router.consumeRoute()
+    guard isPhaseEligibleForRouting(route.phase) else { return }
+    withAnimation(.scrambleStandard) {
+      expandedPhase = route.phase
+    }
+  }
+
+  private func isPhaseEligibleForRouting(_ phase: Phase) -> Bool {
+    guard PhaseDateMapping.dateRange(phase, for: trip, calendar: calendar) != nil
+    else { return false }
+    return !PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar)
   }
 
   /// Owner-side delete (Req 1.4 / Phase 5.1 Req 5). Phase 5.1: routes

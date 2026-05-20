@@ -469,3 +469,108 @@ AX2 covers the vast majority of users who change Dynamic Type. AX5 is a stress t
 - Users at AX5 still see layout issues until a future phase addresses them.
 
 ---
+
+## Decision 15: `NotificationsService` is not `@Observable`
+
+**Date**: 2026-05-20
+**Status**: accepted
+
+### Context
+
+`design.md` §"Notifications service" specifies `@Observable` on `NotificationsService` so SwiftUI surfaces (the "Open Settings" affordance) can re-render when `authStatus` flips. During implementation the `@Observable` macro was applied, then removed.
+
+### Decision
+
+`NotificationsService` is a plain `@MainActor final class` with `private(set) var authStatus`. SwiftUI surfaces re-read `authStatus` at body re-evaluation time rather than subscribing to property changes.
+
+### Rationale
+
+Marking the class `@Observable` while it owns a SwiftData `ModelContext`-returning closure (`tripContext: @MainActor () -> ModelContext`) crashed SwiftUI's AttributeGraph layout-descriptor traversal under Swift Testing's parameter machinery — every `NotificationsServiceTests` case failed before its body ran. Dropping the macro is the smallest change that lets the test suite run; the affordance still flips on the next foreground because `handleScenePhase(.becameActive)` re-reads `authStatus` and SwiftUI re-evaluates the body whenever `TripDetailView`'s parent state changes.
+
+### Alternatives Considered
+
+- **Keep `@Observable` and split out the `ModelContext` closure into a separate non-observable holder**: Rejected — pushes the indirection through every call site for what is effectively one screen's flicker.
+- **Wrap `authStatus` in a separate `@Observable AuthStatusHolder`**: Rejected — adds a class for a single property; not worth the indirection for v1.
+
+### Consequences
+
+**Positive:**
+- Test suite runs without an AttributeGraph crash.
+- Surface area of the service stays small.
+
+**Negative:**
+- The "Open Settings" affordance does not animate as `authStatus` flips; it only updates on the next render the host SwiftUI tree triggers.
+- If a future surface needs reactive binding to `authStatus` (e.g. a settings screen), this trade-off has to be revisited.
+
+---
+
+## Decision 16: Routing state machine ships as minimum viable; sheet-dismissal deferred
+
+**Date**: 2026-05-20
+**Status**: accepted (partial implementation of Decision 11)
+
+### Context
+
+[Decision 11](#decision-11-modal-sheets-dismissed-before-deep-link-routing) and [Decision 13](#decision-13-sheet-dismissal-uses-non-animated-dismiss--one-yield-not-animation-completion) describe a four-state machine `.idle → .dismissingSheets → .navigating → .idle` that dismisses every known SwiftUI sheet binding plus the `UICloudSharingController` wrapper before pushing the routed trip.
+
+### Decision
+
+`RootView.consumeActivationRoute` (`Features/Root/RootView.swift:108`) flips the tab, resets `tripsPath` to root, and pushes the routed trip in a single transaction. It does *not* dismiss currently-presented sheets. The routed phase is consumed by `TripDetailView` (`Features/Trips/TripDetailView.swift`) on appear via `.task` + `.onChange(of: activationRouter?.pendingRoute)` and applied to `expandedPhase` (with eligibility fallback per Req 5.5).
+
+### Rationale
+
+End-state navigation is correct: the routed trip becomes the front-most navigation stack, with the correct phase expanded once the user dismisses any pre-existing sheet. The dismiss-before-navigate polish would require enumerating every sheet binding (`pendingForm`, `packingSheetState`, `showEditor`, the `UICloudSharingController` host, `editAttributeFocus`-driven sheets) and threading a `Task.yield()` so SwiftUI completes one render cycle before path replacement. That is straightforward in isolation but does not change the eventual navigation destination — only the *transition* to it. Shipping the rest of Phase 6 takes priority.
+
+### Alternatives Considered
+
+- **Implement the full state machine now**: Rejected for scope reasons; the destination is correct in the minimum viable path.
+- **Block on the sheet dismissal — pause routing until the user dismisses manually**: Rejected — that breaks Req 5.4 (route lookup that misses should leave navigation untouched, but the route is consumed by RootView immediately on tap).
+
+### Consequences
+
+**Positive:**
+- Phase 6 ships with notification taps reaching the right trip+phase end-state.
+- Smaller surface to test in this phase.
+
+**Negative:**
+- Req 5.3 is not strictly satisfied; a sheet up when a notification is tapped remains visible until the user dismisses it.
+- A follow-up phase has to wire the full state machine to satisfy Req 5.3 verbatim.
+
+### Impact
+
+Affects `RootView.consumeActivationRoute` and the documented behaviour of notification-tap routing. The `pendingRoute` slot semantics are unchanged.
+
+---
+
+## Decision 17: `NotificationCenterProtocol.authorizationStatus()` returns `UNAuthorizationStatus` only
+
+**Date**: 2026-05-20
+**Status**: accepted
+
+### Context
+
+`design.md` §"`NotificationCenterProtocol`" sketches a protocol that mirrors the `UNUserNotificationCenter` surface area the service uses, including a `notificationSettings() async -> UNNotificationSettings` method.
+
+### Decision
+
+The protocol exposes `authorizationStatus() async -> UNAuthorizationStatus` instead. The service does not consume any other field from `UNNotificationSettings`.
+
+### Rationale
+
+`UNNotificationSettings` has no public initializer, so a test stub cannot construct one to return. Returning just the `UNAuthorizationStatus` enum keeps the protocol stub-friendly and exposes exactly what the service needs (the auth state). If a future feature needs to read e.g. `alertSetting` or `lockScreenSetting`, the protocol can be extended then.
+
+### Alternatives Considered
+
+- **Add `UNNotificationSettings` extension that exposes only what's needed via a protocol of our own** — Rejected as over-engineered for the single field the service consumes.
+- **Bridge to a homegrown `NotificationSettings` value type** — Rejected — adds a translation layer for one property.
+
+### Consequences
+
+**Positive:**
+- Test stub is one line per call.
+- Service code is straightforward (`status == .authorized` everywhere).
+
+**Negative:**
+- A future field (e.g. quiet-hours setting) requires extending the protocol.
+
+---

@@ -60,6 +60,7 @@ final class NotificationsService: PendingChangeNotifier {
   private let coalesceWindow: Duration
 
   private var pendingCoalesce: Task<Void, Never>?
+  private var coalesceGeneration: UInt64 = 0
 
   // MARK: - Init
 
@@ -150,13 +151,19 @@ final class NotificationsService: PendingChangeNotifier {
       }
       return
     }
-    // Coalesced path.
+    // Coalesced path. Generation stamps each scheduled Task so the
+    // post-completion slot-clear only fires for the most recent one
+    // (`Task` is a value type — no `===` identity check available).
     pendingCoalesce?.cancel()
+    coalesceGeneration &+= 1
+    let myGeneration = coalesceGeneration
     pendingCoalesce = Task { @MainActor [self] in
       try? await Task.sleep(for: coalesceWindow)
       guard !Task.isCancelled else { return }
       await runReconcile()
-      pendingCoalesce = nil
+      if coalesceGeneration == myGeneration {
+        pendingCoalesce = nil
+      }
     }
   }
 
@@ -191,9 +198,16 @@ final class NotificationsService: PendingChangeNotifier {
     do {
       let trips = try context.fetch(FetchDescriptor<Trip>())
       let tasks = try context.fetch(FetchDescriptor<TripTask>())
-      let tasksByTripID = Dictionary(grouping: tasks) { task in
-        task.trip?.id ?? UUID()
-      }
+      // Drop orphaned tasks (trip relationship cleared but row still present)
+      // so they do not allocate phantom dictionary buckets and silently
+      // inflate the candidate list before the 60-cap.
+      let tasksByTripID = Dictionary(
+        grouping: tasks.compactMap { task -> (UUID, TripTask)? in
+          guard let tripID = task.trip?.id else { return nil }
+          return (tripID, task)
+        },
+        by: \.0
+      ).mapValues { $0.map(\.1) }
       plans = NotificationPlanner.plan(
         trips: trips,
         tripTasksByTripID: tasksByTripID,

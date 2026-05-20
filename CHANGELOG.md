@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Phase 6 pre-push review fixes:
+  - `Scramble/Scramble/Features/Root/RootView.swift` + `Scramble/Scramble/Features/Trips/TripDetailView.swift` — notification-tap routing now actually expands the routed phase (Req 5.1 / 5.5). `RootView.consumeActivationRoute` peeks the router's `pendingRoute` instead of consuming, then navigates; `TripDetailView` drains the route on appear via `.task` + `.onChange(of: activationRouter?.pendingRoute)` and applies `route.phase` to `expandedPhase` with a `PhaseDateMapping` eligibility fallback. Before the fix `consumeRoute()` cleared the slot before the detail view could read it, so taps silently lost the phase.
+  - `Scramble/Scramble/Notifications/NotificationPlanner.swift` — `outstandingCount` now applies the same `currentlyMatchesRules || pinnedByUser` predicate `TaskListHelpers.counts` uses, so visible-but-inactive tasks (rules-unmatched, unpinned) no longer inflate the notification body count.
+  - `Scramble/Scramble/Notifications/NotificationsService.swift` — `runReconcile`'s `Dictionary(grouping:)` step now drops orphan tasks via `compactMap` instead of bucketing them behind a fresh `UUID()` sentinel (the sentinel quietly inflated the candidate set before the 60-cap). The coalesce path is now identified by a generation counter (`coalesceGeneration: UInt64`) so a completed reconcile only nils the slot when it still owns it — `Task` is a value type, so the previous `pendingCoalesce = nil` at the end of the closure could nil a follow-up reschedule's reference and allow two concurrent reconciles.
+  - `Scramble/Scramble/Theme/CountryFlag.swift` — `Character("A").asciiValue!` force-unwrap replaced with named constants (`0x41` / `0x1F1E6`).
+  - `Scramble/Scramble/Theme/Animations.swift` — doc-comment rewritten to accurately describe how Req 7.4 (Reduce Motion) is satisfied by SwiftUI defaults; the previous comment described a runtime swap to `.opacity` that no call site implements.
+  - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — removed redundant `#if canImport(UIKit) import UIKit #endif` block (the top-level unconditional `import UIKit` already covers it).
+  - `specs/phase-6-notifications-polish/tasks.md` — Blocked-by lines on tasks 18 and 55 had ~50 token repetitions ("cancels, pending, removes" / "service, routing"); truncated to the correct dependency list. Verified no equivalent corruption elsewhere in the repo.
+  - `specs/phase-6-notifications-polish/decision_log.md` — Decisions 15 (`@Observable` dropped on `NotificationsService` due to AttributeGraph crash), 16 (routing state machine ships as minimum viable; sheet-dismissal deferred), and 17 (`NotificationCenterProtocol.authorizationStatus()` returns the bare enum, not `UNNotificationSettings`) — three substantive design divergences that were previously documented only in `implementation.md`.
+
 ### Added
 
 - Phase 6 Phase 9 + 10 — VoiceOver labels + Dynamic Type:

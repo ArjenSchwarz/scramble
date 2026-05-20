@@ -116,11 +116,17 @@ enum NotificationPlanner {
     .dayBefore, .departureDay, .duringTrip, .dayBeforeReturn, .returnDay,
   ]
 
+  /// Mirrors the matching-or-pinned predicate used by `TaskListHelpers.counts`
+  /// so that tasks the rules engine has flagged as `currentlyMatchesRules == false`
+  /// (and which are not pinned) — i.e. visible-but-inactive — do not inflate the
+  /// outstanding count shown in the activation notification body.
   private static func outstandingCount(for phase: Phase, tasks: [TripTask]) -> Int {
     tasks.reduce(0) { partial, task in
-      guard task.phase == phase, !task.isCompleted, !task.userDeletedOnThisTrip else {
-        return partial
-      }
+      guard task.phase == phase,
+        !task.isCompleted,
+        !task.userDeletedOnThisTrip,
+        task.currentlyMatchesRules || task.pinnedByUser
+      else { return partial }
       return partial + 1
     }
   }
