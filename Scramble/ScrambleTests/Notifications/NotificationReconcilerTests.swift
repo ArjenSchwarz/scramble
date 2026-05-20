@@ -42,7 +42,7 @@ struct NotificationReconcilerTests {
     let tripID = UUID()
     let phase: Phase = .dayBefore
     let body = NotificationPlanner.body(
-      tripName: "Iceland", phase: phase, outstandingTasks: 2
+      phase: phase, outstandingTasks: 2
     )
     let plan = ActivationPlan(
       tripID: tripID, phase: phase,

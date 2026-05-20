@@ -110,6 +110,12 @@ import SwiftUI
             case .clear:
               draft.countryCode = nil
               errors[.countryCode] = nil
+              // Normalise whitespace-only input (e.g. " ", "\n") down to
+              // an empty buffer so the field renders clean. `.clear` fires
+              // for both `""` and any whitespace-only string; we only need
+              // to overwrite the buffer in the whitespace case
+              // (`!newValue.isEmpty`). The `countryCodeInput != ""` guard
+              // skips a no-op assignment when newValue was already empty.
               if countryCodeInput != "" && !newValue.isEmpty {
                 countryCodeInput = ""
               }

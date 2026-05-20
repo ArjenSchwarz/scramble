@@ -119,7 +119,6 @@ struct ScrambleApp: App {
     let router = NotificationRouter()
     let notifications = NotificationsService(
       center: UNUserNotificationCenter.current(),
-      router: router,
       tripContext: { ModelStore.containers.tripsLocal.mainContext }
     )
     let broadcaster = PendingChangeBroadcaster(children: [engine, notifications])

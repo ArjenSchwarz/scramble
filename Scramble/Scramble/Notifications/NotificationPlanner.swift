@@ -70,7 +70,7 @@ enum NotificationPlanner {
             phase: phase,
             fireDateComponents: comps,
             outstandingTaskCount: outstanding,
-            body: body(tripName: trip.name, phase: phase, outstandingTasks: outstanding),
+            body: body(phase: phase, outstandingTasks: outstanding),
             title: trip.name
           )
         )
@@ -99,8 +99,10 @@ enum NotificationPlanner {
 
   /// Pre-renders the notification body string. Exposed for the reconciler
   /// so it can detect "pending body matches plan body" no-ops without
-  /// re-running `plan`.
-  static func body(tripName: String, phase: Phase, outstandingTasks: Int) -> String {
+  /// re-running `plan`. The trip name is carried in `ActivationPlan.title`
+  /// (`UNNotificationContent.title`) so it does not need to repeat in the
+  /// body line.
+  static func body(phase: Phase, outstandingTasks: Int) -> String {
     if outstandingTasks > 0 {
       let noun = outstandingTasks == 1 ? "task" : "tasks"
       return "\(outstandingTasks) outstanding \(noun) for '\(phase.displayName)'"

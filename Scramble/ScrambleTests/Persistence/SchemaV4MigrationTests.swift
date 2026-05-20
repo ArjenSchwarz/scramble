@@ -47,11 +47,18 @@ struct SchemaV4MigrationTests {
     let firstTripID = UUID()
     let secondTripID = UUID()
 
-    // Seed: write two trips through a V3-shaped container that knows the
-    // current top-level `Trip` class (including `countryCode`). The V3
-    // schema metadata still includes the field — SwiftData adds the
-    // column on creation. The "migration" coverage here is the round-
-    // trip through `AppMigrationPlan` on the second open.
+    // Seed: write two trips through a `Schema(versionedSchema: SchemaV3.self)`
+    // container. This is NOT a true legacy-shape seed — the running
+    // `Trip` class in this test process already carries `countryCode`,
+    // and SwiftData adds the column on first open regardless of which
+    // versioned schema is named. A binary `.store` fixture written by an
+    // older build would be required for full V3-origin fidelity.
+    //
+    // What this test DOES cover: the `AppMigrationPlan` round-trip on
+    // the second open — opening the store with the V4 schema + plan
+    // does not lose the seeded rows and reads `countryCode == nil` for
+    // both. That validates the migration *plan wiring* but not the
+    // lightweight stage's column-addition path itself.
     try Self.withV3Container(url: storeURL) { container in
       let context = container.mainContext
       context.insert(

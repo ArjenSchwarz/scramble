@@ -178,7 +178,6 @@ struct NotificationsServiceTests {
 
   struct Setup {
     let stub: StubNotificationCenter
-    let router: NotificationRouter
     let service: NotificationsService
     let context: ModelContext
     let calendar: Calendar
@@ -214,18 +213,16 @@ struct NotificationsServiceTests {
     let container = try ModelContainer(for: schema, configurations: [config])
     let context = container.mainContext
     let stub = StubNotificationCenter()
-    let router = NotificationRouter()
     let now = Self.now
     let service = NotificationsService(
       center: stub,
-      router: router,
       tripContext: { context },
       calendar: cal,
       now: { now },
       coalesceWindow: .milliseconds(100)
     )
     return Setup(
-      stub: stub, router: router, service: service, context: context, calendar: cal
+      stub: stub, service: service, context: context, calendar: cal
     )
   }
 }

@@ -54,13 +54,14 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
   /// touching navigation state.
   static func route(from url: URL) -> ActivationRoute? {
     guard url.scheme == "scramble" else { return nil }
-    let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-    guard let host = url.host, host == "trip" else { return nil }
+    guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+      components.host == "trip"
+    else { return nil }
     // Path is `/<UUID>` — strip the leading slash.
-    let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     guard let tripID = UUID(uuidString: path) else { return nil }
     let phaseRaw =
-      components?.queryItems?.first(where: { $0.name == "phase" })?.value ?? ""
+      components.queryItems?.first(where: { $0.name == "phase" })?.value ?? ""
     guard let phase = Phase(rawValue: phaseRaw) else { return nil }
     return ActivationRoute(tripID: tripID, phase: phase)
   }

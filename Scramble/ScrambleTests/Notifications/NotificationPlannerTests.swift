@@ -18,9 +18,13 @@ struct NotificationPlannerTests {
   // MARK: - Eligibility
 
   @Test(
-    "A trip with start in 30 days and end in 40 days produces 4 plans (excludes weeksBefore, afterTrip, duringTrip range)"
+    """
+    A trip with start in 30 days and end in 40 days produces 5 plans \
+    — dayBefore, departureDay, duringTrip, dayBeforeReturn, returnDay \
+    (excludes weeksBefore and afterTrip).
+    """
   )
-  func standardTripProducesFourPlans() throws {
+  func standardTripProducesFivePlans() throws {
     let now = Self.date(year: 2026, month: 6, day: 1)
     let start = Self.date(year: 2026, month: 7, day: 1)
     let end = Self.date(year: 2026, month: 7, day: 10)
@@ -34,12 +38,15 @@ struct NotificationPlannerTests {
     let phases = Set(plans.map(\.phase))
     #expect(phases.contains(.dayBefore))
     #expect(phases.contains(.departureDay))
+    // duringTrip is included when its range is non-empty (here: 9 days
+    // between departureDay and dayBeforeReturn).
     #expect(phases.contains(.duringTrip))
     #expect(phases.contains(.dayBeforeReturn))
     // returnDay is also a 1-day phase that activates on `endDate`.
     #expect(phases.contains(.returnDay))
     #expect(!phases.contains(.weeksBefore))
     #expect(!phases.contains(.afterTrip))
+    #expect(plans.count == 5)
   }
 
   @Test(
@@ -98,7 +105,7 @@ struct NotificationPlannerTests {
   @Test("Body for outstandingTaskCount > 0 names the count and the phase display name")
   func bodyForOutstandingTasks() {
     let body = NotificationPlanner.body(
-      tripName: "Iceland", phase: .departureDay, outstandingTasks: 3
+      phase: .departureDay, outstandingTasks: 3
     )
     #expect(body == "3 outstanding tasks for 'Departure day'")
   }
@@ -106,7 +113,7 @@ struct NotificationPlannerTests {
   @Test("Body for outstandingTaskCount == 0 uses 'has started' form and omits the count")
   func bodyForZeroOutstandingTasks() {
     let body = NotificationPlanner.body(
-      tripName: "Iceland", phase: .dayBefore, outstandingTasks: 0
+      phase: .dayBefore, outstandingTasks: 0
     )
     #expect(body == "'Day before' has started")
     #expect(!body.contains("0"))

@@ -65,7 +65,6 @@ final class NotificationsService: PendingChangeNotifier {
   // MARK: - Injection points
 
   private let center: any NotificationCenterProtocol
-  private let router: NotificationRouter
   private let tripContext: @MainActor () -> ModelContext
   private let calendar: Calendar
   private let now: @MainActor () -> Date
@@ -83,14 +82,12 @@ final class NotificationsService: PendingChangeNotifier {
 
   init(
     center: any NotificationCenterProtocol,
-    router: NotificationRouter,
     tripContext: @escaping @MainActor () -> ModelContext,
     calendar: Calendar = .autoupdatingCurrent,
     now: @escaping @MainActor () -> Date = Date.init,
     coalesceWindow: Duration = .seconds(2)
   ) {
     self.center = center
-    self.router = router
     self.tripContext = tripContext
     self.calendar = calendar
     self.now = now
@@ -164,6 +161,20 @@ final class NotificationsService: PendingChangeNotifier {
 
   // MARK: - Reschedule entry point (Req 4.3, 4.4)
 
+  /// Enqueues a reconcile pass.
+  ///
+  /// **Immediate-flush reasons** (`.appActivation`, `.scenePhaseBackground`,
+  /// `.tripDeleted`, `.authChanged`) spawn an unstructured `Task` that
+  /// runs as soon as the run loop picks it up. The previous in-flight
+  /// immediate task is cancelled before spawning so rapid bursts collapse
+  /// into a single reconcile. Callers that need a happens-before
+  /// guarantee with the reconcile (e.g. assertions in tests, or scene-
+  /// phase handling that wants to observe the result) must call
+  /// `await flushCoalesce()` after `requestReschedule`.
+  ///
+  /// **Coalesced reasons** (`.localWrite`, `.tripSaved`) start a 2-second
+  /// debounce timer. The slot is identified by a generation counter so
+  /// completion of the timer only clears the slot if it still owns it.
   func requestReschedule(reason: ReschedReason) {
     if case .tripDeleted(let tripID) = reason {
       cancelAllForTrip(tripID: tripID)
