@@ -206,10 +206,15 @@ import os
     }
     .transientToast(message: $toastMessage)
     .task {
-      consumeActivationRouteIfMatching()
+      // Cold-launch / first-mount drain. Skip the animation so the
+      // route-driven expand does not stack on top of the view's own
+      // mount transition (the accordion would otherwise re-collapse
+      // the auto-expanded phase and re-expand the routed one inside
+      // the appearance animation, producing a brief flicker).
+      consumeActivationRouteIfMatching(animated: false)
     }
     .onChange(of: activationRouter?.pendingRoute) { _, _ in
-      consumeActivationRouteIfMatching()
+      consumeActivationRouteIfMatching(animated: true)
     }
     #if DEBUG
       .background { inspectionMarkers }
@@ -222,14 +227,18 @@ import os
   /// trip so a `daysBefore` phase has zero days, or `duringTrip` collapsed
   /// to compressed) the existing auto-expand phase computed in `init` is
   /// left in place.
-  private func consumeActivationRouteIfMatching() {
+  private func consumeActivationRouteIfMatching(animated: Bool) {
     guard let router = activationRouter,
       let route = router.pendingRoute,
       route.tripID == trip.id
     else { return }
     _ = router.consumeRoute()
     guard isPhaseEligibleForRouting(route.phase) else { return }
-    withAnimation(.scrambleStandard) {
+    if animated {
+      withAnimation(.scrambleStandard) {
+        expandedPhase = route.phase
+      }
+    } else {
       expandedPhase = route.phase
     }
   }

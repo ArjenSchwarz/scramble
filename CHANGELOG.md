@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Phase 6 pre-push review round 2 refinements:
+  - `Scramble/Scramble/Notifications/NotificationsService.swift` — `runReconcile` builds `tasksByTripID` via a single-pass `for` loop with subscript-with-default rather than `compactMap` + `Dictionary(grouping:)` + `mapValues`. Same shape, one allocation, clearer intent.
+  - `Scramble/Scramble/Features/Trips/TripDetailView.swift` — `consumeActivationRouteIfMatching(animated:)` now distinguishes cold-launch (`.task`, animated=false) from subsequent route arrivals (`.onChange`, animated=true). The first-appear path avoids stacking the route-driven `expandedPhase` write on top of the view's own mount transition, preventing a brief re-collapse / re-expand flicker on cold-launch deep-link consumption.
+  - `Scramble/Scramble/Theme/Animations.swift` — doc-comment rewritten to state explicitly that Req 7.4 is *vacuously* satisfied (no call site applies a non-opacity transition, so the reduce-motion swap is a no-op). Adds a bold note warning future maintainers that adding `.transition(.move/.scale/...)` requires gating behind `@Environment(\.accessibilityReduceMotion)` at the call site — this constant only owns the curve and duration.
+  - `specs/phase-6-notifications-polish/implementation.md` — added "Pre-push review fix pass" section summarising both review rounds for the next maintainer.
+
 - Phase 6 pre-push review fixes:
   - `Scramble/Scramble/Features/Root/RootView.swift` + `Scramble/Scramble/Features/Trips/TripDetailView.swift` — notification-tap routing now actually expands the routed phase (Req 5.1 / 5.5). `RootView.consumeActivationRoute` peeks the router's `pendingRoute` instead of consuming, then navigates; `TripDetailView` drains the route on appear via `.task` + `.onChange(of: activationRouter?.pendingRoute)` and applies `route.phase` to `expandedPhase` with a `PhaseDateMapping` eligibility fallback. Before the fix `consumeRoute()` cleared the slot before the detail view could read it, so taps silently lost the phase.
   - `Scramble/Scramble/Notifications/NotificationPlanner.swift` — `outstandingCount` now applies the same `currentlyMatchesRules || pinnedByUser` predicate `TaskListHelpers.counts` uses, so visible-but-inactive tasks (rules-unmatched, unpinned) no longer inflate the notification body count.

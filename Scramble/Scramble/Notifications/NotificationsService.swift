@@ -201,13 +201,11 @@ final class NotificationsService: PendingChangeNotifier {
       // Drop orphaned tasks (trip relationship cleared but row still present)
       // so they do not allocate phantom dictionary buckets and silently
       // inflate the candidate list before the 60-cap.
-      let tasksByTripID = Dictionary(
-        grouping: tasks.compactMap { task -> (UUID, TripTask)? in
-          guard let tripID = task.trip?.id else { return nil }
-          return (tripID, task)
-        },
-        by: \.0
-      ).mapValues { $0.map(\.1) }
+      var tasksByTripID: [UUID: [TripTask]] = [:]
+      for task in tasks {
+        guard let tripID = task.trip?.id else { continue }
+        tasksByTripID[tripID, default: []].append(task)
+      }
       plans = NotificationPlanner.plan(
         trips: trips,
         tripTasksByTripID: tasksByTripID,

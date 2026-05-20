@@ -80,3 +80,45 @@ interactive element remains tappable and every required piece of
 information is recoverable via VoiceOver. A follow-up phase (post
 Phase 6) can pick these up as targeted layout fixes if AX5 becomes a
 formal target.
+
+## Pre-push review fix pass
+
+Two rounds of pre-push review applied corrections that didn't surface
+during initial implementation. Captured here for the next maintainer:
+
+### Round 1 (commit 45993fd)
+
+- **Routing (Reqs 5.1 / 5.5)**: `RootView.consumeActivationRoute` now
+  peeks `pendingRoute` instead of consuming, leaving `TripDetailView`
+  to drain it on appear and apply `route.phase` with a
+  `PhaseDateMapping` eligibility fallback. Before this, the routed
+  phase was silently lost because `RootView.consumeRoute()` cleared
+  the slot before the detail view could read it.
+- **Planner outstanding count**: now applies the
+  `currentlyMatchesRules || pinnedByUser` predicate that
+  `TaskListHelpers.counts` uses, so visible-but-inactive tasks no
+  longer inflate the notification body.
+- **Orphan-task bucketing**: `runReconcile` drops tasks with no
+  `trip` relationship rather than allocating phantom UUID buckets.
+- **Coalesce-task race**: a generation counter identifies the
+  scheduled task so a stale completion can't nil out a follow-up
+  reschedule's slot reference.
+- **CountryFlag**: replaced force-unwrap with named constants.
+- **Decision log**: Decisions 15, 16, 17 added to document the
+  `@Observable` drop, partial routing state machine, and protocol
+  shape divergence from design.md.
+
+### Round 2
+
+- **`tasksByTripID` build**: replaced the `compactMap` + `Dictionary`
+  + `mapValues` chain with a single-pass `for` loop. One allocation
+  rather than three intermediates.
+- **First-appear animation skip**: `consumeActivationRouteIfMatching`
+  takes an `animated:` flag. The `.task` (first-appear) path passes
+  `false` to avoid stacking the route-driven expand on top of the
+  view's mount transition; the `.onChange` path passes `true`.
+- **`Animations.swift` doc-comment**: now explicit that Req 7.4 is
+  *vacuously* satisfied (no call site uses a non-opacity transition,
+  so the conditional swap is a no-op). Future call sites adding
+  `.transition(.move/.scale/...)` must gate behind
+  `accessibilityReduceMotion` themselves.
