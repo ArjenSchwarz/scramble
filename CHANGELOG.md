@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Phase 6 PR #7 review iteration 5 (final nits):
+  - `Scramble/Scramble/Features/Trips/TripListView.swift` — dropped redundant `@MainActor` annotation from the `Task { ... }` wrapping the auth-request call; the surrounding `@MainActor struct TripListView` body already runs there.
+  - `Scramble/Scramble/Notifications/NotificationReconciler.swift` — renamed the `for plan in plan` loop variable to `entry` to silence the shadowing warning that strict compiler settings would surface.
+  - `Scramble/Scramble/Notifications/NotificationIdentifier.swift` — added a comment explaining that `omittingEmptySubsequences: false` is load-bearing (rejects identifiers with empty segments instead of silently parsing them as fewer segments).
+  - `Scramble/Scramble/Sharing/TripDeletion.swift` — added an ordering note next to `requestReschedule(.tripDeleted)` describing the partial-failure edge case (commit succeeds, zone-delete fails → notifications cancelled, record survives, reconcile on next launch repairs).
+  - `docs/agent-notes/accessibility.md` — rewrote the stale "Known limitations" entry that claimed Phase 6 only covered "structural pieces"; the PR ships the combined-label wording specified in Reqs 9.1–9.4, only the future localisation swap to `String(localized:)` / `LocalizedStringKey` is deferred (Non-Goal).
+
 - Phase 6 PR #7 review iteration 4 (nits only):
   - `Scramble/Scramble/Notifications/NotificationsService.swift` — `flushCoalesce` now nils `pendingImmediate` after `await immediate.value` so the slot self-clears, keeping hygiene parity with the `pendingCoalesce` path. Removed the unused `.tripSaved(tripID:wasInsert:)` case from `ReschedReason` — every save funnels through `LocalWriteHook.commit` which fires `.localWrite`, so the separate case was redundant.
   - `Scramble/Scramble/Notifications/NotificationIdentifier.swift` — doc-comment for `parse` now describes the four-segment shape `scramble.activation.<UUID>.<rawValue>` explicitly, instead of the previous "three-part" wording that contradicted the inline "Expect exactly four parts" guard.

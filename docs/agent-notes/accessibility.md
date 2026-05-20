@@ -81,10 +81,13 @@ a cross-fade with no extra wiring needed.
 
 ## Known limitations
 
-- Pre-existing `accessibilityLabel` strings on `PhaseRow`, `TaskRow`,
-  `PackingItemRow`, and the per-person progress bar may not yet match
-  the exact wording specified in Phase 6 Reqs 9.1–9.4. Phase 6's polish
-  pass focuses on the structural pieces (combined-label `.accessibilityElement(children: .combine)`,
-  custom-action presence, `Why is this here?` gating); the literal
-  string-form refinement is tracked as a separate audit.
+- Phase 6 ships the combined-label strings specified in Reqs 9.1–9.4
+  (PhaseRow state words "past" / "current phase" / "upcoming",
+  TaskRow's "completed" / "not completed" / "assigned to X" / "phase Y",
+  PackingItemRow's "left behind" / "not bringing" / "owned by X",
+  per-person progress bar's "X's packing, N of M packed"). Reqs 9.1
+  through 9.4 are met. Bare-`String` interpolation means a future
+  localisation pass needs to swap to `String(localized:)` /
+  `LocalizedStringKey` — flagged but out of scope per Phase 6's
+  Non-Goals.
 - AX5 sanity pass: see Req 10.5 / `specs/phase-6-notifications-polish/implementation.md`.

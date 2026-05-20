@@ -28,6 +28,9 @@ nonisolated enum NotificationIdentifier {
   }
 
   static func parse(_ raw: String) -> (tripID: UUID, phase: Phase)? {
+    // `omittingEmptySubsequences: false` is load-bearing: an identifier
+    // like "scramble..<UUID>.<rawValue>" (with an empty segment) must be
+    // rejected, not silently parsed as a three-segment string.
     let parts = raw.split(separator: ".", omittingEmptySubsequences: false)
     // Expect exactly four parts: "scramble", "activation", "<UUID>", "<rawValue>".
     guard parts.count == 4,

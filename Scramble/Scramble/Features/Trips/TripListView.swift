@@ -126,7 +126,7 @@ import os
         // eligible phase. The auth helper short-circuits when
         // status != .notDetermined or the trip yields zero plans.
         if let service = notificationsService {
-          Task { @MainActor in
+          Task {
             await service.requestAuthorizationIfNeeded(forTrip: newTrip)
           }
         }

@@ -39,14 +39,14 @@ nonisolated enum NotificationReconciler {
 
     var planIDs: Set<String> = []
     var toAdd: [ActivationPlan] = []
-    for plan in plan {
-      let identifier = NotificationIdentifier.make(tripID: plan.tripID, phase: plan.phase)
+    for entry in plan {
+      let identifier = NotificationIdentifier.make(tripID: entry.tripID, phase: entry.phase)
       planIDs.insert(identifier)
-      if let existing = pendingByID[identifier], existing.content.body == plan.body {
+      if let existing = pendingByID[identifier], existing.content.body == entry.body {
         // No-op — identifier present and body identical.
         continue
       }
-      toAdd.append(plan)
+      toAdd.append(entry)
     }
 
     // Identifiers in pending but not in plan — remove.
