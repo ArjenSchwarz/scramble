@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 /// Phase 5.1 — cross-container people picker for the Trip Editor.
 ///

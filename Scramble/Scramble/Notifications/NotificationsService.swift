@@ -1,0 +1,331 @@
+import CloudKit
+import Foundation
+import SwiftData
+import UserNotifications
+import os
+
+/// Phase 6 — single owner of all `UNUserNotificationCenter` interaction.
+///
+/// Triggered by:
+/// - `ScenePhase` transitions at the WindowGroup root.
+/// - `TripDeletion.delete` (after the commit succeeds).
+/// - `TripEditorView` create-flow save closure (auth gate).
+/// - `LocalWriteHook.commit` via `PendingChangeBroadcaster`.
+/// - Authorization status flip observed on foreground re-entry.
+///
+/// `requestReschedule(reason:)` is the single funnel. Immediate-flush
+/// reasons run the reconciler synchronously; coalesced reasons cancel
+/// any in-flight 2-second timer and start a new one (Decision in
+/// design.md §"Coalesce mechanics").
+///
+/// The reconciler is full-fleet — every trigger results in a fresh
+/// `plan(trips:tasks:now:calendar:cap:)` call. Per-record classification
+/// is deliberately not attempted (Decision 12).
+@MainActor
+final class NotificationsService: PendingChangeNotifier {
+
+  // MARK: - Reschedule reasons
+
+  enum ReschedReason: Sendable, Hashable {
+    case appActivation
+    case scenePhaseBackground
+    case tripDeleted(tripID: UUID)
+    case authChanged(UNAuthorizationStatus)
+    case localWrite
+
+    var requiresImmediateFlush: Bool {
+      switch self {
+      case .appActivation, .scenePhaseBackground, .tripDeleted, .authChanged:
+        return true
+      case .localWrite:
+        return false
+      }
+    }
+  }
+
+  // MARK: - Observable state
+
+  /// Surfaced to UI so the "Open Settings" affordance can read the live
+  /// authorization status (Req 3.5). Mirrored to `authStatusHolder` —
+  /// an `@Observable` companion that SwiftUI views subscribe to (see
+  /// Decision 15).
+  private(set) var authStatus: UNAuthorizationStatus = .notDetermined {
+    didSet { authStatusHolder.authStatus = authStatus }
+  }
+
+  /// `@Observable` mirror of `authStatus`. Owning view models read this
+  /// instead of the service directly so SwiftUI re-evaluates their body
+  /// when the status flips. The service itself stays plain `@MainActor`
+  /// because marking it `@Observable` while it owns a closure returning
+  /// a SwiftData `ModelContext` crashes SwiftUI's AttributeGraph layout
+  /// traversal under Swift Testing's parameter machinery (Decision 15).
+  let authStatusHolder: NotificationAuthStatusHolder
+
+  // MARK: - Injection points
+
+  private let center: any NotificationCenterProtocol
+  private let tripContext: @MainActor () -> ModelContext
+  private let calendar: Calendar
+  private let now: @MainActor () -> Date
+  private let coalesceWindow: Duration
+
+  private var pendingCoalesce: Task<Void, Never>?
+  private var coalesceGeneration: UInt64 = 0
+  /// Immediate-flush tasks cancel the previously in-flight immediate so
+  /// rapid bursts (e.g. `.tripDeleted` + `.authChanged` in the same
+  /// run-loop turn) collapse into a single reconcile rather than two
+  /// concurrent ones racing on `pendingNotificationRequests`.
+  private var pendingImmediate: Task<Void, Never>?
+
+  // MARK: - Init
+
+  init(
+    center: any NotificationCenterProtocol,
+    tripContext: @escaping @MainActor () -> ModelContext,
+    calendar: Calendar = .autoupdatingCurrent,
+    now: @escaping @MainActor () -> Date = Date.init,
+    coalesceWindow: Duration = .seconds(2)
+  ) {
+    self.center = center
+    self.tripContext = tripContext
+    self.calendar = calendar
+    self.now = now
+    self.coalesceWindow = coalesceWindow
+    self.authStatusHolder = NotificationAuthStatusHolder()
+  }
+
+  // MARK: - Lifecycle
+
+  /// Seeds `authStatus` from the current center authorisation. The
+  /// `UNUserNotificationCenter.delegate` is installed at init time in
+  /// `ScrambleApp.init` (so a cold-launch tap arriving before
+  /// `prepareLaunch` runs is still routed), not from `start()`.
+  func start() async {
+    authStatus = await center.authorizationStatus()
+  }
+
+  // MARK: - Trip-save auth gate (Req 3.1, 3.2, 3.3)
+
+  func requestAuthorizationIfNeeded(forTrip trip: Trip) async {
+    let status = await center.authorizationStatus()
+    authStatus = status
+    guard status == .notDetermined else { return }
+    let plans = NotificationPlanner.plan(
+      trips: [trip],
+      tripTasksByTripID: [:],
+      now: now(),
+      calendar: calendar,
+      cap: 60
+    )
+    guard !plans.isEmpty else { return }
+    let granted =
+      (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+    authStatus = granted ? .authorized : .denied
+    if granted {
+      await runReconcile()
+    }
+  }
+
+  // MARK: - ScenePhase handling (Req 3.6, 4.5)
+
+  /// Equivalent of the SwiftUI `ScenePhase` transitions the service cares
+  /// about. The bridge is performed at `ScrambleApp.body` so this type
+  /// — and the service itself — does not need to import SwiftUI.
+  enum ScenePhaseTransition: Sendable {
+    case becameActive
+    case enteredBackground
+  }
+
+  func handleScenePhase(_ transition: ScenePhaseTransition) async {
+    switch transition {
+    case .becameActive:
+      let nextStatus = await center.authorizationStatus()
+      let oldStatus = authStatus
+      authStatus = nextStatus
+      // When auth flipped, `.authChanged` is itself a full reconcile pass
+      // (Req 3.6) — no need for the additional `.appActivation` reschedule
+      // which would spawn a second concurrent `runReconcile`. Only one
+      // immediate-flush is enqueued per scene-active.
+      if oldStatus != nextStatus {
+        requestReschedule(reason: .authChanged(nextStatus))
+      } else {
+        requestReschedule(reason: .appActivation)
+      }
+      await flushCoalesce()
+    case .enteredBackground:
+      requestReschedule(reason: .scenePhaseBackground)
+      await flushCoalesce()
+    }
+  }
+
+  // MARK: - Reschedule entry point (Req 4.3, 4.4)
+
+  /// Enqueues a reconcile pass.
+  ///
+  /// **Immediate-flush reasons** (`.appActivation`, `.scenePhaseBackground`,
+  /// `.tripDeleted`, `.authChanged`) spawn an unstructured `Task` that
+  /// runs as soon as the run loop picks it up. The previous in-flight
+  /// immediate task is cancelled before spawning so rapid bursts collapse
+  /// into a single reconcile. Callers that need a happens-before
+  /// guarantee with the reconcile (e.g. assertions in tests, or scene-
+  /// phase handling that wants to observe the result) must call
+  /// `await flushCoalesce()` after `requestReschedule`.
+  ///
+  /// **Coalesced reasons** (`.localWrite`) start a 2-second
+  /// debounce timer. The slot is identified by a generation counter so
+  /// completion of the timer only clears the slot if it still owns it.
+  func requestReschedule(reason: ReschedReason) {
+    if case .tripDeleted(let tripID) = reason {
+      cancelAllForTrip(tripID: tripID)
+    }
+    if reason.requiresImmediateFlush {
+      pendingCoalesce?.cancel()
+      pendingCoalesce = nil
+      pendingImmediate?.cancel()
+      pendingImmediate = Task { @MainActor in
+        await runReconcile()
+      }
+      return
+    }
+    // Coalesced path. Generation stamps each scheduled Task so the
+    // post-completion slot-clear only fires for the most recent one
+    // (`Task` is a value type — no `===` identity check available).
+    pendingCoalesce?.cancel()
+    coalesceGeneration &+= 1
+    let myGeneration = coalesceGeneration
+    pendingCoalesce = Task { @MainActor [self] in
+      try? await Task.sleep(for: coalesceWindow)
+      guard !Task.isCancelled else { return }
+      await runReconcile()
+      if coalesceGeneration == myGeneration {
+        pendingCoalesce = nil
+      }
+    }
+  }
+
+  // MARK: - PendingChangeNotifier conformance
+
+  func notifyPendingChanges(
+    savedRecordIDs: [CKRecord.ID],
+    deletedRecordIDs: [CKRecord.ID],
+    in zoneID: CKRecordZone.ID
+  ) {
+    requestReschedule(reason: .localWrite)
+  }
+
+  // MARK: - Internal — reconciliation
+
+  func flushCoalesce() async {
+    // Wait for an in-flight immediate-flush task to finish (its
+    // `runReconcile` is what callers expect to observe), then collapse
+    // any pending coalesced reschedule. Clearing the slot keeps the
+    // hygiene consistent with `pendingCoalesce` — without the nil-out,
+    // a subsequent `flushCoalesce` would re-await an already-completed
+    // task (harmless, but reads as a leak).
+    if let immediate = pendingImmediate {
+      await immediate.value
+      pendingImmediate = nil
+    }
+    guard pendingCoalesce != nil else { return }
+    pendingCoalesce?.cancel()
+    pendingCoalesce = nil
+    await runReconcile()
+  }
+
+  func runReconcile() async {
+    let status = await center.authorizationStatus()
+    authStatus = status
+    guard status == .authorized else {
+      await cancelAllActivationNotifications()
+      return
+    }
+    let context = tripContext()
+    let plans: [ActivationPlan]
+    do {
+      let trips = try context.fetch(FetchDescriptor<Trip>())
+      let tasks = try context.fetch(FetchDescriptor<TripTask>())
+      // Drop orphaned tasks (trip relationship cleared but row still present)
+      // so they do not allocate phantom dictionary buckets and silently
+      // inflate the candidate list before the 60-cap.
+      var tasksByTripID: [UUID: [TripTask]] = [:]
+      for task in tasks {
+        guard let tripID = task.trip?.id else { continue }
+        tasksByTripID[tripID, default: []].append(task)
+      }
+      plans = NotificationPlanner.plan(
+        trips: trips,
+        tripTasksByTripID: tasksByTripID,
+        now: now(),
+        calendar: calendar,
+        cap: 60
+      )
+    } catch {
+      modelLogger.error(
+        "[NotificationsService] failed to fetch trips: \(error.localizedDescription, privacy: .public)"
+      )
+      return
+    }
+
+    let pending = await center.pendingNotificationRequests()
+    let diff = NotificationReconciler.diff(plan: plans, pending: pending)
+
+    if !diff.toRemove.isEmpty {
+      center.removePendingNotificationRequests(withIdentifiers: diff.toRemove)
+    }
+    for plan in diff.toAdd {
+      let request = Self.makeRequest(from: plan)
+      do {
+        try await center.add(request)
+      } catch {
+        modelLogger.error(
+          """
+          [NotificationsService] add(request:) failed for \
+          \(request.identifier, privacy: .public): \
+          \(error.localizedDescription, privacy: .public)
+          """
+        )
+        // No retry inside this pass per Req 2.5; next reconcile retries.
+      }
+    }
+  }
+
+  private func cancelAllActivationNotifications() async {
+    let pending = await center.pendingNotificationRequests()
+    let identifiers =
+      pending
+      .map(\.identifier)
+      .filter { $0.hasPrefix("scramble.activation.") }
+    if !identifiers.isEmpty {
+      center.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+  }
+
+  private func cancelAllForTrip(tripID: UUID) {
+    let activation = Phase.allCases.map {
+      NotificationIdentifier.make(tripID: tripID, phase: $0)
+    }
+    center.removePendingNotificationRequests(withIdentifiers: activation)
+    center.removeDeliveredNotifications(withIdentifiers: activation)
+  }
+
+  // MARK: - Request construction
+
+  static func makeRequest(from plan: ActivationPlan) -> UNNotificationRequest {
+    let content = UNMutableNotificationContent()
+    content.title = plan.title
+    content.body = plan.body
+    content.userInfo = [
+      NotificationRouter.userInfoTripIDKey: plan.tripID.uuidString,
+      NotificationRouter.userInfoPhaseKey: plan.phase.rawValue,
+    ]
+    content.threadIdentifier = NotificationIdentifier.threadID(for: plan.tripID)
+    let trigger = UNCalendarNotificationTrigger(
+      dateMatching: plan.fireDateComponents, repeats: false
+    )
+    return UNNotificationRequest(
+      identifier: NotificationIdentifier.make(tripID: plan.tripID, phase: plan.phase),
+      content: content,
+      trigger: trigger
+    )
+  }
+}

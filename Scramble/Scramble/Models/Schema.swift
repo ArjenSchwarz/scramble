@@ -299,6 +299,33 @@ extension MigrationJournalEntry {
   }
 }
 
+// MARK: - SchemaV4 (Phase 6 — adds Trip.countryCode)
+
+/// Phase 6 schema. Additive only: introduces `Trip.countryCode: String?`
+/// (Decision 5). All other entities are unchanged from V3, so the V3 → V4
+/// stage is a lightweight migration — SwiftData adds the new column on
+/// first open via Core Data's automatic inference because the property
+/// is `Optional` with a `nil` default.
+nonisolated enum SchemaV4: VersionedSchema {
+  nonisolated static var versionIdentifier: Schema.Version {
+    Schema.Version(4, 0, 0)
+  }
+
+  nonisolated static var models: [any PersistentModel.Type] {
+    [
+      Trip.self,
+      Person.self,
+      MasterTaskItem.self,
+      MasterPackingItem.self,
+      TripTask.self,
+      TripPackingItem.self,
+      SchemaV3.TripPersonSnapshot.self,
+      SchemaV3.TripZoneState.self,
+      SchemaV3.MigrationJournalEntry.self,
+    ]
+  }
+}
+
 // MARK: - Top-level current types
 
 /// `TripTask` is a single top-level `@Model` shared by `SchemaV2` and
@@ -395,7 +422,7 @@ extension TripTask {
 
 nonisolated enum AppMigrationPlan: SchemaMigrationPlan {
   nonisolated static var schemas: [any VersionedSchema.Type] {
-    [SchemaV1.self, SchemaV2.self, SchemaV3.self]
+    [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self]
   }
 
   nonisolated static var stages: [MigrationStage] {
@@ -421,6 +448,13 @@ nonisolated enum AppMigrationPlan: SchemaMigrationPlan {
           try SchemaV3MigrationStage.backfillSnapshots(in: context)
         }
       ),
+      // V3 → V4: lightweight; adds `Trip.countryCode: String?` with
+      // `nil` default. SwiftData adds the column on first open via
+      // automatic inference. Runs on both `globals` and `tripsLocal`
+      // containers; `globals` has no `Trip` rows in production
+      // (Phase 5.1 moved them to `tripsLocal`) so the data effect on
+      // `globals` is zero.
+      .lightweight(fromVersion: SchemaV3.self, toVersion: SchemaV4.self),
     ]
   }
 }

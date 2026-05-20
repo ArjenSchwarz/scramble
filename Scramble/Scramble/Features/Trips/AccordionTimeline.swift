@@ -123,7 +123,11 @@ struct AccordionTimeline: View {
     #if canImport(UIKit)
       UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     #endif
-    withAnimation(.easeInOut(duration: 0.25)) {
+    // Phase 6 Req 7.1 / 7.4 — shared duration; Reduce Motion users
+    // still get an animation but the content transition cross-fades
+    // via the inert-modifier pattern (the content's own opacity
+    // animates inside this same block).
+    withAnimation(.scrambleStandard) {
       expandedPhase = (expandedPhase == phase) ? nil : phase
       openDisclosureTaskID = nil
       if expandedPhase == phase {

@@ -21,6 +21,7 @@ import os
   @Environment(\.modelContext) private var modelContext
   @Environment(\.globalsContainer) private var globalsContainer
   @Environment(\.localWriteHook) private var hook
+  @Environment(\.notificationsService) private var notificationsService
   @Environment(\.zoneMigrationCoordinator) private var zoneMigrationCoordinator
 
   @State private var showCreateEditor = false
@@ -119,6 +120,15 @@ import os
         }
         if !orphans.isEmpty {
           toastMessage = TripPersistence.orphanedParticipantMessage(count: orphans.count)
+        }
+        // Phase 6 Req 3.1 — ask for notification authorization on
+        // first save of a trip whose dates produce at least one
+        // eligible phase. The auth helper short-circuits when
+        // status != .notDetermined or the trip yields zero plans.
+        if let service = notificationsService {
+          Task {
+            await service.requestAuthorizationIfNeeded(forTrip: newTrip)
+          }
         }
         return true
       }

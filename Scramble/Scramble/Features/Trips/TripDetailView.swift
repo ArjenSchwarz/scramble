@@ -1,10 +1,7 @@
 import SwiftData
 import SwiftUI
+import UIKit
 import os
-
-#if canImport(UIKit)
-  import UIKit
-#endif
 
 @MainActor struct TripDetailView: View {
   let trip: Trip
@@ -18,6 +15,9 @@ import os
   @Environment(\.dismiss) private var dismiss
   @Environment(\.sharingService) private var sharingService
   @Environment(\.rulesLastEvaluatedTracker) private var rulesLastEvaluatedTracker
+  @Environment(\.notificationsService) private var notificationsService
+  @Environment(\.activationRouter) private var activationRouter
+  @Environment(\.notificationAuthStatus) private var notificationAuthStatus
 
   @State private var showEditor = false
   @State private var editAttributeFocus: TripAttribute?
@@ -206,9 +206,48 @@ import os
       }
     }
     .transientToast(message: $toastMessage)
+    .task {
+      // Cold-launch / first-mount drain. Skip the animation so the
+      // route-driven expand does not stack on top of the view's own
+      // mount transition (the accordion would otherwise re-collapse
+      // the auto-expanded phase and re-expand the routed one inside
+      // the appearance animation, producing a brief flicker).
+      consumeActivationRouteIfMatching(animated: false)
+    }
+    .onChange(of: activationRouter?.pendingRoute) { _, _ in
+      consumeActivationRouteIfMatching(animated: true)
+    }
     #if DEBUG
       .background { inspectionMarkers }
     #endif
+  }
+
+  /// Phase 6 Req 5.1 / 5.5 — when the notification router holds a route
+  /// pointing at this trip, consume it and expand the routed phase. If the
+  /// phase is no longer eligible for this trip (e.g. the user shortened the
+  /// trip so a `daysBefore` phase has zero days, or `duringTrip` collapsed
+  /// to compressed) the existing auto-expand phase computed in `init` is
+  /// left in place.
+  private func consumeActivationRouteIfMatching(animated: Bool) {
+    guard let router = activationRouter,
+      let route = router.pendingRoute,
+      route.tripID == trip.id
+    else { return }
+    _ = router.consumeRoute()
+    guard isPhaseEligibleForRouting(route.phase) else { return }
+    if animated {
+      withAnimation(.scrambleStandard) {
+        expandedPhase = route.phase
+      }
+    } else {
+      expandedPhase = route.phase
+    }
+  }
+
+  private func isPhaseEligibleForRouting(_ phase: Phase) -> Bool {
+    guard PhaseDateMapping.dateRange(phase, for: trip, calendar: calendar) != nil
+    else { return false }
+    return !PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar)
   }
 
   /// Owner-side delete (Req 1.4 / Phase 5.1 Req 5). Phase 5.1: routes
@@ -228,7 +267,8 @@ import os
         tripID: tripID,
         in: modelContext,
         hook: hook,
-        zoneDeleter: zoneDeleter
+        zoneDeleter: zoneDeleter,
+        notificationsService: notificationsService
       )
     } catch {
       // `TripDeletion.delete` stages every record-delete and zone-state
@@ -314,11 +354,43 @@ import os
     }
   #endif
 
+  /// Phase 6 Req 3.5 — one-tap affordance to open iOS Settings when
+  /// activation notifications are disabled. Surfaced inside the trip
+  /// header so the user encounters it on a screen they already visit.
+  @ViewBuilder
+  private func notificationSettingsAffordance(variant: ThemeVariant) -> some View {
+    // Reading `notificationAuthStatus` (the `@Observable` holder)
+    // subscribes the view to changes; reading
+    // `notificationsService?.authStatus` directly would not (Decision 15).
+    if notificationAuthStatus?.authStatus == .denied {
+      Button {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+          UIApplication.shared.open(url)
+        }
+      } label: {
+        HStack(spacing: 6) {
+          Image(systemName: "bell.slash")
+          Text("Notifications are off — open Settings")
+        }
+        .font(.caption)
+        .foregroundStyle(variant.textSecondary)
+      }
+      .accessibilityIdentifier("tripDetail.openNotificationSettings")
+    }
+  }
+
   private func header(variant: ThemeVariant, isParticipantOnShared: Bool) -> some View {
     VStack(alignment: .leading, spacing: 6) {
-      Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
-        .font(.title2.weight(.semibold))
-        .foregroundStyle(variant.textPrimary)
+      HStack(spacing: 8) {
+        if let flag = CountryFlag.emoji(for: trip.countryCode) {
+          Text(flag)
+            .font(.title2)
+            .accessibilityHidden(true)
+        }
+        Text(trip.name.isEmpty ? "Untitled trip" : trip.name)
+          .font(.title2.weight(.semibold))
+          .foregroundStyle(variant.textPrimary)
+      }
 
       Text(formatTripDateRange(start: trip.startDate, end: trip.endDate))
         .font(.subheadline)
@@ -343,6 +415,8 @@ import os
           .foregroundStyle(variant.textSecondary)
           .accessibilityIdentifier("tripDetail.rulesLastEvaluated")
       }
+
+      notificationSettingsAffordance(variant: variant)
 
       let snapshots = trip.participantSnapshots ?? []
       if !snapshots.isEmpty {

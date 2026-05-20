@@ -128,6 +128,12 @@ struct PackingSheet: View {
     }
     .presentationDetents([.large])
     .presentationDragIndicator(.visible)
+    // Phase 6 Req 8.3 — soft-impact haptic when the sheet presents.
+    .onAppear {
+      #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+      #endif
+    }
     .task(id: participantIDSignature) {
       // Capture once so the id-driven re-evaluation and the body check
       // always observe the same snapshot, independent of any in-flight

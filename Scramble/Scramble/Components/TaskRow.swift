@@ -65,7 +65,7 @@ struct TaskRow: View {
     .frame(minHeight: 44)
     .contentShape(Rectangle())
     .opacity(rowOpacity)
-    .animation(.easeInOut(duration: 0.2), value: task.isCompleted)
+    .animation(.scrambleStandard, value: task.isCompleted)
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       Button(role: .destructive) {
         onDelete()
@@ -91,9 +91,23 @@ struct TaskRow: View {
       }
     }
     .accessibilityElement(children: .combine)
-    .accessibilityAction(named: Text("Why is this here?")) { onLongPress() }
-    .accessibilityAction(named: Text("Edit")) { onEdit() }
-    .accessibilityAction(named: Text("Delete")) { onDelete() }
+    .accessibilityLabel(Self.accessibilityLabel(for: task))
+    .accessibilityActions {
+      // Phase 6 Req 9.5 — "Why is this here?" custom action is
+      // exposed only when the underlying item has a rule
+      // justification (manual one-offs and items whose master row
+      // was deleted under certain conditions return nil from
+      // WhyResolver and therefore omit the action).
+      if Self.hasWhyJustification(
+        task: task,
+        context: modelContext,
+        hideOnUnresolvedMaster: isParticipantViewingSharedTrip
+      ) {
+        Button("Why is this here?") { onLongPress() }
+      }
+      Button("Edit") { onEdit() }
+      Button("Delete") { onDelete() }
+    }
     #if DEBUG
       .accessibilityIdentifier("tripDetail.taskRow.\(task.name)")
     #endif
@@ -144,7 +158,7 @@ struct TaskRow: View {
       #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
       #endif
-      withAnimation(.none) {
+      withAnimation(.scrambleStandard) {
         onToggleComplete()
       }
     } label: {
@@ -190,5 +204,36 @@ struct TaskRow: View {
     let completedFactor = task.isCompleted ? 0.5 : 1.0
     let matchFactor = (task.currentlyMatchesRules || task.pinnedByUser) ? 1.0 : 0.45
     return min(completedFactor, matchFactor)
+  }
+
+  // MARK: - Accessibility (Phase 6 Req 9.2, 9.5)
+
+  /// Combined accessibility label: task name, completion state, optional
+  /// assignee, phase. Read once per body re-evaluation; safe to call
+  /// off-context (uses only stored model properties).
+  static func accessibilityLabel(for task: TripTask) -> String {
+    var parts: [String] = [task.name]
+    parts.append(task.isCompleted ? "completed" : "not completed")
+    if let snapshot = assigneeSnapshot(for: task) {
+      parts.append("assigned to \(snapshot.name)")
+    }
+    parts.append("phase \(task.phase.displayName)")
+    return parts.joined(separator: ", ")
+  }
+
+  /// Phase 6 Req 9.5 — whether the "Why is this here?" custom action
+  /// should be exposed. Mirrors the long-press disclosure's gate:
+  /// `WhyResolver.reason(...)` returning non-nil means there is rule
+  /// justification to surface.
+  static func hasWhyJustification(
+    task: TripTask,
+    context: ModelContext,
+    hideOnUnresolvedMaster: Bool
+  ) -> Bool {
+    WhyResolver.reason(
+      for: task,
+      context: context,
+      hideOnUnresolvedMaster: hideOnUnresolvedMaster
+    ) != nil
   }
 }

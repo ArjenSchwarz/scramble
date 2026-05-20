@@ -7,7 +7,8 @@
 | [Phase 3 Timeline Tasks](#phase-3-timeline-tasks) | 2026-05-14 | Done | Trip Detail timeline accordion plus tasks list with explainability and short-trip compression. |
 | [Phase 4 Packing Sheet](#phase-4-packing-sheet) | 2026-05-15 | Done | Per-person packing summary block and bottom sheet with pack and repack modes. |
 | [Phase 5 CloudKit Sharing](#phase-5-cloudkit-sharing) | 2026-05-17 | Done | Per-trip CKShare via custom zones, SchemaV3 snapshots, and silent-push subscriptions. |
-| [Phase 5.1 Wire Trip Crud Tripslocal](#phase-5.1-wire-trip-crud-tripslocal) | 2026-05-17 | In Progress | Route Trip CRUD reads and writes through `tripsLocal` so the sync pipeline carries edits. |
+| [Phase 5.1 Wire Trip Crud Tripslocal](#phase-5.1-wire-trip-crud-tripslocal) | 2026-05-17 | Done | Route Trip CRUD reads and writes through `tripsLocal` so the sync pipeline carries edits. |
+| [Phase 6 Notifications Polish](#phase-6-notifications-polish) | 2026-05-19 | Done | Local phase-activation notifications, deep-link routing, country flag, transitions, haptics, VoiceOver, Dynamic Type AX2. |
 
 ---
 
@@ -69,3 +70,13 @@ Route Trip CRUD reads and writes through `tripsLocal` so the sync pipeline carri
 - [design.md](phase-5.1-wire-trip-crud-tripslocal/design.md)
 - [requirements.md](phase-5.1-wire-trip-crud-tripslocal/requirements.md)
 - [tasks.md](phase-5.1-wire-trip-crud-tripslocal/tasks.md)
+
+## Phase 6 Notifications Polish
+
+Local phase-activation notifications, deep-link routing, country flag, transitions, haptics, VoiceOver, Dynamic Type AX2.
+
+- [decision_log.md](phase-6-notifications-polish/decision_log.md)
+- [design.md](phase-6-notifications-polish/design.md)
+- [implementation.md](phase-6-notifications-polish/implementation.md)
+- [requirements.md](phase-6-notifications-polish/requirements.md)
+- [tasks.md](phase-6-notifications-polish/tasks.md)

@@ -14,6 +14,11 @@ import os
   /// never observed by `onChange`.
   @State private var hasBeenBackgrounded: Bool = false
   @Environment(\.scenePhase) private var scenePhase
+
+  /// Phase 6 — owned here so a notification-tap consumption can push to
+  /// the Trips tab's navigation stack regardless of which tab is showing.
+  @State private var tripsPath = NavigationPath()
+  @Environment(\.activationRouter) private var activationRouter
   /// Phase 5.1 — scene-phase rules-engine warm-pass runs against
   /// `tripsLocal`, the container that holds the trip-domain rows the
   /// engine reads and writes. `RootView` itself does not bind a container,
@@ -31,7 +36,7 @@ import os
 
   var body: some View {
     TabView(selection: $tab) {
-      TripsTab()
+      TripsTab(path: $tripsPath)
         .modelContainer(tripsLocalContainer)
         .tabItem {
           Label("Trips", systemImage: "suitcase")
@@ -43,6 +48,13 @@ import os
           Label("Master Lists", systemImage: "list.bullet.rectangle")
         }
         .tag(Tab.masterLists)
+    }
+    .onChange(of: activationRouter?.pendingRoute) { _, _ in
+      consumeActivationRoute()
+    }
+    .task {
+      // Drain any cold-launch route enqueued before this view appeared.
+      consumeActivationRoute()
     }
     .onChange(of: scenePhase) { _, newPhase in
       if newPhase == .background {
@@ -86,6 +98,43 @@ import os
         )
       }
     #endif
+  }
+
+  /// Phase 6 Req 5.1 / 5.4 — peek at the router's `pendingRoute`, navigate
+  /// to the referenced trip, and leave the slot filled so `TripDetailView`
+  /// can consume it on appear and apply `route.phase` to its
+  /// `expandedPhase`. A miss on the trip lookup discards the route per
+  /// Req 5.4 without modifying navigation state.
+  private func consumeActivationRoute() {
+    guard let router = activationRouter,
+      let route = router.pendingRoute
+    else { return }
+    let tripID = route.tripID
+    let descriptor = FetchDescriptor<Trip>(predicate: #Predicate { $0.id == tripID })
+    let trip: Trip?
+    do {
+      trip = try tripsLocalContainer.mainContext.fetch(descriptor).first
+    } catch {
+      // Transient fetch failure (store unavailable mid-migration, etc.).
+      // Surface for crash reports; consume the route so we do not retry
+      // a doomed lookup on every re-render.
+      modelLogger.error(
+        """
+        [RootView.consumeActivationRoute] fetch failed \
+        tripID=\(tripID, privacy: .public) \
+        error=\(error.localizedDescription, privacy: .public)
+        """
+      )
+      _ = router.consumeRoute()
+      return
+    }
+    guard let trip else {
+      _ = router.consumeRoute()
+      return
+    }
+    tab = .trips
+    tripsPath = NavigationPath()
+    tripsPath.append(trip)
   }
 
   #if DEBUG

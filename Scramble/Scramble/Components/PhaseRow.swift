@@ -104,13 +104,13 @@ struct PhaseRow<Content: View>: View {
   }
 
   private func header(variant: ThemeVariant) -> some View {
-    let label = phaseAccessibilityLabel(
+    let label = Self.accessibilityLabel(
       phase: phase,
       state: state,
       counts: counts,
-      expandable: expandable,
       packingSubline: packingSubline
     )
+    let hint = Self.accessibilityHint(expandable: expandable, isExpanded: isExpanded)
 
     return VStack(alignment: .leading, spacing: 2) {
       HStack(spacing: 8) {
@@ -140,6 +140,7 @@ struct PhaseRow<Content: View>: View {
     .modifier(TapToToggleModifier(enabled: expandable, action: onToggle))
     .accessibilityElement(children: .combine)
     .accessibilityLabel(label)
+    .accessibilityHint(hint)
     #if DEBUG
       .accessibilityIdentifier("tripDetail.phaseHeader.\(phase.rawValue)")
     #endif
@@ -158,23 +159,28 @@ struct PhaseRow<Content: View>: View {
     return TaskListHelpers.subline(counts)
   }
 
-  // MARK: - Accessibility
+  // MARK: - Accessibility (Phase 6 Req 9.1)
 
-  private func phaseAccessibilityLabel(
+  /// Combined accessibility label of the form
+  /// `"{phase display name}, {state}, {N of M tasks complete}"` per
+  /// Req 9.1. The task-count clause is omitted entirely when
+  /// `counts.total == 0`. The packing-subline (when present) is
+  /// appended after the task count so VoiceOver users hear the same
+  /// information visible sighted users get from the subline.
+  static func accessibilityLabel(
     phase: Phase,
     state: PhaseNodeState,
     counts: PhaseCounts,
-    expandable: Bool,
     packingSubline: String?
   ) -> String {
     let stateText: String
     switch state {
     case .past: stateText = "past"
-    case .current: stateText = "current"
-    case .future: stateText = "future"
+    case .current: stateText = "current phase"
+    case .future: stateText = "upcoming"
     }
-    var label = "\(phase.displayName), \(stateText) phase"
-    if counts.total > 0 || packingSubline == nil {
+    var label = "\(phase.displayName), \(stateText)"
+    if counts.total > 0 {
       label += ", \(counts.completed) of \(counts.total) tasks complete"
     }
     if counts.inactive > 0 {
@@ -183,23 +189,35 @@ struct PhaseRow<Content: View>: View {
     if let packingSubline {
       label += ", \(packingSubline)"
     }
-    if expandable {
-      label += ", double tap to expand"
-    }
     return label
+  }
+
+  /// Action hint that flips based on the current expansion state.
+  /// Non-expandable spine markers expose no hint.
+  static func accessibilityHint(expandable: Bool, isExpanded: Bool) -> String {
+    guard expandable else { return "" }
+    return isExpanded ? "double tap to collapse" : "double tap to expand"
   }
 }
 
 /// View modifier that only attaches `.onTapGesture` when `enabled` is true —
 /// preserves the "compressed / non-expandable spine marker is not tappable"
 /// rule (Req 2.5 / 3.2) without conditionally wrapping the view tree.
+///
+/// Phase 6 — Req 8.2: tap fires a medium-impact haptic on the same view
+/// event that initiates expand/collapse.
 private struct TapToToggleModifier: ViewModifier {
   let enabled: Bool
   let action: () -> Void
 
   func body(content: Content) -> some View {
     if enabled {
-      content.onTapGesture { action() }
+      content.onTapGesture {
+        #if canImport(UIKit)
+          UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        action()
+      }
     } else {
       content
     }

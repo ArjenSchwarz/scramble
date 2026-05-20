@@ -25,6 +25,9 @@ enum TripRecordTranslator {
       throw TranslatorError.blobTooLarge(field: "attributesData", size: trip.attributesData.count)
     }
     record["attributesData"] = trip.attributesData as CKRecordValue
+    // Assigning `CKRecordValue?(nil)` clears the field so a user who
+    // unsets `countryCode` propagates the deletion to participants.
+    record["countryCode"] = trip.countryCode as CKRecordValue?
     return record
   }
 
@@ -40,6 +43,12 @@ enum TripRecordTranslator {
     if let attributesData = record["attributesData"] as? Data {
       trip.attributesData = attributesData
     }
+    // Unconditional assignment so a clear from the owner (which the
+    // encode side serialises by removing the field) reaches the
+    // participant. `CKSyncEngine` delivers full record snapshots, not
+    // partial diffs, so an absent field on the wire means "cleared",
+    // not "unchanged" (Phase 6 / Decision 5).
+    trip.countryCode = record["countryCode"] as? String
     trip.ckRecordSystemFields = encodeSystemFields(of: record)
   }
 

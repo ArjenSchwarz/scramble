@@ -36,7 +36,8 @@ enum TripDeletion {
     tripID: UUID,
     in context: ModelContext,
     hook: LocalWriteHook,
-    zoneDeleter: TripZoneDeleter? = nil
+    zoneDeleter: TripZoneDeleter? = nil,
+    notificationsService: NotificationsService? = nil
   ) throws {
     let zoneStates = try context.fetch(
       FetchDescriptor<TripZoneState>(predicate: #Predicate { $0.tripID == tripID })
@@ -67,6 +68,18 @@ enum TripDeletion {
     }
 
     try hook.commitDeletion(context, zoneIDsBeingDeleted: Set(zoneIDs))
+
+    // Phase 6 Req 4.2 — cancel pending + delivered activation
+    // notifications for this trip on the commit-succeeded path.
+    //
+    // Ordering note: this fires BEFORE the CloudKit zone delete below.
+    // On a partial failure (commit succeeded, zone-delete failed) the
+    // trip's notifications are permanently cancelled while the trip
+    // record survives in CloudKit. Accepted by design — the local-first
+    // model treats the local commit as the source of truth, and a
+    // subsequent app launch re-reconciles the (now-absent) trip's
+    // notifications against the (still-present) record.
+    notificationsService?.requestReschedule(reason: .tripDeleted(tripID: tripID))
 
     // Owner-side: ask the engine to remove the zone from CloudKit.
     if let zoneDeleter, isOwnerScope {

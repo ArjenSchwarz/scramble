@@ -30,7 +30,7 @@ struct ZoneMigrationCoordinatorPBT {
     var description: String { "\(point)x\(resumeCount)" }
   }
 
-  static let crossProduct: [Scenario] = InterruptionPoint.allCases.flatMap { point in
+  nonisolated static let crossProduct: [Scenario] = InterruptionPoint.allCases.flatMap { point in
     [1, 2, 5].map { Scenario(point: point, resumeCount: $0) }
   }
 

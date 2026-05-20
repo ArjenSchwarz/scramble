@@ -1,6 +1,7 @@
 import CloudKit
 import Foundation
 import SwiftData
+import os
 
 /// Phase 5 chokepoint for every `tripsLocal` mutation (Decision 13).
 ///

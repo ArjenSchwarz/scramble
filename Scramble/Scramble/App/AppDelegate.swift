@@ -19,14 +19,23 @@ import os
 /// `ScrambleApp.init`.
 final class AppDelegate: NSObject, UIApplicationDelegate {
 
-  /// Holds the SharingService + notification router. Stored as a
+  /// Holds the SharingService + notification routers. Stored as a
   /// `static` so SwiftUI can reach in from the `App` body without
   /// fighting the AppDelegateAdaptor lifecycle (which constructs the
   /// delegate on UIKit's terms).
+  ///
+  /// Two notification routers live here:
+  /// - `notificationRouter` (Phase 5) — silent-push fan-out to the
+  ///   sync engines via `RemoteNotificationRouter`.
+  /// - `activationRouter` (Phase 6) — `UNUserNotificationCenterDelegate`
+  ///   for the local activation notifications. Holds the 1-slot
+  ///   `pendingRoute` that `RootView` drains.
   @MainActor
   struct Environment {
     let sharingService: SharingService
     let notificationRouter: RemoteNotificationRouter
+    let activationRouter: NotificationRouter
+    let notificationsService: NotificationsService
   }
 
   @MainActor

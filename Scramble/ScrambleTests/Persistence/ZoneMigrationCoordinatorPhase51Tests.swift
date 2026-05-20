@@ -160,7 +160,7 @@ struct ZoneMigrationCoordinatorPhase51Tests {
     let setup = try ZoneMigrationCoordinatorTests.makeSetup()
     let trip = Trip(name: "Iceland", startDate: .now, endDate: .now)
     var attributes = trip.attributes
-    attributes.climate = .warm
+    attributes.setSingle(.weather, value: "warm")
     trip.attributes = attributes
     trip.ckRecordSystemFields = Data([0x01, 0x02, 0x03])
     let masterID = UUID()
@@ -169,9 +169,9 @@ struct ZoneMigrationCoordinatorPhase51Tests {
       trip: trip,
       masterItemID: masterID,
       name: "Pack socks",
-      phase: .daysBefore,
+      phase: .dayBefore,
       isCompleted: true,
-      source: .rules,
+      source: .rule,
       currentlyMatchesRules: false,
       pinnedByUser: true,
       assigneePersonID: assigneeID,
@@ -192,7 +192,7 @@ struct ZoneMigrationCoordinatorPhase51Tests {
       masterItemID: masterID,
       name: "Socks",
       state: .packed,
-      source: .rules,
+      source: .rule,
       currentlyMatchesRules: false,
       pinnedByUser: true,
       personSnapshot: snapshot
@@ -212,7 +212,7 @@ struct ZoneMigrationCoordinatorPhase51Tests {
     )
     #expect(relocatedTrip.id == trip.id)
     #expect(relocatedTrip.name == trip.name)
-    #expect(relocatedTrip.attributes.climate == .warm)
+    #expect(relocatedTrip.attributes.selected(.weather) == ["warm"])
     #expect(relocatedTrip.ckRecordSystemFields == Data([0x01, 0x02, 0x03]))
 
     let relocatedTask = try #require(
@@ -220,9 +220,9 @@ struct ZoneMigrationCoordinatorPhase51Tests {
     )
     #expect(relocatedTask.masterItemID == masterID)
     #expect(relocatedTask.name == "Pack socks")
-    #expect(relocatedTask.phase == .daysBefore)
+    #expect(relocatedTask.phase == .dayBefore)
     #expect(relocatedTask.isCompleted == true)
-    #expect(relocatedTask.source == .rules)
+    #expect(relocatedTask.source == .rule)
     #expect(relocatedTask.currentlyMatchesRules == false)
     #expect(relocatedTask.pinnedByUser == true)
     #expect(relocatedTask.assigneePersonID == assigneeID)
@@ -245,7 +245,7 @@ struct ZoneMigrationCoordinatorPhase51Tests {
     #expect(relocatedItem.masterItemID == masterID)
     #expect(relocatedItem.name == "Socks")
     #expect(relocatedItem.state == .packed)
-    #expect(relocatedItem.source == .rules)
+    #expect(relocatedItem.source == .rule)
     #expect(relocatedItem.currentlyMatchesRules == false)
     #expect(relocatedItem.pinnedByUser == true)
     #expect(relocatedItem.ckRecordSystemFields == Data([0x30]))
