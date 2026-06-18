@@ -299,32 +299,22 @@ extension MigrationJournalEntry {
   }
 }
 
-// MARK: - SchemaV4 (Phase 6 — adds Trip.countryCode)
+// MARK: - Phase 6 note — why there is no SchemaV4
 
-/// Phase 6 schema. Additive only: introduces `Trip.countryCode: String?`
-/// (Decision 5). All other entities are unchanged from V3, so the V3 → V4
-/// stage is a lightweight migration — SwiftData adds the new column on
-/// first open via Core Data's automatic inference because the property
-/// is `Optional` with a `nil` default.
-nonisolated enum SchemaV4: VersionedSchema {
-  nonisolated static var versionIdentifier: Schema.Version {
-    Schema.Version(4, 0, 0)
-  }
-
-  nonisolated static var models: [any PersistentModel.Type] {
-    [
-      Trip.self,
-      Person.self,
-      MasterTaskItem.self,
-      MasterPackingItem.self,
-      TripTask.self,
-      TripPackingItem.self,
-      SchemaV3.TripPersonSnapshot.self,
-      SchemaV3.TripZoneState.self,
-      SchemaV3.MigrationJournalEntry.self,
-    ]
-  }
-}
+// Phase 6 added `Trip.countryCode: String?` (Decision 5). That cannot be
+// modelled as a distinct `SchemaV4`: `Trip` is a single top-level `@Model`
+// shared by every schema version, so adding a property to it changes the
+// structure of *every* version's view of `Trip` simultaneously. A V4 whose
+// only difference from V3 is `Trip.countryCode` is byte-identical to V3 at
+// the metadata level — SwiftData computes the version checksum purely from
+// structure (the `versionIdentifier` is not part of it), so a V3 → V4 stage
+// fails plan validation with `Duplicate version checksums across stages
+// detected` the moment an older store forces the plan to traverse it.
+// `countryCode` therefore lives on the current `Trip` and is part of
+// `SchemaV3`; SwiftData adds the column to existing stores via automatic
+// lightweight inference (Optional with a `nil` default), the same mechanism
+// already used for `ckRecordSystemFields`. See the persistence note
+// "Shared top-level classes can't express property-only schema bumps".
 
 // MARK: - Top-level current types
 
@@ -422,7 +412,7 @@ extension TripTask {
 
 nonisolated enum AppMigrationPlan: SchemaMigrationPlan {
   nonisolated static var schemas: [any VersionedSchema.Type] {
-    [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self]
+    [SchemaV1.self, SchemaV2.self, SchemaV3.self]
   }
 
   nonisolated static var stages: [MigrationStage] {
@@ -436,10 +426,17 @@ nonisolated enum AppMigrationPlan: SchemaMigrationPlan {
       // inference (every new V3 column is `Optional` with `nil`
       // default). The custom `didMigrate` step then backfills
       // `TripPersonSnapshot` rows from existing `Person` references and
-      // wires `TripPackingItem.personSnapshot`. Custom is required
+      // wires `TripPackingItem.personSnapshotID`. Custom is required
       // because the backfill reads V2 trip-roster relationships and
       // writes V3 snapshot rows in a single transaction. Offline-safe —
       // no CloudKit calls; runs unconditionally even when signed out.
+      //
+      // V3 is the current schema. Additive property changes to the shared
+      // top-level classes (e.g. Phase 6's `Trip.countryCode`, and the
+      // `TripPackingItem.personSnapshot` → `personSnapshotID` value-
+      // reference change) ride in on V3's automatic lightweight inference
+      // rather than a new stage — a property-only bump can't be a distinct
+      // version under the shared-class pattern (see the SchemaV4 note).
       .custom(
         fromVersion: SchemaV2.self,
         toVersion: SchemaV3.self,
@@ -448,13 +445,6 @@ nonisolated enum AppMigrationPlan: SchemaMigrationPlan {
           try SchemaV3MigrationStage.backfillSnapshots(in: context)
         }
       ),
-      // V3 → V4: lightweight; adds `Trip.countryCode: String?` with
-      // `nil` default. SwiftData adds the column on first open via
-      // automatic inference. Runs on both `globals` and `tripsLocal`
-      // containers; `globals` has no `Trip` rows in production
-      // (Phase 5.1 moved them to `tripsLocal`) so the data effect on
-      // `globals` is zero.
-      .lightweight(fromVersion: SchemaV3.self, toVersion: SchemaV4.self),
     ]
   }
 }

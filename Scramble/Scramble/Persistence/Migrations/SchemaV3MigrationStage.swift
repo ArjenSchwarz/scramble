@@ -72,13 +72,13 @@ nonisolated enum SchemaV3MigrationStage {
 
     for item in trip.packingItems ?? [] {
       // Already linked — nothing to do (idempotence on a re-run).
-      if item.personSnapshot != nil { continue }
+      if item.personSnapshotID != nil { continue }
       guard let person = item.person else { continue }
       // The item's person may have been removed from the roster after the
       // packing item was created (Req 2.4 dangling-snapshot rule); only
       // wire up a snapshot when there is one for this person on this trip.
       if let snapshot = snapshotByPersonID[person.id] {
-        item.personSnapshot = snapshot
+        item.personSnapshotID = snapshot.id
       }
     }
   }

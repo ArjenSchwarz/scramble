@@ -356,7 +356,7 @@ final class ZoneMigrationCoordinator {
     }
 
     for item in trip.packingItems ?? [] {
-      let mappedSnapshot = item.personSnapshot.flatMap { snapshotsByID[$0.id] }
+      let mappedSnapshot = item.personSnapshotID.flatMap { snapshotsByID[$0] }
       let copiedItem = TripPackingItem(
         id: item.id,
         trip: copiedTrip,

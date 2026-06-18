@@ -142,9 +142,9 @@ extension PackingItemForm {
   }
 
   /// Inserts a manual `TripPackingItem` with the documented field values
-  /// (Req 5.3). Phase 5.1: writes the V3 `personSnapshot` relationship
-  /// (looked up against `trip.participantSnapshots` by `person.id`)
-  /// instead of the V2 `person → Person` relationship that would span
+  /// (Req 5.3). Phase 5.1: writes the V3 `personSnapshotID` value
+  /// reference (looked up against `trip.participantSnapshots` by
+  /// `person.id`) instead of the V2 `person → Person` relationship that would span
   /// containers under the dual-container split. Throws on
   /// `modelContext.save()` failure; on throw the inserted instance is
   /// removed from the context so the caller's retry does not

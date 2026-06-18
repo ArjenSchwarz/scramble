@@ -12,11 +12,13 @@ enum ModelStore {
   /// is a local-only store whose CloudKit sync is driven by
   /// `TripSyncEngine`, not by SwiftData.
   ///
-  /// Both schemas remain `SchemaV4`-shaped (full model list) because the
+  /// Both schemas remain `SchemaV3`-shaped (full model list) because the
   /// deprecated V2 cross-references — `Trip.participants → Person`,
   /// `TripPackingItem.person → Person` — still resolve via the shared
-  /// top-level entity classes. Phase 6 promoted the schema from V3 to V4
-  /// purely to add `Trip.countryCode`. The logical ownership table from
+  /// top-level entity classes. `Trip.countryCode` (Phase 6) is part of
+  /// `SchemaV3`; there is no `SchemaV4` (see the Schema.swift note on why
+  /// a property-only bump can't be a distinct version). The ownership
+  /// table from
   /// the design document is enforced by convention: `globals.mainContext`
   /// holds globals records, `tripsLocal.mainContext` holds trip-zone
   /// records. Stage B performed the actual data move during Phase 5.
@@ -82,9 +84,12 @@ enum ModelStore {
   /// Production wiring uses SwiftData's CloudKit mirror against the
   /// private database; tests get an in-memory store. The schema includes
   /// the full V3 model list so the deprecated V2 cross-references
-  /// (`Trip.participants → Person`) keep resolving until V4 cleanup.
+  /// (`Trip.participants → Person`) keep resolving. Removing these via a
+  /// distinct schema version is blocked by the shared-top-level-class
+  /// checksum constraint (a property-only removal collides with V3) — see
+  /// `docs/agent-notes/persistence.md`; the columns are inert dead storage.
   nonisolated static func globalsConfiguration(probe: EnvironmentProbe) -> ModelConfiguration {
-    let schema = Schema(versionedSchema: SchemaV4.self)
+    let schema = Schema(versionedSchema: SchemaV3.self)
     switch strategy(probe: probe) {
     case .inMemory:
       return ModelConfiguration(
@@ -101,7 +106,7 @@ enum ModelStore {
   }
 
   static func makeGlobalsContainer(probe: EnvironmentProbe) -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV4.self)
+    let schema = Schema(versionedSchema: SchemaV3.self)
     let primary = globalsConfiguration(probe: probe)
     do {
       return try ModelContainer(
@@ -135,7 +140,7 @@ enum ModelStore {
   /// 13). The store URL is distinct from the globals store so the two do
   /// not collide.
   nonisolated static func tripsLocalConfiguration(probe: EnvironmentProbe) -> ModelConfiguration {
-    let schema = Schema(versionedSchema: SchemaV4.self)
+    let schema = Schema(versionedSchema: SchemaV3.self)
     switch strategy(probe: probe) {
     case .inMemory:
       return ModelConfiguration(
@@ -154,7 +159,7 @@ enum ModelStore {
   }
 
   static func makeTripsLocalContainer(probe: EnvironmentProbe) -> ModelContainer {
-    let schema = Schema(versionedSchema: SchemaV4.self)
+    let schema = Schema(versionedSchema: SchemaV3.self)
     let primary = tripsLocalConfiguration(probe: probe)
     do {
       return try ModelContainer(

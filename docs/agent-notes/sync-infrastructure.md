@@ -60,8 +60,10 @@ surfaces remain unimplemented.
   protocol contract + `TranslatorError` + `kRecordBlobSizeCap` (256 KB
   per blob field).
 - `Scramble/Scramble/Sharing/Translators/{Trip,TripTask,TripPackingItem,TripPersonSnapshot}RecordTranslator.swift` —
-  one per entity. Relationships encoded as UUID-valued record fields
-  (e.g., `personSnapshotID: String`), **never** `CKRecord.Reference`.
+  one per entity. Relationships and value references encoded as
+  UUID-valued record fields (e.g., `personSnapshotID: String` — now a
+  stored value reference on `TripPackingItem`, not a `@Relationship`),
+  **never** `CKRecord.Reference`.
   Each translator preserves CKRecord system fields via the
   `ckRecordSystemFields: Data?` blob on the @Model (decoded with
   `decodeSystemFields(from:)`, re-encoded with `encodeSystemFields(of:)`

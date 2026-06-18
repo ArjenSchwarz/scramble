@@ -43,9 +43,10 @@ final class Trip {
   /// pre-Phase-5 records and freshly created trips have no cache yet.
   var ckRecordSystemFields: Data?
 
-  /// V4 — ISO 3166-1 alpha-2 destination country, uppercase or `nil`.
-  /// Used by `CountryFlag.emoji(for:)` to render a flag glyph on the
-  /// Trip Detail header (Phase 6 Decision 5).
+  /// Phase 6 (Decision 5) — ISO 3166-1 alpha-2 destination country,
+  /// uppercase or `nil`. Used by `CountryFlag.emoji(for:)` to render a
+  /// flag glyph on the Trip Detail header. Part of `SchemaV3` (added via
+  /// lightweight inference, not a distinct V4 — see the Schema.swift note).
   var countryCode: String?
 
   init(

@@ -90,7 +90,7 @@ enum SnapshotMaintenance {
   ///
   /// **Ordering contract — call BEFORE `context.delete(item)`.** This
   /// routine counts referrers via a SwiftData fetch (predicate over
-  /// `personSnapshot?.id`) which sees the in-context state, including
+  /// `personSnapshotID`) which sees the in-context state, including
   /// any deletions staged in this transaction. If `item` is already
   /// deleted at the moment of this call, the referrer count drops to
   /// zero prematurely and a snapshot that other packing items still
@@ -149,7 +149,7 @@ enum SnapshotMaintenance {
     let snapshotID = snapshot.id
     let items = try context.fetch(
       FetchDescriptor<TripPackingItem>(
-        predicate: #Predicate { $0.personSnapshot?.id == snapshotID }
+        predicate: #Predicate { $0.personSnapshotID == snapshotID }
       )
     )
     if let excludedItemID {

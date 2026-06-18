@@ -2,9 +2,9 @@ import CloudKit
 import Foundation
 import SwiftData
 
-/// `TripPackingItem` ↔ `CKRecord` translator. The `personSnapshot`
-/// relationship is encoded as `personSnapshotID: String` per the design's
-/// "relationships are UUID record fields" rule (Decision 13).
+/// `TripPackingItem` ↔ `CKRecord` translator. The `personSnapshotID`
+/// value reference is encoded as `personSnapshotID: String` per the
+/// design's "relationships are UUID record fields" rule (Decision 13).
 @MainActor
 enum TripPackingItemRecordTranslator {
   static let recordType: String = "TripPackingItem"
@@ -25,7 +25,7 @@ enum TripPackingItemRecordTranslator {
     } else {
       record["tripID"] = nil
     }
-    record["personSnapshotID"] = item.personSnapshot?.id.uuidString as CKRecordValue?
+    record["personSnapshotID"] = item.personSnapshotID?.uuidString as CKRecordValue?
     record["masterItemID"] = item.masterItemID?.uuidString as CKRecordValue?
     record["name"] = item.name as CKRecordValue
     record["stateRaw"] = item.stateRaw as CKRecordValue
@@ -54,7 +54,10 @@ enum TripPackingItemRecordTranslator {
     let snapshotID = (record["personSnapshotID"] as? String)
       .flatMap(UUID.init(uuidString:))
     if let snapshotID {
-      item.personSnapshot = try fetchSnapshot(id: snapshotID, in: context)
+      // Store the bare ID — dangling references are tolerated. The
+      // snapshot may not have synced into this store yet; the
+      // `personSnapshot` bridge resolves it on read once it arrives.
+      item.personSnapshotID = snapshotID
     }
     item.masterItemID =
       (record["masterItemID"] as? String).flatMap(UUID.init(uuidString:))
@@ -81,13 +84,6 @@ enum TripPackingItemRecordTranslator {
 
   private static func fetchTrip(id: UUID, in context: ModelContext) throws -> Trip? {
     let descriptor = FetchDescriptor<Trip>(predicate: #Predicate { $0.id == id })
-    return try context.fetch(descriptor).first
-  }
-
-  private static func fetchSnapshot(
-    id: UUID, in context: ModelContext
-  ) throws -> TripPersonSnapshot? {
-    let descriptor = FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { $0.id == id })
     return try context.fetch(descriptor).first
   }
 }

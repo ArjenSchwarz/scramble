@@ -9,11 +9,12 @@ import SwiftData
 ///
 /// Translator rules (uniform across every entity):
 ///
-/// - Relationships are stored as UUID-valued record fields, **not**
-///   `CKRecord.Reference`. A `TripPackingItem`'s `personSnapshot` is encoded
-///   as `personSnapshotID: String` on the `CKRecord`; lookup at decode time
-///   happens against `tripsLocal`. This avoids cross-record dependency
-///   ordering inside `CKSyncEngine` batches.
+/// - Relationships and snapshot references are stored as UUID-valued
+///   record fields, **not** `CKRecord.Reference`. A `TripPackingItem`'s
+///   `personSnapshotID` is encoded as `personSnapshotID: String` on the
+///   `CKRecord`; the bare ID is stored back on decode (dangling references
+///   tolerated). This avoids cross-record dependency ordering inside
+///   `CKSyncEngine` batches.
 /// - System fields are preserved on every write. `existing: CKRecord?` is
 ///   constructed by decoding the entity's `ckRecordSystemFields` blob via
 ///   `CKRecord(coder:)`. After every send/fetch, the translator re-encodes
