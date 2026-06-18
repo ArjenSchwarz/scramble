@@ -103,7 +103,7 @@ struct PackingItemRowAccessibilityTests {
   }
 
   static func makeSetup() throws -> Setup {
-    let schema = Schema(versionedSchema: SchemaV4.self)
+    let schema = Schema(versionedSchema: SchemaV3.self)
     let config = ModelConfiguration(
       schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none
     )

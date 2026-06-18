@@ -20,19 +20,41 @@ struct SchemaV3MigrationTests {
 
   // MARK: - Migration plan shape
 
-  @Test("AppMigrationPlan declares V1, V2, V3, and V4")
+  @Test("AppMigrationPlan declares V1, V2, and V3 (V3 is the current schema)")
   func planLinksAllVersions() {
     let schemaIDs = AppMigrationPlan.schemas.map(ObjectIdentifier.init)
     #expect(schemaIDs.contains(ObjectIdentifier(SchemaV1.self)))
     #expect(schemaIDs.contains(ObjectIdentifier(SchemaV2.self)))
     #expect(schemaIDs.contains(ObjectIdentifier(SchemaV3.self)))
-    #expect(schemaIDs.contains(ObjectIdentifier(SchemaV4.self)))
   }
 
-  @Test("AppMigrationPlan exposes V1→V2 lightweight, V2→V3 custom, V3→V4 lightweight")
+  @Test("AppMigrationPlan exposes V1→V2 lightweight and V2→V3 custom")
   func planExposesAllStages() {
     let stages = AppMigrationPlan.stages
-    #expect(stages.count == 3, "Expected one stage per consecutive version pair")
+    #expect(stages.count == 2, "Expected one stage per consecutive version pair")
+  }
+
+  // MARK: - Phase 6 countryCode rides on V3 (no SchemaV4)
+
+  @Test("SchemaV3 Trip entity includes Phase 6 countryCode")
+  func schemaV3IncludesCountryCode() {
+    let schema = Schema(versionedSchema: SchemaV3.self)
+    let trip = schema.entities.first(where: { $0.name == "Trip" })
+    let propertyNames = Set(trip?.properties.map(\.name) ?? [])
+    #expect(propertyNames.contains("countryCode"))
+  }
+
+  @Test("Fresh V3 Trip defaults countryCode to nil and round-trips through the plan")
+  func freshV3TripCountryCodeNil() throws {
+    let container = try Self.makeV3Container()
+    let context = container.mainContext
+
+    let trip = Trip(name: "Iceland", startDate: .now, endDate: .now)
+    context.insert(trip)
+    try context.save()
+
+    let stored = try #require(try context.fetch(FetchDescriptor<Trip>()).first)
+    #expect(stored.countryCode == nil)
   }
 
   // MARK: - Fresh V3 entity defaults

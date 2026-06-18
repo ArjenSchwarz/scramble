@@ -6,9 +6,11 @@ final class TripPackingItem {
   var id: UUID = UUID()
   @Relationship var trip: Trip?
 
-  /// Deprecated in V3, removed in V4. New code reads `personSnapshot`
-  /// (Decision 7) so a shared trip renders without crossing into the
-  /// owner's globals zone.
+  /// Deprecated in V3. New code reads `personSnapshot` (Decision 7) so a
+  /// shared trip renders without crossing into the owner's globals zone.
+  /// The planned V4 removal was folded into V3 — the shared top-level
+  /// class pattern makes a property-only V4 indistinguishable from V3 —
+  /// so this field is still present but unused on read paths.
   @Relationship var person: Person?
 
   var masterItemID: UUID?
@@ -21,7 +23,16 @@ final class TripPackingItem {
   /// V3 — replaces `person` for read paths; resolved through the trip
   /// zone so participants render without crossing into the owner's
   /// globals zone (Req 2.5).
-  @Relationship var personSnapshot: TripPersonSnapshot?
+  ///
+  /// Stored as a `UUID?` value reference rather than a `@Relationship`.
+  /// The globals container's SwiftData CloudKit mirror rejects any
+  /// relationship without an inverse, and the snapshot↔item inverse is
+  /// exactly the pair that panics SwiftData's cascade traversal on iOS
+  /// 26.4 (see `Trip.participantSnapshots`). A value reference satisfies
+  /// CloudKit, sidesteps that cascade, and matches
+  /// `TripTask.assigneePersonID`'s dangling-reference tolerance. Read it
+  /// through the `personSnapshot` computed bridge below.
+  var personSnapshotID: UUID?
 
   /// V3 — see `Trip.ckRecordSystemFields`.
   var ckRecordSystemFields: Data?
@@ -47,7 +58,7 @@ final class TripPackingItem {
     self.sourceRaw = source.rawValue
     self.currentlyMatchesRules = currentlyMatchesRules
     self.pinnedByUser = pinnedByUser
-    self.personSnapshot = personSnapshot
+    self.personSnapshotID = personSnapshot?.id
   }
 }
 
@@ -60,5 +71,31 @@ extension TripPackingItem {
   var source: ItemSource {
     get { ItemSource(rawValue: sourceRaw) ?? .manual }
     set { sourceRaw = newValue.rawValue }
+  }
+
+  /// Bridge over the `personSnapshotID` value reference. Lives in an
+  /// extension so the `@Model` macro never treats it as a stored
+  /// relationship (it has no inverse to CloudKit — that is the whole
+  /// point of the value reference). Resolves the snapshot in-memory via
+  /// the owning trip's `participantSnapshots`, falling back to a fetch
+  /// from the item's `modelContext` when the trip-side array isn't wired
+  /// (e.g. a freshly decoded CloudKit record, or a snapshot attached via
+  /// the unpaired `TripPersonSnapshot.trip` back-link only). The item and
+  /// its snapshot are both trip-zone records in `tripsLocal`, so the
+  /// fallback fetches from that store — the bridge never crosses into the
+  /// owner's `globals` zone (the reason snapshots exist; Decision 7).
+  /// Returns `nil` for a dangling ID — references are tolerated, not enforced.
+  var personSnapshot: TripPersonSnapshot? {
+    get {
+      guard let snapshotID = personSnapshotID else { return nil }
+      let onTrip = (trip?.participantSnapshots ?? []).first { $0.id == snapshotID }
+      if let onTrip { return onTrip }
+      guard let modelContext else { return nil }
+      let descriptor = FetchDescriptor<TripPersonSnapshot>(
+        predicate: #Predicate { $0.id == snapshotID }
+      )
+      return try? modelContext.fetch(descriptor).first
+    }
+    set { personSnapshotID = newValue?.id }
   }
 }

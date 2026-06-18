@@ -206,7 +206,7 @@ struct NotificationsServiceTests {
   func makeSetup() throws -> Setup {
     var cal = Calendar(identifier: .gregorian)
     cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
-    let schema = Schema(versionedSchema: SchemaV4.self)
+    let schema = Schema(versionedSchema: SchemaV3.self)
     let config = ModelConfiguration(
       schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none
     )

@@ -492,3 +492,39 @@ Codex's iOS 26.4 SDK header reading clarified two points after the initial Decis
 - **`CKSyncEngine.State.add(pendingRecordZoneChanges:)` takes record IDs**, not `CKRecord`s; the delegate's `nextRecordZoneChangeBatch(_:syncEngine:)` supplies the actual records when the engine asks. Push-notification routing calls `engine.fetchChanges()` (not a non-existent `engine.handleEvent`).
 
 ---
+
+## Decision 14: `TripPackingItem.personSnapshot` is a value reference, not a relationship
+
+**Date**: 2026-06-18
+**Status**: accepted (amends Decision 7 — the denormalised-snapshot concept stands; only the storage form on `TripPackingItem` changes)
+
+### Context
+
+`TripPackingItem.personSnapshot` shipped (Decision 7) as `@Relationship var personSnapshot: TripPersonSnapshot?` with no inverse — `TripPersonSnapshot` has no `[TripPackingItem]` collection, and the snapshot↔item inverse is exactly the nullify chain that panics SwiftData's cascade traversal on iOS 26.4. This passed every test and ran on the simulator, where containers use `cloudKitDatabase: .none`. On a real device with an iCloud account, the `globals` container (which mirrors the full model list to CloudKit via `.private`) failed to load: `NSCocoaErrorDomain Code=134060 ... CloudKit integration requires that all relationships have an inverse: TripPackingItem: personSnapshot`. The container fell back to local-only, silently disabling iCloud sync for `Person` and the master lists.
+
+### Decision
+
+Store the reference as `personSnapshotID: UUID?` (a value reference, matching `TripTask.assigneePersonID`, Decision 9). Expose the snapshot through a `personSnapshot` computed bridge that resolves the ID via `trip?.participantSnapshots` and falls back to a `modelContext` fetch. The CKRecord wire format is unchanged (`personSnapshotID: String`); decode stores the bare ID (dangling references tolerated).
+
+### Rationale
+
+CloudKit's "all relationships need an inverse" rule applies to every relationship in a mirrored schema. The two ways to satisfy it were (a) add the inverse collection on `TripPersonSnapshot`, or (b) drop the relationship for a value reference. Option (a) re-creates the iOS 26.4 cascade panic the team already worked around for `participantSnapshots`. Option (b) removes the relationship entirely, so there is nothing for CloudKit to validate, and aligns with the existing `assigneePersonID` precedent. Predicates gain a directly-queryable scalar (`$0.personSnapshotID == id`) instead of a finicky relationship key-path.
+
+### Alternatives Considered
+
+- **Add an inverse collection on `TripPersonSnapshot`**: Satisfies CloudKit - Rejected: reintroduces the iOS 26.4 snapshot↔item cascade-traversal panic.
+- **Split `globals` into two `ModelConfiguration`s (CloudKit + local) to exclude trip-zone models from the mirror**: Conceptually matches Decision 13's ownership table - Rejected: the deprecated `Trip.participants → Person` / `Person.tripPackingItems` relationships cross between the two model subsets, and SwiftData relationships can't span configurations.
+
+### Consequences
+
+**Positive:**
+- `globals` CloudKit mirror loads on-device; `Person`/master-list iCloud sync restored.
+- No cascade-panic exposure; `personSnapshotID` is directly predicate-able.
+- Consistent with `assigneePersonID`'s dangling-reference model.
+
+**Negative:**
+- Reads go through a computed bridge that may issue a fetch when `participantSnapshots` isn't wired (cheap; production reads hit the in-memory path).
+- An existing on-disk store's old `personSnapshot` relationship column is not data-migrated to `personSnapshotID` (acceptable — no production store predates this; the app never launched successfully on-device before the fix).
+- `specs/phase-5-cloudkit-sharing/design.md` (frozen historical spec) still depicts `personSnapshot` as a `@Relationship` with a `TripPersonSnapshot.tripPackingItems` inverse — the same inverse the "Alternatives Considered" above rejects, and which was in fact never shipped. This decision and `docs/agent-notes/persistence.md` are the authoritative current state; the design doc is not retro-edited.
+
+---

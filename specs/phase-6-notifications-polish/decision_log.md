@@ -574,3 +574,36 @@ The protocol exposes `authorizationStatus() async -> UNAuthorizationStatus` inst
 - A future field (e.g. quiet-hours setting) requires extending the protocol.
 
 ---
+
+## Decision 18: `Trip.countryCode` rides on `SchemaV3`; there is no `SchemaV4`
+
+**Date**: 2026-06-18
+**Status**: accepted (supersedes Decision 5's `SchemaV4` packaging; `Trip.countryCode` itself is unchanged)
+
+### Context
+
+Decision 5 added `Trip.countryCode` as a new `SchemaV4` with a lightweight V3 → V4 stage. `Trip` is a single top-level `@Model` shared by every schema version, so adding `countryCode` to it changed `SchemaV3`'s and `SchemaV4`'s view of `Trip` identically. SwiftData computes the version checksum from structure only (not `versionIdentifier`), so V3 and V4 became byte-identical. On a real device with an existing pre-V4 store, the migration plan was forced to traverse the V3 → V4 stage and crashed: `NSInvalidArgumentException: Duplicate version checksums across stages detected`. The in-memory tests missed it because a fresh store at the current version short-circuits the stage traversal.
+
+### Decision
+
+Remove `SchemaV4` and the V3 → V4 stage. `Trip.countryCode` lives on the current `Trip` and is part of `SchemaV3`; SwiftData adds the column to existing stores via automatic lightweight inference (Optional, `nil` default) — the same mechanism already used for `ckRecordSystemFields`. `AppMigrationPlan` is now `[V1, V2, V3]` with two stages.
+
+### Rationale
+
+A property-only addition to a shared top-level class cannot be a distinct schema version — the checksum collision is unavoidable. Only changes to a version's `models` array (new/removed entity types, as in V2 → V3) yield a distinct checksum. Since V3 already contains `countryCode` structurally, collapsing V4 into V3 is the only correct expression; lightweight inference covers the on-disk column addition.
+
+### Alternatives Considered
+
+- **Make `SchemaV4` structurally distinct by adding a dummy entity or forking `Trip`**: Restores a distinct checksum - Rejected: a dummy entity is dishonest schema noise; forking `Trip` reintroduces the iOS 26.4 two-`@Model`-same-name cascade panic that forced the `TripTask` consolidation.
+- **Keep V4 but drop the V3 → V4 stage**: Plan still lists two identical-checksum versions - Rejected: the duplicate-checksum validation fires on the version set, not just the stage; removing the version is cleaner.
+
+### Consequences
+
+**Positive:**
+- Container construction no longer crashes on-device; the app launches.
+- The migration plan honestly reflects that V3 is the current schema.
+
+**Negative:**
+- Violates the "new `SchemaV<N>` per change" policy (Phase 3 Decision 11) for property-only changes — but that policy is physically unachievable under the shared-top-level-class pattern. Documented in `docs/agent-notes/persistence.md` ("Shared top-level classes can't express property-only schema bumps").
+
+---
