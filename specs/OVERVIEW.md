@@ -9,7 +9,7 @@
 | [Phase 5 CloudKit Sharing](#phase-5-cloudkit-sharing) | 2026-05-17 | Done | Per-trip CKShare via custom zones, SchemaV3 snapshots, and silent-push subscriptions. |
 | [Phase 5.1 Wire Trip Crud Tripslocal](#phase-5.1-wire-trip-crud-tripslocal) | 2026-05-17 | Done | Route Trip CRUD reads and writes through `tripsLocal` so the sync pipeline carries edits. |
 | [Phase 6 Notifications Polish](#phase-6-notifications-polish) | 2026-05-19 | Done | Local phase-activation notifications, deep-link routing, country flag, transitions, haptics, VoiceOver, Dynamic Type AX2. |
-| [Copy Master Packing Items](#copy-master-packing-items) | 2026-06-20 | In Progress | Copy a master packing item to other people from the Master Lists tab, creating independent copies the rules engine materialises onto trips. |
+| [Copy Master Packing Items](#copy-master-packing-items) | 2026-06-20 | Done | Copy a master packing item to other people from the Master Lists tab, creating independent copies the rules engine materialises onto trips. |
 
 ---
 
