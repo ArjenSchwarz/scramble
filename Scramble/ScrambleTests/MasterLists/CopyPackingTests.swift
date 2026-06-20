@@ -35,7 +35,19 @@ struct NormalizedNameTests {
 @Suite("MasterPersistence.copyToastMessage")
 struct CopyToastMessageTests {
 
-  @Test("Copied-only: names the people the item went to, no skip wording")
+  // The three branches share name fragments ("Alice", "Bob"), so a bare
+  // `contains(name)` check would still pass if two branches were transposed.
+  // Each assertion below pins a DISTINGUISHING phrase from the source string so
+  // swapping the copied-only / copied-with-skips / all-skipped arms fails a test.
+  // Source phrasing (MasterPersistence.copyToastMessage):
+  //   copied-only:        "Copied to \(copied)."
+  //   copied-with-skips:  "Copied to \(copied). Skipped \(skipped) — already had it."
+  //   all-skipped:        "Everyone already had this item — skipped \(skipped)."
+  private static let skippedClause = "already had it"
+  private static let copiedClause = "Copied to"
+  private static let allSkippedLead = "Everyone already had this item"
+
+  @Test("Copied-only: copied-clause present, skipped-clause absent")
   func copiedOnly() {
     let message = MasterPersistence.copyToastMessage(
       copiedNames: ["Alice", "Bob"],
@@ -43,9 +55,14 @@ struct CopyToastMessageTests {
     )
     #expect(message.contains("Alice"))
     #expect(message.contains("Bob"))
+    // Distinguishes from copied-with-skips: it copies, it does NOT skip anyone.
+    #expect(message.contains(Self.copiedClause))
+    #expect(message.contains(Self.skippedClause) == false)
+    #expect(message.contains("Skipped") == false)
+    #expect(message.contains(Self.allSkippedLead) == false)
   }
 
-  @Test("Copied-with-skips: lists copied people and notes skipped people")
+  @Test("Copied-with-skips: BOTH the copied-clause and the skipped-clause present")
   func copiedWithSkips() {
     let message = MasterPersistence.copyToastMessage(
       copiedNames: ["Alice"],
@@ -53,9 +70,14 @@ struct CopyToastMessageTests {
     )
     #expect(message.contains("Alice"))
     #expect(message.contains("Bob"))
+    // Distinguishes from BOTH other branches: copies AND notes a skip.
+    #expect(message.contains(Self.copiedClause))
+    #expect(message.contains(Self.skippedClause))
+    // Not the all-skipped branch, which would lead with "Everyone…".
+    #expect(message.contains(Self.allSkippedLead) == false)
   }
 
-  @Test("All-skipped: empty copied → message that everyone already had it, names skipped")
+  @Test("All-skipped: 'already had it' wording, no 'Copied to' clause")
   func allSkipped() {
     let message = MasterPersistence.copyToastMessage(
       copiedNames: [],
@@ -63,9 +85,52 @@ struct CopyToastMessageTests {
     )
     #expect(message.contains("Alice"))
     #expect(message.contains("Bob"))
-    // No one received a copy, so no copied-only phrasing should leak through;
-    // the all-skipped outcome conveys everyone already had the item.
-    #expect(message.isEmpty == false)
+    // Distinguishes from the two copied branches: nobody received a copy, so the
+    // "Copied to" clause must NOT leak through. The all-skipped string leads with
+    // "Everyone already had this item — skipped …" and uses the verb "skipped";
+    // it does NOT carry the copied-with-skips-only trailing "— already had it"
+    // clause, so asserting that clause is ABSENT here guards against transposing
+    // these two skip-bearing branches.
+    #expect(message.contains(Self.allSkippedLead))
+    #expect(message.contains("skipped"))
+    #expect(message.contains(Self.skippedClause) == false)
+    #expect(message.contains(Self.copiedClause) == false)
+  }
+
+  // Exercises the formatNames joiner indirectly through copyToastMessage (the
+  // helper is private). Single name → bare name; two → "X and Y"; three+ →
+  // oxford "A, B, and C". Asserted against the copied-only branch so the joined
+  // string is the whole list of names.
+  @Test("formatNames join: 1 name renders the bare name")
+  func formatNamesSingle() {
+    let message = MasterPersistence.copyToastMessage(
+      copiedNames: ["Alice"],
+      skippedNames: []
+    )
+    #expect(message.contains("Copied to Alice."))
+    // No join words for a single name.
+    #expect(message.contains(" and ") == false)
+    #expect(message.contains(",") == false)
+  }
+
+  @Test("formatNames join: 2 names use the 'X and Y' join, no comma")
+  func formatNamesPair() {
+    let message = MasterPersistence.copyToastMessage(
+      copiedNames: ["Alice", "Bob"],
+      skippedNames: []
+    )
+    #expect(message.contains("Copied to Alice and Bob."))
+    // Two names join with " and " and NO comma (distinguishes from 3+).
+    #expect(message.contains(", and ") == false)
+  }
+
+  @Test("formatNames join: 3+ names use the oxford 'A, B, and C' join")
+  func formatNamesOxford() {
+    let message = MasterPersistence.copyToastMessage(
+      copiedNames: ["Alice", "Bob", "Carol"],
+      skippedNames: []
+    )
+    #expect(message.contains("Copied to Alice, Bob, and Carol."))
   }
 }
 
@@ -205,6 +270,105 @@ struct CopyPackingHelperTests {
     #expect(result.createdCount == 1)
     #expect(result.copiedNames == ["Alice"])
     #expect((alice.masterPackingItems ?? []).count == 1)
+  }
+
+  @Test("Skips a same-name owner whose item was inserted but NOT saved (3.5 race)")
+  func skipsUnsavedSameNameInsert() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let owner = Person(name: "Owner", colorKey: "blue")
+    let alice = Person(name: "Alice", colorKey: "cyan")
+    context.insert(owner)
+    context.insert(alice)
+    let source = MasterPackingItem(name: "Socks", person: owner, conditions: .always)
+    context.insert(source)
+    try context.save()
+
+    // The load-bearing race (Req 3.5): a same-name item lands for the target
+    // AFTER the picker opened but BEFORE the copy runs — and crucially before
+    // any save(). The skip re-check reads `Person.masterPackingItems`, so it
+    // must surface this pending in-context insert. We deliberately do NOT call
+    // context.save() here.
+    let aliceUnsaved = MasterPackingItem(name: "Socks", person: alice, conditions: .always)
+    context.insert(aliceUnsaved)
+    #expect(context.hasChanges == true)
+
+    let result = MasterPersistence.copyPacking(
+      source: source,
+      toPersonIDs: [alice.id],
+      in: context
+    )
+
+    // If this fails — i.e. the unsaved insert is invisible through the
+    // relationship and the helper creates a duplicate — that is a real defect,
+    // NOT a test to relax.
+    #expect(result.createdCount == 0)
+    #expect(result.copiedNames.isEmpty)
+    #expect(result.skippedNames == ["Alice"])
+    // Only the one pending insert exists for Alice; no copy was added.
+    #expect((alice.masterPackingItems ?? []).count == 1)
+  }
+
+  @Test("Unresolvable person id is neither copied nor skipped (off-roster contract)")
+  func unresolvableIDIsNeitherCopiedNorSkipped() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let owner = Person(name: "Owner", colorKey: "blue")
+    context.insert(owner)
+    let source = MasterPackingItem(name: "Socks", person: owner, conditions: .always)
+    context.insert(source)
+    try context.save()
+
+    // A random id resolves to no Person in the store.
+    let ghost = UUID()
+    let result = MasterPersistence.copyPacking(
+      source: source,
+      toPersonIDs: [ghost],
+      in: context
+    )
+
+    // An unresolved id is dropped silently: not a copy, and NOT a skip (a skip
+    // means "a real person already had it"). Pin that asymmetry.
+    #expect(result.createdCount == 0)
+    #expect(result.copiedNames.isEmpty)
+    #expect(result.skippedNames.isEmpty)
+  }
+
+  @Test("Pure mechanism: does NOT guard an empty/whitespace source name (Decision 6)")
+  func doesNotGuardEmptySourceName() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let owner = Person(name: "Owner", colorKey: "blue")
+    let alice = Person(name: "Alice", colorKey: "cyan")
+    context.insert(owner)
+    context.insert(alice)
+    // Source name trims to "" — the UI source-eligibility gate (Decision 6 /
+    // Req 1.3) blocks this upstream; the helper itself does NOT, so it copies an
+    // empty-named item. This test documents the helper's actual behaviour, not a
+    // guard we want it to grow.
+    let source = MasterPackingItem(name: "   ", person: owner, conditions: .always)
+    context.insert(source)
+    try context.save()
+
+    let result = MasterPersistence.copyPacking(
+      source: source,
+      toPersonIDs: [alice.id],
+      in: context
+    )
+
+    // The helper is a pure mechanism: it creates a copy with the trimmed
+    // (empty) name and reports Alice as copied.
+    #expect(result.createdCount == 1)
+    #expect(result.copiedNames == ["Alice"])
+    #expect(result.skippedNames.isEmpty)
+    let copy = try #require(
+      try context.fetch(FetchDescriptor<MasterPackingItem>())
+        .first { $0.person?.id == alice.id }
+    )
+    #expect(copy.name == "")
   }
 
   @Test("Conditions fidelity: advanced nested form copied by value; source unchanged (3.3/3.4)")
@@ -370,12 +534,11 @@ struct CopySequenceTests {
     #expect(after == baseline)
 
     // The engine is never invoked on the failure path — assert no trip-level
-    // items exist (no recompute ran). A recording notifier confirms no writes
-    // were pushed through the hook either.
-    let notifier = RecordingNotifier()
-    _ = LocalWriteHook(notifier: notifier)
+    // items exist (no recompute ran). (A notifier assertion was removed here: an
+    // unwired LocalWriteHook can never record a call, so it was vacuous —
+    // copyPacking touches globals, not a trip zone, and never goes through the
+    // hook; only the engine run would, and the engine never runs on rollback.)
     let packs = try context.fetch(FetchDescriptor<TripPackingItem>())
     #expect(packs.isEmpty)
-    #expect(notifier.calls.isEmpty)
   }
 }
