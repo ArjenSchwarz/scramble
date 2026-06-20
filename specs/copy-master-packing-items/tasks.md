@@ -20,7 +20,7 @@ references:
 - [x] 2. Implement CopyResult, normalizedName, and copyToastMessage in MasterPersistence <!-- id:6axrhse -->
   - CopyResult: Sendable value type { createdCount: Int; copiedNames: [String]; skippedNames: [String] } — no @Model values.
   - nonisolated static normalizedName(_:) and nonisolated static copyToastMessage(copiedNames:skippedNames:) (MasterPersistence is a @MainActor enum; these must be nonisolated to be callable from tests without await).
-  - Blocked-by: 6axrhsd (Write tests for the pure copy helpers (normalizedName, copyToastMessage)), helpers, helpers, helpers, helpers, helpers
+  - Blocked-by: 6axrhsd (Write tests for the pure copy helpers (normalizedName, copyToastMessage)), helpers, helpers, helpers, helpers, helpers, helpers, helpers, helpers, helpers
   - Stream: 1
   - Requirements: [3.7](requirements.md#3.7), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
   - References: Scramble/Scramble/Features/MasterLists/MasterPersistence.swift
@@ -58,7 +58,7 @@ references:
 
 ## UI & wiring
 
-- [ ] 6. Write tests for the CopyPackingItemSheet eligibility helper <!-- id:6axrhsi -->
+- [x] 6. Write tests for the CopyPackingItemSheet eligibility helper <!-- id:6axrhsi -->
   - Static helper resolving eligible target people from a source item + the people list, reading each Person.masterPackingItems via normalizedName (same data path as copyPacking).
   - Owner of the source is excluded (2.1); a person already owning a same-name item is ineligible (2.3); when every other person is ineligible the eligible set is empty (drives the 2.5 empty-state).
   - @MainActor test over an in-memory container (helper touches @Model relationships).
@@ -67,7 +67,7 @@ references:
   - Requirements: [2.1](requirements.md#2.1), [2.3](requirements.md#2.3), [2.5](requirements.md#2.5)
   - References: Scramble/Scramble/Models/Person.swift, Scramble/Scramble/Models/MasterPackingItem.swift
 
-- [ ] 7. Implement CopyPackingItemSheet <!-- id:6axrhsj -->
+- [x] 7. Implement CopyPackingItemSheet <!-- id:6axrhsj -->
   - New file Scramble/Scramble/Features/MasterLists/CopyPackingItemSheet.swift.
   - let source; onCopy: ([UUID]) -> Void (raw selected ids, no re-filter); onCancel. @Query(sort: \Person.name) allPeople; @State selected: Set<UUID>.
   - List allPeople minus owner, sorted by name (2.1); multi-select toggles (2.2); ineligible rows disabled + 'already has it' label with accessibilityValue (2.3 display).
@@ -78,7 +78,7 @@ references:
   - Requirements: [1.2](requirements.md#1.2), [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5), [2.6](requirements.md#2.6)
   - References: Scramble/Scramble/Features/MasterLists/MasterPackingEditor.swift, Scramble/Scramble/Components/PackingItemRow.swift
 
-- [ ] 8. Wire copy into MasterPackingList (SheetTarget merge, row affordance, toast, performCopy) <!-- id:6axrhsk -->
+- [x] 8. Wire copy into MasterPackingList (SheetTarget merge, row affordance, toast, performCopy) <!-- id:6axrhsk -->
   - Replace EditTarget with one SheetTarget enum { create, edit(PersistentIdentifier), copy(PersistentIdentifier) } behind a single .sheet(item:); unresolved .copy id dismisses with no write.
   - Per-row trailing swipe + long-press context menu 'Copy to people...' gated on source eligibility (1.3: >= 2 people, source.person != nil, trimmed name non-empty); whole-row tap still opens the editor (1.1).
   - Add @Environment(\.tripsLocalContainer), @Environment(\.localWriteHook), @State toastMessage; .transientToast on the list.
@@ -89,7 +89,7 @@ references:
   - Requirements: [1.1](requirements.md#1.1), [1.3](requirements.md#1.3), [3.6](requirements.md#3.6), [3.7](requirements.md#3.7), [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
   - References: Scramble/Scramble/Features/MasterLists/MasterPackingList.swift, Scramble/Scramble/Components/TransientToast.swift, Scramble/Scramble/RulesEngine/RulesEngineRunner.swift
 
-- [ ] 9. Add UI happy-path test for the copy flow <!-- id:6axrhsl -->
+- [x] 9. Add UI happy-path test for the copy flow <!-- id:6axrhsl -->
   - ScrambleUITests: seed >= 2 people with a packing master on the source person; open Master Lists -> Packing Items; long-press the source row -> 'Copy to people...'; select a target; confirm.
   - Assert the sheet dismisses and the confirmation toast text naming the target appears; drive via accessibilityIdentifiers from task 7.
   - Blocked-by: 6axrhsk (Wire copy into MasterPackingList (SheetTarget merge, row affordance, toast, performCopy))
