@@ -42,17 +42,19 @@ struct PackingCountsTests {
     context.insert(trip)
     let person = Person(name: "Alice", colorKey: "blue")
     context.insert(person)
-    trip.participants = [person]
+    let snapshot = TripPersonSnapshot(personID: person.id, name: person.name, trip: trip)
+    context.insert(snapshot)
+    trip.participantSnapshots = [snapshot]
 
     for (idx, state) in states.enumerated() {
       let item = TripPackingItem(
         trip: trip,
-        person: person,
         name: "item-\(idx)",
         state: state,
         source: .rule,
         currentlyMatchesRules: matches?[idx] ?? true,
-        pinnedByUser: pinned?[idx] ?? false
+        pinnedByUser: pinned?[idx] ?? false,
+        personSnapshot: snapshot
       )
       context.insert(item)
     }
@@ -127,17 +129,23 @@ struct PackingCountsTests {
     let bob = Person(name: "Bob", colorKey: "green")
     context.insert(alice)
     context.insert(bob)
-    trip.participants = [alice, bob]
+    let aliceSnapshot = TripPersonSnapshot(personID: alice.id, name: alice.name, trip: trip)
+    let bobSnapshot = TripPersonSnapshot(personID: bob.id, name: bob.name, trip: trip)
+    context.insert(aliceSnapshot)
+    context.insert(bobSnapshot)
+    trip.participantSnapshots = [aliceSnapshot, bobSnapshot]
 
     context.insert(
       TripPackingItem(
-        trip: trip, person: alice, name: "alice-thing", state: .packed, source: .rule))
+        trip: trip, name: "alice-thing", state: .packed, source: .rule,
+        personSnapshot: aliceSnapshot))
     context.insert(
       TripPackingItem(
-        trip: trip, person: bob, name: "bob-thing", state: .packed, source: .rule))
+        trip: trip, name: "bob-thing", state: .packed, source: .rule, personSnapshot: bobSnapshot))
     context.insert(
       TripPackingItem(
-        trip: trip, person: bob, name: "bob-other", state: .unpacked, source: .rule))
+        trip: trip, name: "bob-other", state: .unpacked, source: .rule,
+        personSnapshot: bobSnapshot))
     try context.save()
 
     let counts = PackingListHelpers.counts(for: alice, in: trip)
@@ -159,15 +167,19 @@ struct PackingCountsTests {
     context.insert(tripB)
     let person = Person(name: "Alice", colorKey: "blue")
     context.insert(person)
-    tripA.participants = [person]
-    tripB.participants = [person]
+    let snapshotA = TripPersonSnapshot(personID: person.id, name: person.name, trip: tripA)
+    let snapshotB = TripPersonSnapshot(personID: person.id, name: person.name, trip: tripB)
+    context.insert(snapshotA)
+    context.insert(snapshotB)
+    tripA.participantSnapshots = [snapshotA]
+    tripB.participantSnapshots = [snapshotB]
 
     context.insert(
       TripPackingItem(
-        trip: tripA, person: person, name: "a", state: .packed, source: .rule))
+        trip: tripA, name: "a", state: .packed, source: .rule, personSnapshot: snapshotA))
     context.insert(
       TripPackingItem(
-        trip: tripB, person: person, name: "b", state: .packed, source: .rule))
+        trip: tripB, name: "b", state: .packed, source: .rule, personSnapshot: snapshotB))
     try context.save()
 
     let countsA = PackingListHelpers.counts(for: person, in: tripA)
@@ -190,17 +202,30 @@ struct PackingCountsTests {
     context.insert(alice)
     context.insert(bob)
     context.insert(cara)
-    trip.participants = [alice, bob, cara]
+    let aliceSnapshot = TripPersonSnapshot(personID: alice.id, name: alice.name, trip: trip)
+    let bobSnapshot = TripPersonSnapshot(personID: bob.id, name: bob.name, trip: trip)
+    let caraSnapshot = TripPersonSnapshot(personID: cara.id, name: cara.name, trip: trip)
+    context.insert(aliceSnapshot)
+    context.insert(bobSnapshot)
+    context.insert(caraSnapshot)
+    trip.participantSnapshots = [aliceSnapshot, bobSnapshot, caraSnapshot]
 
     // Alice: 2 unpacked, 1 packed.
-    context.insert(TripPackingItem(trip: trip, person: alice, name: "a1", state: .unpacked))
-    context.insert(TripPackingItem(trip: trip, person: alice, name: "a2", state: .unpacked))
-    context.insert(TripPackingItem(trip: trip, person: alice, name: "a3", state: .packed))
+    context.insert(
+      TripPackingItem(trip: trip, name: "a1", state: .unpacked, personSnapshot: aliceSnapshot))
+    context.insert(
+      TripPackingItem(trip: trip, name: "a2", state: .unpacked, personSnapshot: aliceSnapshot))
+    context.insert(
+      TripPackingItem(trip: trip, name: "a3", state: .packed, personSnapshot: aliceSnapshot))
     // Bob: 1 packed, 2 repacked, 1 excluded.
-    context.insert(TripPackingItem(trip: trip, person: bob, name: "b1", state: .packed))
-    context.insert(TripPackingItem(trip: trip, person: bob, name: "b2", state: .repacked))
-    context.insert(TripPackingItem(trip: trip, person: bob, name: "b3", state: .repacked))
-    context.insert(TripPackingItem(trip: trip, person: bob, name: "b4", state: .excluded))
+    context.insert(
+      TripPackingItem(trip: trip, name: "b1", state: .packed, personSnapshot: bobSnapshot))
+    context.insert(
+      TripPackingItem(trip: trip, name: "b2", state: .repacked, personSnapshot: bobSnapshot))
+    context.insert(
+      TripPackingItem(trip: trip, name: "b3", state: .repacked, personSnapshot: bobSnapshot))
+    context.insert(
+      TripPackingItem(trip: trip, name: "b4", state: .excluded, personSnapshot: bobSnapshot))
     // Cara: zero items — must still produce an all-zero entry.
     try context.save()
 

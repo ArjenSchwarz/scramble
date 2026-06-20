@@ -22,14 +22,25 @@ nonisolated struct PackingCounts: Sendable, Equatable {
 /// Pure helpers used by `PackingSummarySection`, `PackingSheet`, and
 /// `AccordionTimeline`. Mirrors the shape of `TaskListHelpers` but operates
 /// over `TripPackingItem`. `@MainActor` because the helpers traverse
-/// SwiftData `@Model` collections (`trip.packingItems`, `trip.participants`)
-/// whose ownership is tied to the main `ModelContext`.
+/// SwiftData `@Model` collections (`trip.packingItems`,
+/// `trip.participantSnapshots`) whose ownership is tied to the main
+/// `ModelContext`.
 @MainActor enum PackingListHelpers {
 
   /// Items belonging to `person` on `trip`, unfiltered by group/state.
+  /// Matches via the V3 `personSnapshot` reference (Decision 7) — the
+  /// deprecated `TripPackingItem.person` relationship is unwritten on every
+  /// production path, so the owner is carried by `personSnapshotID` whose
+  /// snapshot's `personID` is the owning `Person.id`.
   static func itemsForPerson(_ trip: Trip, person: Person) -> [TripPackingItem] {
-    let items = trip.packingItems ?? []
-    return items.filter { $0.person?.id == person.id }
+    let snapshotIDs = Set(
+      (trip.participantSnapshots ?? [])
+        .filter { $0.personID == person.id }
+        .map(\.id))
+    return (trip.packingItems ?? []).filter { item in
+      guard let snapshotID = item.personSnapshotID else { return false }
+      return snapshotIDs.contains(snapshotID)
+    }
   }
 
   /// Per-state counts for `person` on `trip`. Includes both active and dimmed
@@ -89,10 +100,12 @@ nonisolated struct PackingCounts: Sendable, Equatable {
   /// `"{S} to repack"` summed across participants. Caller composes the leading
   /// " · " when a tasks clause precedes it.
   static func phaseSubline(_ trip: Trip, mode: PackingMode) -> String {
-    let participantIDs = Set((trip.participants ?? []).map(\.id))
+    let snapshotPersonID = snapshotPersonIDMap(trip)
     var sum = 0
     for item in trip.packingItems ?? [] {
-      guard let personID = item.person?.id, participantIDs.contains(personID) else { continue }
+      guard let snapshotID = item.personSnapshotID,
+        snapshotPersonID[snapshotID] != nil
+      else { continue }
       switch (mode, item.state) {
       case (.pack, .unpacked): sum += 1
       case (.repack, .packed): sum += 1
@@ -109,13 +122,15 @@ nonisolated struct PackingCounts: Sendable, Equatable {
   /// by `PackingSummarySection` to avoid an O(participants × packingItems)
   /// fan-out where one pass suffices.
   static func countsByPerson(_ trip: Trip) -> [UUID: PackingCounts] {
-    let participantIDs = Set((trip.participants ?? []).map(\.id))
+    let snapshotPersonID = snapshotPersonIDMap(trip)
     var toPack: [UUID: Int] = [:]
     var packed: [UUID: Int] = [:]
     var repacked: [UUID: Int] = [:]
     var excluded: [UUID: Int] = [:]
     for item in trip.packingItems ?? [] {
-      guard let personID = item.person?.id, participantIDs.contains(personID) else { continue }
+      guard let snapshotID = item.personSnapshotID,
+        let personID = snapshotPersonID[snapshotID]
+      else { continue }
       switch item.state {
       case .unpacked: toPack[personID, default: 0] += 1
       case .packed: packed[personID, default: 0] += 1
@@ -124,12 +139,12 @@ nonisolated struct PackingCounts: Sendable, Equatable {
       }
     }
     var result: [UUID: PackingCounts] = [:]
-    for id in participantIDs {
-      result[id] = PackingCounts(
-        toPack: toPack[id] ?? 0,
-        packed: packed[id] ?? 0,
-        repacked: repacked[id] ?? 0,
-        excluded: excluded[id] ?? 0
+    for personID in Set(snapshotPersonID.values) {
+      result[personID] = PackingCounts(
+        toPack: toPack[personID] ?? 0,
+        packed: packed[personID] ?? 0,
+        repacked: repacked[personID] ?? 0,
+        excluded: excluded[personID] ?? 0
       )
     }
     return result
@@ -149,6 +164,17 @@ nonisolated struct PackingCounts: Sendable, Equatable {
   }
 
   // MARK: - Private
+
+  /// Maps each participant snapshot's `id` to its owner `personID`. Built once
+  /// per call so the aggregate helpers stay single-pass (avoiding the
+  /// O(participants × packingItems) fan-out `countsByPerson` exists to prevent).
+  private static func snapshotPersonIDMap(_ trip: Trip) -> [UUID: UUID] {
+    var map: [UUID: UUID] = [:]
+    for snapshot in trip.participantSnapshots ?? [] {
+      map[snapshot.id] = snapshot.personID
+    }
+    return map
+  }
 
   private static func isActive(_ item: TripPackingItem) -> Bool {
     item.currentlyMatchesRules || item.pinnedByUser

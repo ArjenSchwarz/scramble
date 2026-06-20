@@ -35,17 +35,19 @@ struct PackingSummaryDimmedCountsTests {
     context.insert(trip)
     let person = Person(name: "Alice", colorKey: "blue")
     context.insert(person)
-    trip.participants = [person]
+    let snapshot = TripPersonSnapshot(personID: person.id, name: person.name, trip: trip)
+    context.insert(snapshot)
+    trip.participantSnapshots = [snapshot]
     for (idx, state) in states.enumerated() {
       context.insert(
         TripPackingItem(
           trip: trip,
-          person: person,
           name: "item-\(idx)",
           state: state,
           source: .rule,
           currentlyMatchesRules: matches[idx],
-          pinnedByUser: pinned[idx]
+          pinnedByUser: pinned[idx],
+          personSnapshot: snapshot
         ))
     }
     try context.save()
