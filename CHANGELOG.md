@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Spec for `copy-master-packing-items` (planning artifacts only — no implementation):
+  - `specs/copy-master-packing-items/requirements.md` — copy a master packing item to one or more other people from the Master Lists tab, creating independent `MasterPackingItem` copies (same name + identical conditions) the rules engine materialises onto matching trips. 5 requirement groups (ACs 1.1–5.2): per-row copy affordance, target-person multi-select that skips same-name owners, all-or-nothing master save with all-skipped no-op success, best-effort trip recompute, and a list-hosted confirmation toast.
+  - `specs/copy-master-packing-items/design.md` — `MasterPersistence.copyPacking` + `CopyResult` (value-only) + `normalizedName` / `copyToastMessage` helpers; `CopyPackingItemSheet`; `MasterPackingList` changes (single `SheetTarget` enum, swipe/context copy affordance, toast host, `performCopy` save→engine→toast sequence mirroring `MasterPackingEditor.runEngineAndDismiss`). Conditions copied as the decoded `ItemConditions` value for deep-equal + independent copies.
+  - `specs/copy-master-packing-items/decision_log.md` — 8 decisions (master-list surface, skip same-name owners, one-source-to-many, confirmation host + all-skipped success, degenerate-source guard, new per-row affordance, best-effort recompute).
+  - `specs/copy-master-packing-items/tasks.md` — 9 TDD tasks across 2 streams.
+  - `specs/OVERVIEW.md` — added the spec to the table (status `Planned`) and detail sections.
+
 ### Fixed
 
 - On-device launch failures (SwiftData migration + CloudKit):
