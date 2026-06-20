@@ -8,7 +8,7 @@ references:
 
 ## Persistence & helpers
 
-- [ ] 1. Write tests for the pure copy helpers (normalizedName, copyToastMessage) <!-- id:6axrhsd -->
+- [x] 1. Write tests for the pure copy helpers (normalizedName, copyToastMessage) <!-- id:6axrhsd -->
   - New Swift Testing suite (e.g. Scramble/ScrambleTests/MasterLists/CopyPackingTests.swift).
   - normalizedName: trims surrounding whitespace + lowercases; '  Socks ' and 'socks' map equal; empty/whitespace-only maps to empty string.
   - copyToastMessage(copiedNames:skippedNames:): copied-only, copied-with-skips, and all-skipped (empty copied) wordings; names rendered in the message.
@@ -17,15 +17,15 @@ references:
   - Requirements: [3.7](requirements.md#3.7), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
   - References: Scramble/ScrambleTests/MasterLists/MasterDraftTests.swift
 
-- [ ] 2. Implement CopyResult, normalizedName, and copyToastMessage in MasterPersistence <!-- id:6axrhse -->
+- [x] 2. Implement CopyResult, normalizedName, and copyToastMessage in MasterPersistence <!-- id:6axrhse -->
   - CopyResult: Sendable value type { createdCount: Int; copiedNames: [String]; skippedNames: [String] } — no @Model values.
   - nonisolated static normalizedName(_:) and nonisolated static copyToastMessage(copiedNames:skippedNames:) (MasterPersistence is a @MainActor enum; these must be nonisolated to be callable from tests without await).
-  - Blocked-by: 6axrhsd (Write tests for the pure copy helpers (normalizedName, copyToastMessage))
+  - Blocked-by: 6axrhsd (Write tests for the pure copy helpers (normalizedName, copyToastMessage)), helpers, helpers, helpers, helpers, helpers
   - Stream: 1
   - Requirements: [3.7](requirements.md#3.7), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
   - References: Scramble/Scramble/Features/MasterLists/MasterPersistence.swift
 
-- [ ] 3. Write tests for MasterPersistence.copyPacking <!-- id:6axrhsf -->
+- [x] 3. Write tests for MasterPersistence.copyPacking <!-- id:6axrhsf -->
   - In-memory ModelContainer: Schema(versionedSchema: SchemaV3.self), isStoredInMemoryOnly, cloudKitDatabase: .none (mirror RulesEngineRunnerTests.makeContainer).
   - One copy per eligible target, each owned by the right Person (3.1); copied name equals trimmed source name (3.2).
   - Skips a target already owning a same-name item, case-insensitive + trimmed (2.3/3.5); skipped person name appears in skippedNames.
@@ -37,7 +37,7 @@ references:
   - Requirements: [2.3](requirements.md#2.3), [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.5](requirements.md#3.5), [3.7](requirements.md#3.7)
   - References: Scramble/ScrambleTests/RulesEngine/RulesEngineRunnerTests.swift, Scramble/Scramble/Features/MasterLists/MasterPersistence.swift
 
-- [ ] 4. Implement MasterPersistence.copyPacking <!-- id:6axrhsg -->
+- [x] 4. Implement MasterPersistence.copyPacking <!-- id:6axrhsg -->
   - Signature: @discardableResult static func copyPacking(source: MasterPackingItem, toPersonIDs: [UUID], in context: ModelContext) -> CopyResult.
   - De-dupe toPersonIDs; for each, resolve Person and skip when its masterPackingItems already contains normalizedName(source.name).
   - Create MasterPackingItem(name: source.name trimmed, person: target, conditions: source.conditions) — passing the decoded value gives deep-equal + independent copy.
@@ -47,7 +47,7 @@ references:
   - Requirements: [2.3](requirements.md#2.3), [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4), [3.5](requirements.md#3.5), [3.7](requirements.md#3.7)
   - References: Scramble/Scramble/Features/MasterLists/MasterPersistence.swift, Scramble/Scramble/Models/MasterPackingItem.swift
 
-- [ ] 5. Write engine-integration and save-atomicity tests for the copy sequence <!-- id:6axrhsh -->
+- [x] 5. Write engine-integration and save-atomicity tests for the copy sequence <!-- id:6axrhsh -->
   - Materialisation: seed a trip whose attributes satisfy the copied conditions and one that does not; copyPacking -> context.save() -> RulesEngineRunner.runForAllNonPastTrips(); assert a TripPackingItem for the target Person exists on the matching trip and not on the non-matching one (4.1).
   - Atomicity mechanism (3.6): copyPacking inserts but does not save; a subsequent context.rollback() leaves zero new MasterPackingItems persisted and no engine run occurred.
   - Use a recording-notifier LocalWriteHook as in ApplyTests / PackingFormSaveTests; runner wired context = trips, mastersContext = masters (same container is fine).
