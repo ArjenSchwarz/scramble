@@ -29,6 +29,12 @@ final class Person {
 extension Person {
   var initial: String { name.firstGraphemeUppercased }
 
+  /// Display-safe name: the person's `name`, or `"Unnamed"` when it is empty.
+  /// `nonisolated` to match the other pure derivations in this extension (the
+  /// file inherits `MainActor` isolation but this is a pure `String`
+  /// derivation).
+  nonisolated var displayName: String { name.isEmpty ? "Unnamed" : name }
+
   /// Short-form name derivation per Phase 4 design §"Short-form name
   /// derivation". Trims whitespace, returns the first space-separated token,
   /// or the full trimmed name when there is no space, or `"?"` when the name

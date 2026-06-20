@@ -408,6 +408,71 @@ struct CopyPackingHelperTests {
   }
 }
 
+// MARK: - copyOutcome branch selection (pure orchestration)
+
+/// Drives `MasterPackingList.copyOutcome`, the pure branch-selection extracted
+/// from `performCopy`. These tests assert the control flow ONLY — which closures
+/// run and the returned `CopyOutcome` — using recording flags, so they need no
+/// SwiftData. The toast wording and rollback side effects stay in `performCopy`.
+@Suite("MasterPackingList.copyOutcome")
+@MainActor
+struct CopyOutcomeTests {
+
+  struct CopyError: Error {}
+
+  @Test("createdCount 0 → .nothingToCopy; neither save nor runEngine runs (3.7)")
+  func nothingToCopySkipsSaveAndEngine() {
+    var didSave = false
+    var didRun = false
+    let outcome = MasterPackingList.copyOutcome(
+      createdCount: 0,
+      save: { didSave = true },
+      runEngine: { didRun = true }
+    )
+    #expect(outcome == .nothingToCopy)
+    #expect(didSave == false)
+    #expect(didRun == false)
+  }
+
+  @Test("save throws → .saveFailed; runEngine is NOT invoked (3.6)")
+  func saveFailureSkipsEngine() {
+    var didRun = false
+    let outcome = MasterPackingList.copyOutcome(
+      createdCount: 2,
+      save: { throw CopyError() },
+      runEngine: { didRun = true }
+    )
+    #expect(outcome == .saveFailed)
+    #expect(didRun == false)
+  }
+
+  @Test("save ok + runEngine throws → .copied(deferred: true) (4.2)")
+  func engineFailureIsDeferred() {
+    var didSave = false
+    let outcome = MasterPackingList.copyOutcome(
+      createdCount: 2,
+      save: { didSave = true },
+      runEngine: { throw CopyError() }
+    )
+    #expect(outcome == .copied(deferred: true))
+    #expect(didSave == true)
+  }
+
+  @Test("save ok + runEngine ok → .copied(deferred: false)")
+  func cleanCopyIsNotDeferred() {
+    var didSave = false
+    var didRun = false
+    let outcome = MasterPackingList.copyOutcome(
+      createdCount: 2,
+      save: { didSave = true },
+      runEngine: { didRun = true }
+    )
+    #expect(outcome == .copied(deferred: false))
+    #expect(didSave == true)
+    #expect(didRun == true)
+  }
+}
+
 // MARK: - Engine integration + save atomicity (Task 5)
 
 @Suite("Copy sequence: materialisation + atomicity", .serialized)

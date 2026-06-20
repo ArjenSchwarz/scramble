@@ -168,30 +168,52 @@ import SwiftUI
 
   // MARK: - Copy
 
+  /// Branch selection of the post-`copyPacking` orchestration, extracted as a
+  /// pure function so it is unit-testable without SwiftData. It owns ONLY the
+  /// control flow; `performCopy` supplies the real save / run-engine closures
+  /// and maps the outcome onto the rollback + toast side effects.
+  enum CopyOutcome: Equatable {
+    case nothingToCopy
+    case saveFailed
+    case copied(deferred: Bool)
+  }
+
+  /// Decides the outcome of a copy:
+  /// - `createdCount == 0` → `.nothingToCopy` — calls NEITHER `save` nor
+  ///   `runEngine`.
+  /// - else `try save()`; on throw → `.saveFailed` — does NOT call `runEngine`.
+  /// - else `try runEngine()`; on throw → `.copied(deferred: true)`.
+  /// - else → `.copied(deferred: false)`.
+  static func copyOutcome(
+    createdCount: Int,
+    save: () throws -> Void,
+    runEngine: () throws -> Void
+  ) -> CopyOutcome {
+    guard createdCount > 0 else { return .nothingToCopy }
+    do {
+      try save()
+    } catch {
+      return .saveFailed
+    }
+    do {
+      try runEngine()
+    } catch {
+      return .copied(deferred: true)
+    }
+    return .copied(deferred: false)
+  }
+
   /// save → engine → toast sequence (design Flow). `copyPacking` only inserts;
   /// this method owns `save()`, the recompute, and the user-facing toast — the
   /// list stays mounted while the picker dismisses, so the toast renders here.
+  /// The branch selection is delegated to the pure `copyOutcome(...)`; this
+  /// method maps the outcome onto rollback + the existing toast wording.
   private func performCopy(source: MasterPackingItem, toPersonIDs ids: [UUID]) {
     let result = MasterPersistence.copyPacking(
       source: source,
       toPersonIDs: ids,
       in: modelContext
     )
-
-    // All targets skipped at confirm (3.7): no save, no engine run — report
-    // that everyone already had it.
-    guard result.createdCount > 0 else {
-      announce(toastMessage(for: result))
-      return
-    }
-
-    do {
-      try modelContext.save()
-    } catch {
-      modelContext.rollback()
-      announce("Copy failed — try again.")
-      return
-    }
 
     // Materialise onto matching non-past trips (4.1). Best-effort: a top-level
     // recompute failure keeps the saved masters and surfaces the deferred-
@@ -201,14 +223,24 @@ import SwiftUI
       mastersContext: modelContext,
       hook: hook
     )
-    do {
-      _ = try runner.runForAllNonPastTrips()
-    } catch {
-      announce("Copied. Some trips couldn't be updated — they'll sync on next launch.")
-      return
-    }
 
-    announce(toastMessage(for: result))
+    let outcome = Self.copyOutcome(
+      createdCount: result.createdCount,
+      save: { try modelContext.save() },
+      runEngine: { _ = try runner.runForAllNonPastTrips() }
+    )
+
+    switch outcome {
+    case .saveFailed:
+      modelContext.rollback()
+      announce("Copy failed — try again.")
+    case .copied(deferred: true):
+      announce("Copied. Some trips couldn't be updated — they'll sync on next launch.")
+    case .nothingToCopy, .copied(deferred: false):
+      // All targets skipped at confirm (3.7) reports everyone already had it;
+      // a clean copy reports who received it — both via copyToastMessage.
+      announce(toastMessage(for: result))
+    }
   }
 
   private func toastMessage(for result: CopyResult) -> String {

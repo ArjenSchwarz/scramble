@@ -50,26 +50,22 @@ import SwiftUI
     allPeople.filter { $0.id != source.person?.id }
   }
 
-  private var eligibleIDs: Set<UUID> {
-    Set(Self.eligibleTargets(source: source, people: allPeople).map(\.id))
-  }
-
-  private var hasEligibleTarget: Bool {
-    !eligibleIDs.isEmpty
-  }
-
-  /// Confirm enabled only when at least one *eligible* person is selected
-  /// (2.4). Intersecting against `eligibleIDs` means a stale selection of a
-  /// since-ineligible person cannot enable the button.
-  private var canConfirm: Bool {
-    !selected.isDisjoint(with: eligibleIDs)
-  }
-
   var body: some View {
-    NavigationStack {
+    // Compute eligibility ONCE per body pass (the O(people×items) scan), then
+    // thread `eligibleIDs` into the rows / empty-state / confirm-enabled checks
+    // instead of each computed property re-running the scan.
+    let eligible = Self.eligibleTargets(source: source, people: allPeople)
+    let eligibleIDs = Set(eligible.map(\.id))
+    let hasEligibleTarget = !eligibleIDs.isEmpty
+    // Confirm enabled only when at least one *eligible* person is selected
+    // (2.4). Intersecting against `eligibleIDs` means a stale selection of a
+    // since-ineligible person cannot enable the button.
+    let canConfirm = !selected.isDisjoint(with: eligibleIDs)
+
+    return NavigationStack {
       Group {
         if hasEligibleTarget {
-          peopleList
+          peopleList(eligibleIDs: eligibleIDs)
         } else {
           emptyState
         }
@@ -94,12 +90,12 @@ import SwiftUI
 
   // MARK: - Subviews
 
-  private var peopleList: some View {
+  private func peopleList(eligibleIDs: Set<UUID>) -> some View {
     let variant = theme.variant(for: colorScheme)
     return List {
       Section {
         ForEach(targetPeople) { person in
-          row(for: person, variant: variant)
+          row(for: person, eligibleIDs: eligibleIDs, variant: variant)
         }
       } footer: {
         Text("Already-owned items are skipped.")
@@ -109,15 +105,20 @@ import SwiftUI
   }
 
   @ViewBuilder
-  private func row(for person: Person, variant: ThemeVariant) -> some View {
+  private func row(
+    for person: Person,
+    eligibleIDs: Set<UUID>,
+    variant: ThemeVariant
+  ) -> some View {
     let isEligible = eligibleIDs.contains(person.id)
     let isSelected = selected.contains(person.id)
 
     Button {
       toggle(person.id)
     } label: {
-      HStack {
-        Text(person.name.isEmpty ? "Unnamed" : person.name)
+      HStack(spacing: 12) {
+        PersonAvatar(name: person.name, colorKey: person.colorKey, size: .standard)
+        Text(person.displayName)
           .foregroundStyle(isEligible ? variant.textPrimary : variant.textSecondary)
         Spacer()
         if !isEligible {
