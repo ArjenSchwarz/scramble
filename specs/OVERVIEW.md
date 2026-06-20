@@ -88,5 +88,6 @@ Copy a master packing item to other people from the Master Lists tab, creating i
 
 - [decision_log.md](copy-master-packing-items/decision_log.md)
 - [design.md](copy-master-packing-items/design.md)
+- [implementation.md](copy-master-packing-items/implementation.md)
 - [requirements.md](copy-master-packing-items/requirements.md)
 - [tasks.md](copy-master-packing-items/tasks.md)
