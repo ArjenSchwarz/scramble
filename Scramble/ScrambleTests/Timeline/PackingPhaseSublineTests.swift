@@ -27,23 +27,25 @@ struct PackingPhaseSublineTests {
     let context = container.mainContext
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     context.insert(trip)
-    var participants: [Person] = []
+    var snapshots: [TripPersonSnapshot] = []
     for (idx, states) in perPersonStates.enumerated() {
       let person = Person(name: "P\(idx)", colorKey: "blue")
       context.insert(person)
-      participants.append(person)
+      let snapshot = TripPersonSnapshot(personID: person.id, name: person.name, trip: trip)
+      context.insert(snapshot)
+      snapshots.append(snapshot)
       for (i, state) in states.enumerated() {
         context.insert(
           TripPackingItem(
             trip: trip,
-            person: person,
             name: "p\(idx)-i\(i)",
             state: state,
-            source: .rule
+            source: .rule,
+            personSnapshot: snapshot
           ))
       }
     }
-    trip.participants = participants
+    trip.participantSnapshots = snapshots
     try context.save()
     return (container, trip)
   }
