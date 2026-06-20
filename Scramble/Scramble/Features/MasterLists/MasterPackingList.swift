@@ -35,7 +35,11 @@ import SwiftUI
       switch self {
       case .create: AnyHashable("create")
       case .edit(let id): AnyHashable(id)
-      case .copy(let id): AnyHashable("copy-\(id.hashValue)")
+      // The "copy-" prefix is load-bearing: it keeps `.copy(x)` and `.edit(x)`
+      // from resolving to the same `.sheet(item:)` identity for one item id.
+      // Without it, presenting an edit sheet then a copy sheet for the same
+      // item would reuse the prior identity and the copy sheet wouldn't show.
+      case .copy(let id): AnyHashable("copy-\(id)")
       }
     }
   }
@@ -82,6 +86,8 @@ import SwiftUI
       .sheet(item: $sheetTarget) { target in
         sheet(for: target)
       }
+      // 5s (vs the app-wide 3s default) is deliberate so the post-copy
+      // confirmation isn't lost while the picker sheet finishes dismissing.
       .transientToast(message: $toastMessage, duration: 5)
     }
   }
