@@ -17,6 +17,10 @@
       case twoQualifyingTrips = "two-qualifying-trips"
       case singleEditableTrip = "single-editable-trip"
       case masterListsEmptyWithPerson = "master-lists-empty-with-person"
+      /// Copy feature: two people ("Alex" owns a "Socks" master packing item,
+      /// "Sam" owns nothing) so the per-row "Copy to people…" action is eligible
+      /// (>= 2 people) and Sam is an eligible copy target.
+      case masterPackingCopyTwoPeople = "master-packing-copy-two-people"
       case masterTaskAdvancedConditions = "master-task-advanced-conditions"
       case phase2RulesFixture = "phase2-rules-fixture"
       case phase2RulesFixtureSunTrip = "phase2-rules-fixture-sun-trip"
@@ -152,6 +156,7 @@
         let end = calendar.date(byAdding: .day, value: 35, to: day) ?? day
         context.insert(Trip(name: "Sample Trip", startDate: start, endDate: end))
       case .masterListsEmptyWithPerson,
+        .masterPackingCopyTwoPeople,
         .masterTaskAdvancedConditions,
         .phase2RulesFixture,
         .phase2RulesFixtureSunTrip,
@@ -193,6 +198,16 @@
         // under iOS 26); MasterPersistenceTests covers the create path.
         context.insert(
           MasterPackingItem(name: "Seeded item", person: alex, conditions: .always)
+        )
+      case .masterPackingCopyTwoPeople:
+        // Two people so the copy action is eligible (Req 1.3 needs >= 2).
+        // Alex owns "Socks"; Sam owns nothing → Sam is an eligible target.
+        let alex = Person(name: "Alex", colorKey: "blue")
+        let sam = Person(name: "Sam", colorKey: "red")
+        context.insert(alex)
+        context.insert(sam)
+        context.insert(
+          MasterPackingItem(name: "Socks", person: alex, conditions: .always)
         )
       case .masterTaskAdvancedConditions:
         // Out-of-domain weather value forces AdvancedConditionView per AC 3.7a.

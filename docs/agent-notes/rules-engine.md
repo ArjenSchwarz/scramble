@@ -42,6 +42,7 @@ The flag is scoped to a single `TripTask` record — deleting on Trip A does not
 | 5.1 | Trip created | `TripListView.swift` `onSave` closure (create) calls `runner.runForTrip(newTrip)` after `context.save()` |
 | 5.2 | Trip attributes edited | `TripDetailView.swift` `onSave` closure for the edit sheet, same pattern |
 | 5.3 | Master item saved/deleted | `MasterTaskEditor.swift` / `MasterPackingEditor.swift` `runEngineAndDismiss()` calls `runner.runForAllNonPastTrips()` |
+| 5.3 | Master packing item copied to other people | `MasterPackingList.swift` `performCopy(...)` also calls `runner.runForAllNonPastTrips()` after the copy save (copy-master-packing-items flow) |
 | 5.4 | Cold launch | `ScrambleApp.init()` — runs after `UITestSeed.applyIfRequested(...)`, before `WindowGroup` mounts. Synchronous on purpose to satisfy the Phase 1 auto-open ordering invariant (Phase 1 AC 5.6). |
 | 5.7 | Foreground transition | `RootView.swift` `onChange(of: scenePhase)` with a `hasBeenBackgrounded: Bool` latch (see Decision 9) |
 
