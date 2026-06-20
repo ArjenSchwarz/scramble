@@ -26,6 +26,10 @@ import SwiftUI
   @State private var sheetTarget: SheetTarget?
   @State private var toastMessage: String?
 
+  /// 5s (vs the app-wide 3s default) is deliberate so the post-copy
+  /// confirmation isn't lost while the picker sheet finishes dismissing.
+  private static let copyToastDuration: TimeInterval = 5
+
   enum SheetTarget: Identifiable, Hashable {
     case create
     case edit(PersistentIdentifier)
@@ -86,9 +90,7 @@ import SwiftUI
       .sheet(item: $sheetTarget) { target in
         sheet(for: target)
       }
-      // 5s (vs the app-wide 3s default) is deliberate so the post-copy
-      // confirmation isn't lost while the picker sheet finishes dismissing.
-      .transientToast(message: $toastMessage, duration: 5)
+      .transientToast(message: $toastMessage, duration: Self.copyToastDuration)
     }
   }
 
@@ -132,11 +134,26 @@ import SwiftUI
 
   /// Source eligibility for the copy action (Req 1.3 / Decision 6): at least
   /// two people exist, the source has an owner, and its trimmed name is
-  /// non-empty.
+  /// non-empty. Computes the three inputs and delegates to the pure decision.
   private func isCopyEligible(_ item: MasterPackingItem) -> Bool {
-    guard allPeople.count >= 2 else { return false }
-    guard item.person != nil else { return false }
-    return !item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    Self.isCopyEligible(
+      trimmedName: item.name.trimmingCharacters(in: .whitespacesAndNewlines),
+      hasOwner: item.person != nil,
+      peopleCount: allPeople.count
+    )
+  }
+
+  /// Pure copy-eligibility decision (Req 1.3 / Decision 6), extracted so it is
+  /// unit-testable without SwiftData: at least two people exist, the source has
+  /// an owner, and its (already-trimmed) name is non-empty.
+  nonisolated static func isCopyEligible(
+    trimmedName: String,
+    hasOwner: Bool,
+    peopleCount: Int
+  ) -> Bool {
+    guard peopleCount >= 2 else { return false }
+    guard hasOwner else { return false }
+    return !trimmedName.isEmpty
   }
 
   // MARK: - Sheet
@@ -209,6 +226,10 @@ import SwiftUI
   /// The branch selection is delegated to the pure `copyOutcome(...)`; this
   /// method maps the outcome onto rollback + the existing toast wording.
   private func performCopy(source: MasterPackingItem, toPersonIDs ids: [UUID]) {
+    // The source is captured at sheet-build time; a CloudKit sync could delete
+    // it while the picker is open, so copying from a deleted model is a no-op.
+    guard !source.isDeleted else { return }
+
     let result = MasterPersistence.copyPacking(
       source: source,
       toPersonIDs: ids,

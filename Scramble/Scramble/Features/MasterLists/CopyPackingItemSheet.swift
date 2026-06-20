@@ -44,18 +44,15 @@ import SwiftUI
     }
   }
 
-  /// People rendered in the picker: everyone except the owner, sorted by name
-  /// (2.1). Ineligible (same-name owner) people stay in the list but disabled.
-  private var targetPeople: [Person] {
-    allPeople.filter { $0.id != source.person?.id }
-  }
-
   var body: some View {
-    // Compute eligibility ONCE per body pass (the O(people×items) scan), then
-    // thread `eligibleIDs` into the rows / empty-state / confirm-enabled checks
-    // instead of each computed property re-running the scan.
-    let eligible = Self.eligibleTargets(source: source, people: allPeople)
-    let eligibleIDs = Set(eligible.map(\.id))
+    // Compute the displayed people and eligibility ONCE per body pass (the
+    // O(people×items) scan), then thread `targetPeople` / `eligibleIDs` into the
+    // rows / empty-state / confirm-enabled checks instead of re-deriving them.
+    let ownerID = source.person?.id
+    // People rendered in the picker: everyone except the owner, sorted by name
+    // (2.1). Ineligible (same-name owner) people stay in the list but disabled.
+    let targetPeople = allPeople.filter { $0.id != ownerID }
+    let eligibleIDs = Set(Self.eligibleTargets(source: source, people: allPeople).map(\.id))
     let hasEligibleTarget = !eligibleIDs.isEmpty
     // Confirm enabled only when at least one *eligible* person is selected
     // (2.4). Intersecting against `eligibleIDs` means a stale selection of a
@@ -65,7 +62,7 @@ import SwiftUI
     return NavigationStack {
       Group {
         if hasEligibleTarget {
-          peopleList(eligibleIDs: eligibleIDs)
+          peopleList(targetPeople: targetPeople, eligibleIDs: eligibleIDs)
         } else {
           emptyState
         }
@@ -90,7 +87,7 @@ import SwiftUI
 
   // MARK: - Subviews
 
-  private func peopleList(eligibleIDs: Set<UUID>) -> some View {
+  private func peopleList(targetPeople: [Person], eligibleIDs: Set<UUID>) -> some View {
     let variant = theme.variant(for: colorScheme)
     return List {
       Section {
