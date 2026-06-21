@@ -24,14 +24,14 @@ references:
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [1.3](requirements.md#1.3), [6.1](requirements.md#6.1)
   - References: Scramble/Scramble/Models/TripPackingItem.swift
 
-- [ ] 3. Write PackingSubItems helper tests incl. property-based round-trip (red) <!-- id:6zw6ikg -->
+- [x] 3. Write PackingSubItems helper tests incl. property-based round-trip (red) <!-- id:6zw6ikg -->
   - sanitizedEntry trims + caps 200 grapheme clusters (multi-scalar emoji intact at boundary); appending returns rejectedEmpty / rejectedFull(at 50) / added, preserving duplicates and order; removing(at:) removes only that index, OOR is a no-op; sanitizedNote trims, caps 500 graphemes, nil on empty.
   - PBT: decode(encode(xs))==xs for generated [String] (duplicates/empty/unicode/boundary-length); add/remove length invariants; count never exceeds 50. Use the repo's @Test(arguments:) parameterised style.
   - Stream: 2
   - Requirements: [2.3](requirements.md#2.3), [2.4](requirements.md#2.4), [2.6](requirements.md#2.6), [2.7](requirements.md#2.7), [3.2](requirements.md#3.2), [4.4](requirements.md#4.4)
   - References: Scramble/ScrambleTests/
 
-- [ ] 4. Implement PackingSubItems pure helpers (green) <!-- id:6zw6ikh -->
+- [x] 4. Implement PackingSubItems pure helpers (green) <!-- id:6zw6ikh -->
   - New Scramble/Scramble/Models/PackingSubItems.swift; maxCount=50, maxItemLength=200, maxNoteLength=500; AddOutcome enum; sanitizedEntry/appending/removing/sanitizedNote; no view or ModelContext dependency.
   - Blocked-by: 6zw6ikg (Write PackingSubItems helper tests incl. property-based round-trip (red))
   - Stream: 2
