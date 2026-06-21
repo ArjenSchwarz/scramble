@@ -8,14 +8,14 @@ references:
 
 ## Model & domain
 
-- [ ] 1. Write TripPackingItem note/subItems bridge tests (red) <!-- id:6zw6ike -->
+- [x] 1. Write TripPackingItem note/subItems bridge tests (red) <!-- id:6zw6ike -->
   - Assert subItems get/set round-trip; subItems=[] ⇒ subItemsData==nil; a non-nil empty Data() reads back as []; garbage Data decodes to []; note set then clear.
   - Setting state to .excluded and back leaves note/subItems unchanged (skip→restore survival).
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [1.3](requirements.md#1.3), [1.4](requirements.md#1.4), [7.5](requirements.md#7.5)
   - References: Scramble/Scramble/Models/TripPackingItem.swift, Scramble/ScrambleTests/
 
-- [ ] 2. Add note + subItemsData fields + subItems bridge to TripPackingItem (green) <!-- id:6zw6ikf -->
+- [x] 2. Add note + subItemsData fields + subItems bridge to TripPackingItem (green) <!-- id:6zw6ikf -->
   - note: String? and subItemsData: Data?, both Optional/nil-default so they ride on SchemaV3 — NO SchemaV4.
   - subItems bridge getter normalises empty Data()→[] via CodableBridge; setter stores nil for an empty list.
   - Add note param to init.

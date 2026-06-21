@@ -37,6 +37,20 @@ final class TripPackingItem {
   /// V3 — see `Trip.ckRecordSystemFields`.
   var ckRecordSystemFields: Data?
 
+  /// Per-trip free-form note (feature `packing-item-subitems`). `nil` or
+  /// empty ⇒ no note. Optional with a `nil` default so it rides on the
+  /// existing `SchemaV3` via lightweight inference — a property-only
+  /// addition to a shared top-level class cannot be a distinct
+  /// `SchemaV4` (see `persistence.md`).
+  var note: String?
+
+  /// Per-trip sub-item list (feature `packing-item-subitems`), JSON-encoded
+  /// `[String]`. `nil`/empty ⇒ no sub-items. Optional with a `nil` default
+  /// so it rides on `SchemaV3` (same reason as `note`). Read/write through
+  /// the `subItems` `CodableBridge` extension below — never as a stored
+  /// relationship.
+  var subItemsData: Data?
+
   init(
     id: UUID = UUID(),
     trip: Trip? = nil,
@@ -47,7 +61,8 @@ final class TripPackingItem {
     source: ItemSource = .manual,
     currentlyMatchesRules: Bool = true,
     pinnedByUser: Bool = false,
-    personSnapshot: TripPersonSnapshot? = nil
+    personSnapshot: TripPersonSnapshot? = nil,
+    note: String? = nil
   ) {
     self.id = id
     self.trip = trip
@@ -59,6 +74,7 @@ final class TripPackingItem {
     self.currentlyMatchesRules = currentlyMatchesRules
     self.pinnedByUser = pinnedByUser
     self.personSnapshotID = personSnapshot?.id
+    self.note = note
   }
 }
 
@@ -71,6 +87,32 @@ extension TripPackingItem {
   var source: ItemSource {
     get { ItemSource(rawValue: sourceRaw) ?? .manual }
     set { sourceRaw = newValue.rawValue }
+  }
+
+  /// Bridge over the `subItemsData` JSON blob (feature
+  /// `packing-item-subitems`). Lives in an extension so the `@Model` macro
+  /// never treats it as a stored relationship. Invariant: an empty list ⇒
+  /// no sub-items, treated identically whether `subItemsData` is `nil` or a
+  /// non-nil empty `Data()` — the getter normalises empty `Data()` to `[]`
+  /// (`CodableBridge.encode` returns empty `Data()`, never nil, on its
+  /// degrade path), and the setter stores `nil` for an empty list. Order is
+  /// array order (Req 1.3).
+  var subItems: [String] {
+    get {
+      guard let data = subItemsData, !data.isEmpty else { return [] }
+      return CodableBridge.decode(
+        data,
+        as: [String].self,
+        default: [],
+        label: "TripPackingItem.subItems"
+      )
+    }
+    set {
+      subItemsData =
+        newValue.isEmpty
+        ? nil
+        : CodableBridge.encode(newValue, label: "TripPackingItem.subItems")
+    }
   }
 
   /// Bridge over the `personSnapshotID` value reference. Lives in an
