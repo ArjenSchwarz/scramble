@@ -47,6 +47,33 @@ struct PackingItemRowAccessibilityTests {
     #expect(label == "Socks, not bringing, owned by Bob")
   }
 
+  @Test("A note is appended to the combined label (Req 8.1)")
+  func labelIncludesNote() throws {
+    let setup = try Self.makeSetup()
+    let trip = Trip(name: "T", startDate: .now, endDate: .now)
+    setup.context.insert(trip)
+    let item = TripPackingItem(
+      trip: trip, name: "Toys", state: .unpacked, note: "keep batteries out"
+    )
+    setup.context.insert(item)
+    try setup.context.save()
+
+    let label = PackingItemRow.composedAccessibilityLabel(
+      item: item, group: .stillNeedToPack, note: item.note
+    )
+    #expect(label == "Toys, not packed, note: keep batteries out")
+  }
+
+  @Test("No note clause when the item has none")
+  func labelOmitsAbsentNote() throws {
+    let setup = try Self.makeSetup()
+    let (item, _) = try Self.makeItem(state: .unpacked, owner: "Alice", in: setup.context)
+    let label = PackingItemRow.composedAccessibilityLabel(
+      item: item, group: .stillNeedToPack, note: nil
+    )
+    #expect(label == "Socks, not packed, owned by Alice")
+  }
+
   @Test("Item without an owner snapshot omits the 'owned by' clause")
   func unownedLabel() throws {
     let setup = try Self.makeSetup()

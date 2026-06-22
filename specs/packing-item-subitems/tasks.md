@@ -74,7 +74,7 @@ references:
 
 ## UI
 
-- [ ] 9. Implement PackingSubItemsView (green) <!-- id:6zw6ikm -->
+- [x] 9. Implement PackingSubItemsView (green) <!-- id:6zw6ikm -->
   - New Scramble/Scramble/Components/PackingSubItemsView.swift; plain-value params (note, subItems, isInteractive, accent, onAdd, onRemove, onEditNote), no @Model reference.
   - Renders note (tappable→onEditNote when interactive) + sub-item rows + reveal-on-tap add field (@FocusState, live 200-cap .onChange, hidden at 50 items).
   - Row-local @State [SubItemDraft] (id=UUID) re-seeded on .onChange(of: subItems); ForEach by id, never id:\.self; remove maps draft→index→onRemove.
@@ -84,21 +84,21 @@ references:
   - Requirements: [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.7](requirements.md#2.7), [3.1](requirements.md#3.1), [4.2](requirements.md#4.2), [5.1](requirements.md#5.1), [5.3](requirements.md#5.3), [8.1](requirements.md#8.1), [8.2](requirements.md#8.2), [8.3](requirements.md#8.3)
   - References: Scramble/Scramble/Components/PackingSubItemsView.swift
 
-- [ ] 10. Write PackingItemForm note-field helper tests (red) <!-- id:6zw6ikn -->
+- [x] 10. Write PackingItemForm note-field helper tests (red) <!-- id:6zw6ikn -->
   - performAdd/performEdit set item.note = sanitizedNote(input); clearing to empty stores nil; live 500-grapheme cap.
   - Blocked-by: 6zw6ikf (Add note + subItemsData fields + subItems bridge to TripPackingItem (green)), 6zw6ikh (Implement PackingSubItems pure helpers (green))
   - Stream: 2
   - Requirements: [4.1](requirements.md#4.1), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4)
   - References: Scramble/Scramble/Features/Trips/PackingItemForm.swift, Scramble/ScrambleTests/
 
-- [ ] 11. Add the note field to PackingItemForm (green) <!-- id:6zw6iko -->
+- [x] 11. Add the note field to PackingItemForm (green) <!-- id:6zw6iko -->
   - TextField(axis:.vertical) below the name field, capped via sanitizedNote semantics; shown in add and edit modes; wired through performAdd/performEdit.
   - Blocked-by: 6zw6ikn (Write PackingItemForm note-field helper tests (red))
   - Stream: 2
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [4.4](requirements.md#4.4)
   - References: Scramble/Scramble/Features/Trips/PackingItemForm.swift
 
-- [ ] 12. Wire PackingItemRow + PackingItemGroup (green) <!-- id:6zw6ikp -->
+- [x] 12. Wire PackingItemRow + PackingItemGroup (green) <!-- id:6zw6ikp -->
   - PackingItemGroup.addSubItem/removeSubItem mutate via PackingSubItems then save(_:) through the hook chokepoint; add/remove never change state or group (Req 2.5/3.3).
   - Embed PackingSubItemsView in PackingItemRow below the name and above WhyDisclosure; PackingItemRow.body reads item.note/item.subItems directly for SwiftData observation; onEditNote reuses the existing .edit form presentation.
   - Restructure the row a11y from .combine to a combined row element (carrying the Add sub-item custom action) plus the .contain sub-item list; gate add/remove on !SheetGroup.isReadOnly; display still renders on read-only/dimmed rows (5.2/5.4).
@@ -108,7 +108,7 @@ references:
   - Requirements: [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.5](requirements.md#2.5), [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.4](requirements.md#5.4), [6.3](requirements.md#6.3), [8.1](requirements.md#8.1), [8.2](requirements.md#8.2)
   - References: Scramble/Scramble/Components/PackingItemRow.swift, Scramble/Scramble/Features/Trips/PackingSheet.swift
 
-- [ ] 13. Write UI test for inline add/remove and read-only display (red) <!-- id:6zw6ikq -->
+- [x] 13. Write UI test for inline add/remove and read-only display (red) <!-- id:6zw6ikq -->
   - ScrambleUITests: in pack mode reveal the add field, type a sub-item, submit → it renders on the row; remove it; switch the item to Not bringing → the sub-item shows but no add/remove control appears. Add the needed accessibility identifiers.
   - Blocked-by: 6zw6ikp (Wire PackingItemRow + PackingItemGroup (green)), 6zw6iko (Add the note field to PackingItemForm (green))
   - Stream: 2

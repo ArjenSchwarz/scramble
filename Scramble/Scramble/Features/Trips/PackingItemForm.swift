@@ -42,6 +42,7 @@ struct PackingItemForm: View {
   @Environment(\.localWriteHook) private var hook
 
   @State private var name: String = ""
+  @State private var note: String = ""
   @State private var inlineError: String?
 
   private static let nameLimit = 200
@@ -55,6 +56,17 @@ struct PackingItemForm: View {
               let capped = Self.cappedName(new)
               if capped != new { name = capped }
             }
+          TextField("Note (optional)", text: $note, axis: .vertical)
+            .lineLimit(1...4)
+            .onChange(of: note) { _, new in
+              // Live 500-grapheme cap (Req 4.4); trimming to nil happens at
+              // save via PackingSubItems.sanitizedNote.
+              let capped = Self.cappedNote(new)
+              if capped != new { note = capped }
+            }
+            #if DEBUG
+              .accessibilityIdentifier("packingItemForm.noteField")
+            #endif
         }
 
         if let inlineError {
@@ -97,8 +109,10 @@ struct PackingItemForm: View {
     switch mode {
     case .add:
       name = ""
+      note = ""
     case .edit(let item):
       name = item.name
+      note = item.note ?? ""
     }
     inlineError = nil
   }
@@ -110,10 +124,13 @@ struct PackingItemForm: View {
       switch mode {
       case .add(let person, let trip):
         _ = try Self.performAdd(
-          name: name, person: person, trip: trip, context: modelContext, hook: hook
+          name: name, note: note, person: person, trip: trip,
+          context: modelContext, hook: hook
         )
       case .edit(let item):
-        try Self.performEdit(item: item, name: name, context: modelContext, hook: hook)
+        try Self.performEdit(
+          item: item, name: name, note: note, context: modelContext, hook: hook
+        )
       }
       onSave()
     } catch {
@@ -141,6 +158,15 @@ extension PackingItemForm {
     String(input.prefix(nameLimit))
   }
 
+  /// Live length cap for the note field: truncates to
+  /// `PackingSubItems.maxNoteLength` (500) graphemes without trimming, so the
+  /// user can still type interior / trailing whitespace while composing
+  /// (Req 4.4). Trimming to `nil` for an empty note happens at save via
+  /// `PackingSubItems.sanitizedNote`.
+  static func cappedNote(_ input: String) -> String {
+    String(input.prefix(PackingSubItems.maxNoteLength))
+  }
+
   /// Inserts a manual `TripPackingItem` with the documented field values
   /// (Req 5.3). Phase 5.1: writes the V3 `personSnapshotID` value
   /// reference (looked up against `trip.participantSnapshots` by
@@ -153,6 +179,7 @@ extension PackingItemForm {
   @discardableResult
   static func performAdd(
     name: String,
+    note: String = "",
     person: Person,
     trip: Trip,
     context: ModelContext,
@@ -183,7 +210,8 @@ extension PackingItemForm {
       source: .manual,
       currentlyMatchesRules: true,
       pinnedByUser: false,
-      personSnapshot: snapshot
+      personSnapshot: snapshot,
+      note: PackingSubItems.sanitizedNote(note)
     )
     context.insert(item)
     do {
@@ -195,18 +223,22 @@ extension PackingItemForm {
     return item
   }
 
-  /// Renames an existing `TripPackingItem`. On save failure the catch path
-  /// calls `context.rollback()` so the `@Model` instance reverts to its
-  /// pre-edit name (SwiftData does not auto-rollback in-memory edits).
+  /// Renames an existing `TripPackingItem` and sets its note from `note`
+  /// (`PackingSubItems.sanitizedNote` ⇒ `nil` when empty, Req 4.3). On save
+  /// failure the catch path calls `context.rollback()` so the `@Model`
+  /// instance reverts to its pre-edit values (SwiftData does not auto-rollback
+  /// in-memory edits).
   @MainActor
   static func performEdit(
     item: TripPackingItem,
     name: String,
+    note: String = "",
     context: ModelContext,
     hook: LocalWriteHook
   ) throws {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     item.name = trimmed
+    item.note = PackingSubItems.sanitizedNote(note)
     do {
       try hook.commit(context)
     } catch {

@@ -40,6 +40,15 @@ nonisolated enum PackingSubItems {
     return String(trimmed.prefix(maxItemLength))
   }
 
+  /// Live length cap for the inline add field: caps to `maxItemLength`
+  /// grapheme clusters *without* trimming, so the user can still type interior
+  /// or trailing spaces while composing an entry. Mirrors
+  /// `PackingItemForm.cappedName` (prefix-only). The trimming happens later in
+  /// `appending`/`sanitizedEntry` at submit time.
+  static func cappedEntry(_ raw: String) -> String {
+    String(raw.prefix(maxItemLength))
+  }
+
   /// Appends a sanitized entry to `list`. Returns `.rejectedEmpty` if the
   /// input is blank, `.rejectedFull` if `list` already holds `maxCount`
   /// entries, otherwise `.added` with the entry appended. Empty is checked

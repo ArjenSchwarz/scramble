@@ -42,6 +42,10 @@ struct PackingSheet: View {
   @Environment(\.colorScheme) private var colorScheme
 
   @State private var openDisclosureItemID: UUID?
+  /// Identity of the row whose inline sub-item add field is currently
+  /// revealed, so the background tap-catcher can be mounted to dismiss it
+  /// (design § "Focus / keyboard / dismissal"). Reported by `PackingItemRow`.
+  @State private var activeAddFieldItemID: UUID?
   @State private var pendingForm: PackingItemFormPresentation?
   @AccessibilityFocusState private var headerFocused: Bool
 
@@ -86,6 +90,7 @@ struct PackingSheet: View {
                 mode: mode,
                 personColour: personColour,
                 openDisclosureItemID: $openDisclosureItemID,
+                activeAddFieldItemID: $activeAddFieldItemID,
                 onEdit: { item in
                   pendingForm = .edit(item: item)
                 }
@@ -116,13 +121,19 @@ struct PackingSheet: View {
         }
       }
       .background {
-        // Disclosure-dismiss tap target, mounted only when a disclosure is
-        // open. Lives on the background so it can't intercept taps destined
-        // for checkboxes, action buttons, or the close button.
-        if openDisclosureItemID != nil {
+        // Disclosure / add-field dismiss tap target, mounted only when a
+        // disclosure or an inline add field is open. Lives on the background
+        // so it can't intercept taps destined for checkboxes, action buttons,
+        // or the close button. Ending editing makes the active add field lose
+        // focus, which collapses it (design § "Focus / keyboard / dismissal").
+        if openDisclosureItemID != nil || activeAddFieldItemID != nil {
           Color.clear
             .contentShape(Rectangle())
-            .onTapGesture { openDisclosureItemID = nil }
+            .onTapGesture {
+              openDisclosureItemID = nil
+              activeAddFieldItemID = nil
+              endTextEditing()
+            }
         }
       }
     }
@@ -158,6 +169,16 @@ struct PackingSheet: View {
     } else {
       onDismiss()
     }
+  }
+
+  /// Resigns first responder app-wide so the inline add field loses focus and
+  /// self-collapses. No-op off UIKit.
+  private func endTextEditing() {
+    #if canImport(UIKit)
+      UIApplication.shared.sendAction(
+        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+      )
+    #endif
   }
 }
 
@@ -244,6 +265,7 @@ private struct PackingItemGroup: View {
   let mode: PackingMode
   let personColour: Color
   @Binding var openDisclosureItemID: UUID?
+  @Binding var activeAddFieldItemID: UUID?
   let onEdit: (TripPackingItem) -> Void
 
   @Environment(\.modelContext) private var modelContext
@@ -272,7 +294,12 @@ private struct PackingItemGroup: View {
           onToggleState: { toggleState(item) },
           onSkipOrRestore: { skipOrRestore(item) },
           onLongPress: { toggleDisclosure(item) },
-          onEdit: { onEdit(item) }
+          onEdit: { onEdit(item) },
+          onAddSubItem: { raw in addSubItem(item, raw) },
+          onRemoveSubItem: { index in removeSubItem(item, at: index) },
+          onAddFieldVisibilityChanged: { visible in
+            activeAddFieldItemID = visible ? item.id : nil
+          }
         )
       }
     }
@@ -310,6 +337,27 @@ private struct PackingItemGroup: View {
 
   private func toggleDisclosure(_ item: TripPackingItem) {
     openDisclosureItemID = (openDisclosureItemID == item.id) ? nil : item.id
+  }
+
+  /// Appends a sub-item via the pure `PackingSubItems` helper, then commits
+  /// through the same `hook.commit` chokepoint as the checkbox/skip
+  /// mutations. The cap / empty guards reject *before* any write (Decision 9),
+  /// and adding never changes the item's state or group (Req 2.5).
+  private func addSubItem(_ item: TripPackingItem, _ raw: String) {
+    switch PackingSubItems.appending(raw, to: item.subItems) {
+    case .added(let list):
+      item.subItems = list
+      save("addSubItem")
+    case .rejectedEmpty, .rejectedFull:
+      return
+    }
+  }
+
+  /// Removes the sub-item at `index` (positional, Req 3.2) and commits.
+  /// Removing never changes the item's state (Req 3.3).
+  private func removeSubItem(_ item: TripPackingItem, at index: Int) {
+    item.subItems = PackingSubItems.removing(at: index, from: item.subItems)
+    save("removeSubItem")
   }
 
   private func save(_ marker: String) {

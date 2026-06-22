@@ -88,6 +88,14 @@ struct PackingItemRow: View {
   let onSkipOrRestore: () -> Void
   let onLongPress: () -> Void
   let onEdit: () -> Void
+  /// Appends a sub-item (raw text). Wired to `PackingItemGroup.addSubItem`.
+  let onAddSubItem: (String) -> Void
+  /// Removes the sub-item at the given list index. Wired to
+  /// `PackingItemGroup.removeSubItem`.
+  let onRemoveSubItem: (Int) -> Void
+  /// Reports the inline add field's visibility so the sheet can mount its
+  /// dismiss tap-catcher.
+  let onAddFieldVisibilityChanged: (Bool) -> Void
 
   @Environment(\.modelContext) private var modelContext
   @Environment(\.theme) private var theme
@@ -97,33 +105,25 @@ struct PackingItemRow: View {
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
+    // Read note + subItems here (not only inside the child) so SwiftData
+    // establishes observation on `note`/`subItemsData` — that is what makes an
+    // inbound sync re-render the row (design § "Integration points").
+    let note = item.note
+    let subItems = item.subItems
 
-    HStack(alignment: .top, spacing: 12) {
-      checkbox(variant: variant)
+    VStack(alignment: .leading, spacing: 6) {
+      rowContent(variant: variant, note: note)
 
-      VStack(alignment: .leading, spacing: 6) {
-        // Italic condition tags rendered when master available (deferred; placeholder for v1)
-        Text(item.name)
-          .font(.body)
-          .foregroundStyle(group.isReadOnly ? variant.textSecondary : variant.textPrimary)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .contentShape(Rectangle())
-          .onLongPressGesture(minimumDuration: 0.4) {
-            #if canImport(UIKit)
-              UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
-            onLongPress()
-          }
-
-        if isDisclosureOpen, let reason = resolvedReason {
-          WhyDisclosureView(reason: reason, style: .packing(personColour: personColour))
-            #if DEBUG
-              .accessibilityIdentifier("packingSheet.whyDisclosure.\(item.name)")
-            #endif
-        }
-      }
-
-      trailingAction(variant: variant)
+      PackingSubItemsView(
+        note: note,
+        subItems: subItems,
+        isInteractive: !group.isReadOnly,
+        accent: personColour,
+        onAdd: onAddSubItem,
+        onRemove: onRemoveSubItem,
+        onEditNote: onEdit,
+        onAddFieldVisibilityChanged: handleAddFieldVisibility
+      )
     }
     .padding(.vertical, 8)
     .frame(minHeight: 44)
@@ -147,25 +147,6 @@ struct PackingItemRow: View {
         }
       }
     }
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(accessibilityLabel)
-    .modifier(
-      WhyAccessibilityAction(
-        enabled: PackingItemRow.hasWhyJustification(
-          item: item,
-          context: modelContext,
-          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
-        ),
-        onWhy: onLongPress
-      )
-    )
-    .modifier(EditAccessibilityAction(enabled: !group.isReadOnly, onEdit: onEdit))
-    .modifier(
-      SkipRestoreAccessibilityAction(
-        label: inlineActionLabel,
-        onAction: onSkipOrRestore
-      )
-    )
     #if DEBUG
       .accessibilityIdentifier("packingSheet.itemRow.\(item.name)")
     #endif
@@ -201,6 +182,69 @@ struct PackingItemRow: View {
   }
 
   // MARK: - Subviews
+
+  /// Checkbox + name + `WhyDisclosure` + trailing action. This is the single
+  /// combined accessibility "row" element (name + state + owner + note in its
+  /// label) carrying the row-level custom actions, including the new
+  /// **Add sub-item** action (Req 8.2). The sub-item list is a sibling
+  /// `.contain` container rendered by `PackingSubItemsView` so its entries stay
+  /// individually addressable — the previous flat `.combine` over the whole
+  /// row could not express that.
+  @ViewBuilder
+  private func rowContent(variant: ThemeVariant, note: String?) -> some View {
+    HStack(alignment: .top, spacing: 12) {
+      checkbox(variant: variant)
+
+      VStack(alignment: .leading, spacing: 6) {
+        // Italic condition tags rendered when master available (deferred; placeholder for v1)
+        Text(item.name)
+          .font(.body)
+          .foregroundStyle(group.isReadOnly ? variant.textSecondary : variant.textPrimary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .contentShape(Rectangle())
+          .onLongPressGesture(minimumDuration: 0.4) {
+            #if canImport(UIKit)
+              UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+            onLongPress()
+          }
+
+        if isDisclosureOpen, let reason = resolvedReason {
+          WhyDisclosureView(reason: reason, style: .packing(personColour: personColour))
+            #if DEBUG
+              .accessibilityIdentifier("packingSheet.whyDisclosure.\(item.name)")
+            #endif
+        }
+      }
+
+      trailingAction(variant: variant)
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(combinedLabel(note: note))
+    .modifier(
+      WhyAccessibilityAction(
+        enabled: PackingItemRow.hasWhyJustification(
+          item: item,
+          context: modelContext,
+          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
+        ),
+        onWhy: onLongPress
+      )
+    )
+    .modifier(EditAccessibilityAction(enabled: !group.isReadOnly, onEdit: onEdit))
+    .modifier(
+      SkipRestoreAccessibilityAction(
+        label: inlineActionLabel,
+        onAction: onSkipOrRestore
+      )
+    )
+    .modifier(
+      AddSubItemAccessibilityAction(
+        enabled: !group.isReadOnly && item.subItems.count < PackingSubItems.maxCount,
+        onAdd: { onAddSubItem("New sub-item") }
+      )
+    )
+  }
 
   @ViewBuilder
   private func checkbox(variant: ThemeVariant) -> some View {
@@ -289,6 +333,17 @@ struct PackingItemRow: View {
     #endif
   }
 
+  /// Forwards the inline add field's visibility to the sheet (so it can mount
+  /// the dismiss tap-catcher), and closes this row's `WhyDisclosure` when the
+  /// add field reveals — one inline expansion at a time (design § "Focus /
+  /// keyboard / dismissal").
+  private func handleAddFieldVisibility(_ visible: Bool) {
+    if visible && isDisclosureOpen {
+      onLongPress()  // toggles the open disclosure closed
+    }
+    onAddFieldVisibilityChanged(visible)
+  }
+
   // MARK: - Visual state derivation
 
   /// Whether the row's checkbox is rendered in the "checked" state. Items
@@ -344,17 +399,18 @@ struct PackingItemRow: View {
   }
 
   /// Combined VoiceOver label per Phase 6 Req 9.3 — item name + current
-  /// `PackingState` + owning person. Read-only groups (`.leftBehind`,
-  /// `.notBringing`) substitute the special state suffix the spec
-  /// mandates ("left behind", "not bringing") rather than the raw
-  /// PackingState word.
-  private var accessibilityLabel: String {
-    PackingItemRow.composedAccessibilityLabel(item: item, group: group)
+  /// `PackingState` + owning person, plus the note (Req 8.1) when present.
+  /// Read-only groups (`.leftBehind`, `.notBringing`) substitute the special
+  /// state suffix the spec mandates ("left behind", "not bringing") rather
+  /// than the raw PackingState word.
+  private func combinedLabel(note: String?) -> String {
+    PackingItemRow.composedAccessibilityLabel(item: item, group: group, note: note)
   }
 
   static func composedAccessibilityLabel(
     item: TripPackingItem,
-    group: SheetGroup
+    group: SheetGroup,
+    note: String? = nil
   ) -> String {
     var parts: [String] = [item.name]
     switch group {
@@ -367,6 +423,13 @@ struct PackingItemRow: View {
     }
     if let ownerName = item.personSnapshot?.name, !ownerName.isEmpty {
       parts.append("owned by \(ownerName)")
+    }
+    // Req 8.1 — the note is read as part of the row's combined element. Fall
+    // back to the item's own note when the caller doesn't supply one (keeps
+    // the older two-arg call sites and tests working).
+    let resolvedNote = note ?? item.note
+    if let resolvedNote, !resolvedNote.isEmpty {
+      parts.append("note: \(resolvedNote)")
     }
     return parts.joined(separator: ", ")
   }
@@ -440,6 +503,23 @@ private struct SkipRestoreAccessibilityAction: ViewModifier {
   func body(content: Content) -> some View {
     if let label {
       content.accessibilityAction(named: Text(label)) { onAction() }
+    } else {
+      content
+    }
+  }
+}
+
+/// Req 8.2 — row-level "Add sub-item" custom action, present only on
+/// interactive rows that are below the count cap. VoiceOver users get a
+/// generic placeholder entry they can then rename/remove; the sighted path
+/// uses the inline reveal-on-tap field.
+private struct AddSubItemAccessibilityAction: ViewModifier {
+  let enabled: Bool
+  let onAdd: () -> Void
+
+  func body(content: Content) -> some View {
+    if enabled {
+      content.accessibilityAction(named: Text("Add sub-item")) { onAdd() }
     } else {
       content
     }
