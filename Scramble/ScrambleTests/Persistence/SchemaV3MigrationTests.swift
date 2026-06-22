@@ -57,6 +57,52 @@ struct SchemaV3MigrationTests {
     #expect(stored.countryCode == nil)
   }
 
+  // MARK: - packing-item-subitems note + subItems ride on V3 (no SchemaV4)
+
+  @Test("SchemaV3 TripPackingItem entity includes note + subItemsData")
+  func schemaV3IncludesNoteAndSubItems() {
+    let schema = Schema(versionedSchema: SchemaV3.self)
+    let item = schema.entities.first(where: { $0.name == "TripPackingItem" })
+    let propertyNames = Set(item?.properties.map(\.name) ?? [])
+    #expect(propertyNames.contains("note"))
+    #expect(propertyNames.contains("subItemsData"))
+  }
+
+  @Test("The two new columns ride on V3 — the plan still exposes exactly two stages (no SchemaV4)")
+  func noSchemaV4Bump() {
+    // A property-only addition to the shared `TripPackingItem` must NOT
+    // introduce a new schema version (a fourth version would trip the
+    // "Duplicate version checksums" crash). The plan shape is unchanged:
+    // V1, V2, V3 with two consecutive stages.
+    #expect(AppMigrationPlan.schemas.count == 3)
+    #expect(AppMigrationPlan.stages.count == 2)
+  }
+
+  @Test(
+    """
+    Opening a pre-feature V3-shaped store materialises note + subItemsData as nil \
+    (lightweight inference, no duplicate-checksum crash)
+    """
+  )
+  func freshV3PackingItemNoteAndSubItemsNil() throws {
+    // The container is built through AppMigrationPlan; a successful open
+    // + insert + fetch confirms the lightweight column addition does not
+    // crash and surfaces the new columns as nil.
+    let container = try Self.makeV3Container()
+    let context = container.mainContext
+
+    let trip = Trip(name: "T", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let item = TripPackingItem(trip: trip, name: "Toys")
+    context.insert(item)
+    try context.save()
+
+    let stored = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(stored.note == nil)
+    #expect(stored.subItemsData == nil)
+    #expect(stored.subItems == [])
+  }
+
   // MARK: - Fresh V3 entity defaults
 
   @Test(

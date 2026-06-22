@@ -40,14 +40,14 @@ references:
 
 ## Sync & migration
 
-- [ ] 5. Write translator clear-matrix + blob-cap tests (red) <!-- id:6zw6iki -->
+- [x] 5. Write translator clear-matrix + blob-cap tests (red) <!-- id:6zw6iki -->
   - Extend TripPackingItemRecordTranslatorTests: note+subItems survive toRecord→from without loss/reorder; clear matrix {nil, empty, non-empty} including non-nil empty Data() (must serialise as an absent field); populated→cleared yields nil/[] on the receiver; blobTooLarge thrown when subItemsData is forced over kRecordBlobSizeCap.
   - Blocked-by: 6zw6ikf (Add note + subItemsData fields + subItems bridge to TripPackingItem (green))
   - Stream: 1
   - Requirements: [6.2](requirements.md#6.2), [6.4](requirements.md#6.4), [6.5](requirements.md#6.5)
   - References: Scramble/Scramble/Sharing/Translators/TripPackingItemRecordTranslator.swift, Scramble/ScrambleTests/Sharing/Translators/
 
-- [ ] 6. Implement translator note/subItemsData encode/decode (green) <!-- id:6zw6ikj -->
+- [x] 6. Implement translator note/subItemsData encode/decode (green) <!-- id:6zw6ikj -->
   - toRecord: note as CKRecordValue? (nil clears); subItemsData written only when non-empty with cap check, else cleared.
   - from: unconditional assignment for both (clear-propagation; masterItemID precedent), diverging from the if-let sibling fields.
   - Add a doc comment on from(): requires a full server snapshot — never pass a partial/desiredKeys record.
@@ -56,7 +56,7 @@ references:
   - Requirements: [6.2](requirements.md#6.2), [6.3](requirements.md#6.3), [6.4](requirements.md#6.4), [6.5](requirements.md#6.5)
   - References: Scramble/Scramble/Sharing/Translators/TripPackingItemRecordTranslator.swift
 
-- [ ] 7. Write relocation, migration-materialization, and rules-independence tests (red) <!-- id:6zw6ikk -->
+- [x] 7. Write relocation, migration-materialization, and rules-independence tests (red) <!-- id:6zw6ikk -->
   - ZoneMigrationCoordinator.relocateTrip carries note/subItemsData; an item with both nil relocates as still-nil (not an empty blob).
   - Opening a pre-feature SchemaV3-shaped store surfaces the two new columns as nil (no SchemaV4, no duplicate-checksum crash).
   - Running RulesEngineRunner.runForTrip leaves existing items' note/subItems unchanged and does not affect counts/groups (Req 7.1–7.3); deleting an item removes its note/subItems (7.4).
@@ -65,7 +65,7 @@ references:
   - Requirements: [6.1](requirements.md#6.1), [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.4](requirements.md#7.4)
   - References: Scramble/Scramble/Persistence/Migrations/ZoneMigrationCoordinator.swift, Scramble/ScrambleTests/Persistence/
 
-- [ ] 8. Carry note/subItemsData through the relocateTrip clone (green) <!-- id:6zw6ikl -->
+- [x] 8. Carry note/subItemsData through the relocateTrip clone (green) <!-- id:6zw6ikl -->
   - Copy note and subItemsData onto the relocated TripPackingItem alongside the existing field list (≈line 360).
   - Blocked-by: 6zw6ikk (Write relocation, migration-materialization, and rules-independence tests (red))
   - Stream: 1

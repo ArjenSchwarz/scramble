@@ -312,4 +312,103 @@ struct RulesEngineRunnerTests {
     #expect(plans.count == 2)
     #expect(Set(plans.map(\.tripID)) == Set([trip1.id, trip2.id]))
   }
+
+  // MARK: - packing-item-subitems — rules independence (Req 7.1–7.3) + deletion (7.4)
+
+  /// Bundle returned by `seedMatchedPackingItem` for the independence
+  /// assertions (a struct rather than a 4-tuple per SwiftLint).
+  private struct MatchedSeed {
+    let context: ModelContext
+    let trip: Trip
+    let person: Person
+    let item: TripPackingItem
+  }
+
+  /// Seed a rainy trip whose single matched master produces one packing
+  /// item, then run the engine once so the item exists.
+  private static func seedMatchedPackingItem() throws -> MatchedSeed {
+    let container = try makeContainer()
+    let context = container.mainContext
+
+    let person = Person(name: "P", colorKey: "blue")
+    context.insert(person)
+    let masterPack = MasterPackingItem(
+      name: "Rain jacket",
+      person: person,
+      conditions: .match(attribute: .weather, anyOf: ["rain"])
+    )
+    context.insert(masterPack)
+    let trip = Trip(
+      name: "Beach", startDate: .now, endDate: .now, attributes: rainyAttributes())
+    context.insert(trip)
+    let snapshot = TripPersonSnapshot(
+      personID: person.id,
+      name: person.name,
+      colourID: person.colorKey,
+      initialSource: "name",
+      isRosterMember: true,
+      trip: trip
+    )
+    context.insert(snapshot)
+    try context.save()
+
+    let runner = RulesEngineRunner(context: context)
+    _ = try runner.runForTrip(trip)
+    let item = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    return MatchedSeed(context: context, trip: trip, person: person, item: item)
+  }
+
+  @Test("Req 7.1/7.2: recompute leaves an existing item's note + subItems unchanged")
+  func recomputePreservesNoteAndSubItems() throws {
+    let seed = try Self.seedMatchedPackingItem()
+    seed.item.note = "keep batteries out"
+    seed.item.subItems = ["lego", "blocks"]
+    try seed.context.save()
+
+    // Re-run the deterministic engine; the matched item already exists, so
+    // the plan should be empty and the per-trip content untouched.
+    let runner = RulesEngineRunner(context: seed.context)
+    let plan = try runner.runForTrip(seed.trip)
+    #expect(plan.isEmpty)
+
+    let stored = try #require(try seed.context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(stored.note == "keep batteries out")
+    #expect(stored.subItems == ["lego", "blocks"])
+  }
+
+  @Test("Req 7.3: note + subItems do not change packing counts or group membership")
+  func noteAndSubItemsDoNotAffectCountsOrGroups() throws {
+    let seed = try Self.seedMatchedPackingItem()
+
+    let countsBefore = PackingListHelpers.counts(for: seed.person, in: seed.trip)
+    let groupBefore = Set(
+      PackingListHelpers.itemsForPerson(seed.trip, person: seed.person).map(\.id)
+    )
+
+    seed.item.note = "a note"
+    seed.item.subItems = ["one", "two", "three"]
+    try seed.context.save()
+
+    let countsAfter = PackingListHelpers.counts(for: seed.person, in: seed.trip)
+    let groupAfter = Set(
+      PackingListHelpers.itemsForPerson(seed.trip, person: seed.person).map(\.id)
+    )
+
+    #expect(countsAfter == countsBefore, "Counts must be unaffected by note / sub-items")
+    #expect(groupAfter == groupBefore, "Group membership must be unaffected")
+  }
+
+  @Test("Req 7.4: deleting a packing item removes its note + subItems with it")
+  func deletingItemRemovesNoteAndSubItems() throws {
+    let seed = try Self.seedMatchedPackingItem()
+    seed.item.note = "keep batteries out"
+    seed.item.subItems = ["lego", "blocks"]
+    try seed.context.save()
+
+    seed.context.delete(seed.item)
+    try seed.context.save()
+
+    let remaining = try seed.context.fetch(FetchDescriptor<TripPackingItem>())
+    #expect(remaining.isEmpty, "Item and its note / sub-items are gone")
+  }
 }
