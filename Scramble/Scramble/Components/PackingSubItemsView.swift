@@ -219,10 +219,10 @@ struct PackingSubItemsView: View {
         .foregroundStyle(variant.textSecondary)
         .accessibilityHidden(true)
 
-      // The text is the entry's addressable element: labelled "sub-item: …"
-      // and carrying the per-entry Remove custom action (Req 8.2). The visible
-      // remove button is a separate sibling so it stays tappable by pointer /
-      // UI tests without being flattened into the text element.
+      // The entry text is the row's label element; the per-entry removal is the
+      // sibling Remove button (labelled "Remove …", Req 8.2) — a single,
+      // discoverable VoiceOver removal path rather than a duplicate rotor
+      // action on the text. On read-only rows the button is absent (no remove).
       Text(draft.text)
         .font(.subheadline)
         .foregroundStyle(variant.textSecondary)
@@ -230,12 +230,6 @@ struct PackingSubItemsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("sub-item: \(draft.text)")
-        .modifier(
-          RemoveAccessibilityAction(
-            enabled: isInteractive,
-            onRemove: { removeDraft(draft) }
-          )
-        )
         #if DEBUG
           .accessibilityIdentifier("packingSubItems.entry.\(draft.text)")
         #endif
@@ -328,7 +322,9 @@ struct PackingSubItemsView: View {
       addFieldFocused = false
       return
     }
-    onAdd(addText)
+    // `trimmed` is already non-empty here; `appending`'s `sanitizedEntry` still
+    // caps length, so passing the trimmed value avoids a second trim/allocation.
+    onAdd(trimmed)
     addText = ""
     // Stay open and focused for the next entry.
     addFieldFocused = true
@@ -353,22 +349,6 @@ private struct NoteTapModifier: ViewModifier {
   func body(content: Content) -> some View {
     if enabled {
       content.onTapGesture { onEditNote() }
-    } else {
-      content
-    }
-  }
-}
-
-/// Per-entry VoiceOver Remove action, present only on interactive rows
-/// (Req 8.2). The visible Remove button is `accessibilityHidden` so the
-/// custom action is the single addressable removal path per entry.
-private struct RemoveAccessibilityAction: ViewModifier {
-  let enabled: Bool
-  let onRemove: () -> Void
-
-  func body(content: Content) -> some View {
-    if enabled {
-      content.accessibilityAction(named: Text("Remove")) { onRemove() }
     } else {
       content
     }
