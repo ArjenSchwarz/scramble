@@ -32,6 +32,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `specs/copy-master-packing-items/tasks.md` — 9 TDD tasks across 2 streams.
   - `specs/OVERVIEW.md` — added the spec to the table (status `Planned`) and detail sections.
 
+### Changed
+
+- `packing-item-subitems` (T-1587) — packing-sheet note / sub-item interaction reworked from the initial reveal-on-tap affordance row into compact trailing glyphs, after device review:
+  - `PackingItemRow` now shows a **note glyph** (`note.text`, tinted person-colour when a note exists, secondary when empty) and a **sub-item list glyph** (`list.bullet`) just left of the Skip button, replacing the persistent "＋ add item" row that pushed every interactive item onto two lines. Each glyph reveals its inline editor on demand and they are mutually exclusive.
+  - The **note is edited inline** via the note glyph (or by tapping the note text) instead of opening the full edit form — a new `PackingItemGroup.saveNote` commits `PackingSubItems.sanitizedNote(_:)` through the same `LocalWriteHook` chokepoint; the edit form still edits the name. `PackingSubItemsView` gains an inline note `TextField` (vertical, live 500-cap via the new `PackingSubItems.cappedNote`) alongside the existing sub-item add field, both parent-controlled via `isEditingNote` / `isAddFieldVisible` bindings; the sheet's background tap-catcher dismisses either.
+  - Layout fixes: the item name is given a 44pt min-height so it centres with the checkbox + glyphs; the sub-item row is centre-aligned so the Remove `−` lines up with the entry text; the note + sub-items are indented 56pt to sit under the item name; and note / sub-item text is bumped from `.footnote` to `.subheadline` for readability.
+
 ### Fixed
 
 - On-device launch failures (SwiftData migration + CloudKit):

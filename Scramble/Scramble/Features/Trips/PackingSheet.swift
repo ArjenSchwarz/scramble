@@ -295,6 +295,7 @@ private struct PackingItemGroup: View {
           onSkipOrRestore: { skipOrRestore(item) },
           onLongPress: { toggleDisclosure(item) },
           onEdit: { onEdit(item) },
+          onSaveNote: { raw in saveNote(item, raw) },
           onAddSubItem: { raw in addSubItem(item, raw) },
           onRemoveSubItem: { index in removeSubItem(item, at: index) },
           onAddFieldVisibilityChanged: { visible in
@@ -358,6 +359,14 @@ private struct PackingItemGroup: View {
   private func removeSubItem(_ item: TripPackingItem, at index: Int) {
     item.subItems = PackingSubItems.removing(at: index, from: item.subItems)
     save("removeSubItem")
+  }
+
+  /// Saves the inline-edited note via the same `sanitizedNote` semantics as the
+  /// edit form (trim + 500-cap, nil on empty) and commits through the hook
+  /// chokepoint. Never changes the item's state or group.
+  private func saveNote(_ item: TripPackingItem, _ raw: String) {
+    item.note = PackingSubItems.sanitizedNote(raw)
+    save("saveNote")
   }
 
   private func save(_ marker: String) {

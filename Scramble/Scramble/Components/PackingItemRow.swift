@@ -88,6 +88,10 @@ struct PackingItemRow: View {
   let onSkipOrRestore: () -> Void
   let onLongPress: () -> Void
   let onEdit: () -> Void
+  /// Saves the inline-edited note (raw text). Wired to
+  /// `PackingItemGroup.saveNote` — the note glyph edits inline rather than via
+  /// the edit form.
+  let onSaveNote: (String) -> Void
   /// Appends a sub-item (raw text). Wired to `PackingItemGroup.addSubItem`.
   let onAddSubItem: (String) -> Void
   /// Removes the sub-item at the given list index. Wired to
@@ -102,6 +106,12 @@ struct PackingItemRow: View {
   @Environment(\.colorScheme) private var colorScheme
   @Environment(\.isParticipantViewingSharedTrip) private var isParticipantViewingSharedTrip
   @State private var resolvedReason: WhyDisclosure.Reason?
+  /// Drives the inline add field in `PackingSubItemsView`, toggled by the
+  /// sub-item (list) glyph in the trailing controls (left of Skip).
+  @State private var isAddingSubItem = false
+  /// Drives the inline note editor in `PackingSubItemsView`, toggled by the
+  /// note glyph. Mutually exclusive with `isAddingSubItem`.
+  @State private var isEditingNote = false
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
@@ -119,11 +129,16 @@ struct PackingItemRow: View {
         subItems: subItems,
         isInteractive: !group.isReadOnly,
         accent: personColour,
+        isAddFieldVisible: $isAddingSubItem,
+        isEditingNote: $isEditingNote,
         onAdd: onAddSubItem,
         onRemove: onRemoveSubItem,
-        onEditNote: onEdit,
-        onAddFieldVisibilityChanged: handleAddFieldVisibility
+        onSaveNote: onSaveNote,
+        onAddFieldVisibilityChanged: handleInlineEditorVisibility
       )
+      // Indent the note + sub-items to line up under the item name (checkbox
+      // width 44 + the row HStack spacing 12) rather than the row's leading edge.
+      .padding(.leading, 56)
     }
     .padding(.vertical, 8)
     .frame(minHeight: 44)
@@ -200,7 +215,10 @@ struct PackingItemRow: View {
         Text(item.name)
           .font(.body)
           .foregroundStyle(group.isReadOnly ? variant.textSecondary : variant.textPrimary)
-          .frame(maxWidth: .infinity, alignment: .leading)
+          // Match the 44pt control height so the name's vertical centre lines
+          // up with the checkbox and trailing glyphs (the row HStack is
+          // top-aligned so the WhyDisclosure can still flow beneath the name).
+          .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
           .contentShape(Rectangle())
           .onLongPressGesture(minimumDuration: 0.4) {
             #if canImport(UIKit)
@@ -217,6 +235,8 @@ struct PackingItemRow: View {
         }
       }
 
+      noteButton(variant: variant)
+      addSubItemButton(variant: variant)
       trailingAction(variant: variant)
     }
     .accessibilityElement(children: .combine)
@@ -282,6 +302,61 @@ struct PackingItemRow: View {
     }
   }
 
+  /// Note glyph (left of the list glyph) that reveals the inline note editor —
+  /// add when the item has no note, edit when it does. Tinted person-colour
+  /// when a note exists, secondary when empty, as a lightweight has-note hint.
+  /// Replaces editing the note through the full edit form. Hidden on read-only
+  /// rows.
+  @ViewBuilder
+  private func noteButton(variant: ThemeVariant) -> some View {
+    if !group.isReadOnly {
+      let hasNote = item.note?.isEmpty == false
+      Button {
+        isAddingSubItem = false
+        isEditingNote = true
+      } label: {
+        Image(systemName: "note.text")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(hasNote ? personColour : variant.textSecondary)
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .disabled(isEditingNote)
+      .accessibilityLabel(hasNote ? "Edit note" : "Add note")
+      #if DEBUG
+        .accessibilityIdentifier("packingSubItems.noteButton")
+      #endif
+    }
+  }
+
+  /// Sub-item (list) glyph that reveals the inline add field, just left of the
+  /// Skip button. Replaces the old persistent "add item" affordance row so a
+  /// sub-item-less item stays a single line. Shown on interactive rows below
+  /// the count cap; `.disabled` while already adding avoids a double-tap
+  /// re-seeding the field.
+  @ViewBuilder
+  private func addSubItemButton(variant: ThemeVariant) -> some View {
+    if !group.isReadOnly && item.subItems.count < PackingSubItems.maxCount {
+      Button {
+        isEditingNote = false
+        isAddingSubItem = true
+      } label: {
+        Image(systemName: "list.bullet")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(personColour)
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .disabled(isAddingSubItem)
+      .accessibilityLabel("Add sub-item")
+      #if DEBUG
+        .accessibilityIdentifier("packingSubItems.addButton")
+      #endif
+    }
+  }
+
   @ViewBuilder
   private func trailingAction(variant: ThemeVariant) -> some View {
     if let label = inlineActionLabel {
@@ -333,11 +408,11 @@ struct PackingItemRow: View {
     #endif
   }
 
-  /// Forwards the inline add field's visibility to the sheet (so it can mount
-  /// the dismiss tap-catcher), and closes this row's `WhyDisclosure` when the
-  /// add field reveals — one inline expansion at a time (design § "Focus /
-  /// keyboard / dismissal").
-  private func handleAddFieldVisibility(_ visible: Bool) {
+  /// Forwards either inline editor's visibility (note editor or sub-item add
+  /// field) to the sheet so it can mount the dismiss tap-catcher, and closes
+  /// this row's `WhyDisclosure` when an editor reveals — one inline expansion
+  /// at a time (design § "Focus / keyboard / dismissal").
+  private func handleInlineEditorVisibility(_ visible: Bool) {
     if visible && isDisclosureOpen {
       onLongPress()  // toggles the open disclosure closed
     }

@@ -49,6 +49,14 @@ nonisolated enum PackingSubItems {
     String(raw.prefix(maxItemLength))
   }
 
+  /// Live length cap for the inline note field: caps to `maxNoteLength`
+  /// grapheme clusters without trimming, so interior / trailing spaces survive
+  /// while composing. Trimming + nil-on-empty happens in `sanitizedNote` at
+  /// save time.
+  static func cappedNote(_ raw: String) -> String {
+    String(raw.prefix(maxNoteLength))
+  }
+
   /// Appends a sanitized entry to `list`. Returns `.rejectedEmpty` if the
   /// input is blank, `.rejectedFull` if `list` already holds `maxCount`
   /// entries, otherwise `.added` with the entry appended. Empty is checked

@@ -15,11 +15,13 @@ import SwiftUI
 /// Layout, top to bottom:
 ///   - the note (secondary text; tappable → `onEditNote` on interactive rows),
 ///   - the sub-item rows (each with a Remove control on interactive rows),
-///   - a reveal-on-tap "＋ add item" affordance (interactive rows only, hidden
-///     once `subItems.count == PackingSubItems.maxCount`).
+///   - the inline add field, shown only while the parent row's `+` button
+///     (left of Skip) has set `isAddFieldVisible` (interactive rows only,
+///     suppressed once `subItems.count == PackingSubItems.maxCount`).
 ///
-/// Empty + non-interactive ⇒ renders nothing, leaving the row layout
-/// unchanged (Req 5.3).
+/// Empty + non-interactive ⇒ renders nothing; empty + interactive with the
+/// add field closed ⇒ also renders nothing, so a sub-item-less row stays a
+/// single line (the `+` lives in `PackingItemRow`, not here).
 struct PackingSubItemsView: View {
   let note: String?
   let subItems: [String]
@@ -33,9 +35,11 @@ struct PackingSubItemsView: View {
   /// Removes the sub-item at the given list index (by position, not value,
   /// because duplicates are allowed — Req 2.6 / 3.2).
   let onRemove: (Int) -> Void
-  let onEditNote: () -> Void
-  /// Reports when the inline add field is revealed (`true`) or collapsed
-  /// (`false`) so the sheet can mount its background tap-catcher to dismiss it.
+  /// Saves the inline-edited note (raw text; the sheet applies `sanitizedNote`).
+  let onSaveNote: (String) -> Void
+  /// Reports when either inline editor (note editor or sub-item add field) is
+  /// revealed (`true`) or collapsed (`false`) so the sheet can mount its
+  /// background tap-catcher to dismiss it.
   let onAddFieldVisibilityChanged: (Bool) -> Void
 
   @Environment(\.theme) private var theme
@@ -47,9 +51,17 @@ struct PackingSubItemsView: View {
   /// "List identity"). Re-seeded on `.onChange(of: subItems)` (e.g. an inbound
   /// sync). The stored model stays `[String]` — no persisted ids.
   @State private var drafts: [SubItemDraft]
-  @State private var isAddFieldVisible = false
+  /// Controlled by the parent row's `+` button (left of Skip) so the add
+  /// field reveals from the trailing controls instead of a persistent
+  /// affordance row under the item.
+  @Binding private var isAddFieldVisible: Bool
   @State private var addText = ""
   @FocusState private var addFieldFocused: Bool
+  /// Controlled by the parent row's note glyph. When true, the note renders as
+  /// an editable field (seeded from `note`) instead of static text.
+  @Binding private var isEditingNote: Bool
+  @State private var noteDraft = ""
+  @FocusState private var noteFocused: Bool
 
   /// One sub-item entry plus a stable id for `ForEach`. There is no inline
   /// rename, so re-seeding on sync never discards an in-progress edit.
@@ -63,18 +75,22 @@ struct PackingSubItemsView: View {
     subItems: [String],
     isInteractive: Bool,
     accent: Color,
+    isAddFieldVisible: Binding<Bool>,
+    isEditingNote: Binding<Bool>,
     onAdd: @escaping (String) -> Void,
     onRemove: @escaping (Int) -> Void,
-    onEditNote: @escaping () -> Void,
+    onSaveNote: @escaping (String) -> Void,
     onAddFieldVisibilityChanged: @escaping (Bool) -> Void = { _ in }
   ) {
     self.note = note
     self.subItems = subItems
     self.isInteractive = isInteractive
     self.accent = accent
+    _isAddFieldVisible = isAddFieldVisible
+    _isEditingNote = isEditingNote
     self.onAdd = onAdd
     self.onRemove = onRemove
-    self.onEditNote = onEditNote
+    self.onSaveNote = onSaveNote
     self.onAddFieldVisibilityChanged = onAddFieldVisibilityChanged
     _drafts = State(initialValue: subItems.map { SubItemDraft(text: $0) })
   }
@@ -83,7 +99,7 @@ struct PackingSubItemsView: View {
     let variant = theme.variant(for: colorScheme)
 
     VStack(alignment: .leading, spacing: 6) {
-      noteView(variant: variant)
+      noteSection(variant: variant)
       subItemList(variant: variant)
       addAffordance(variant: variant)
     }
@@ -92,28 +108,88 @@ struct PackingSubItemsView: View {
     }
     .onChange(of: isAddFieldVisible) { _, visible in
       onAddFieldVisibilityChanged(visible)
+      // Reveal originates from the parent's list glyph now, so seed + focus
+      // the field here when it becomes visible.
+      if visible {
+        addText = ""
+        addFieldFocused = true
+      }
+    }
+    .onChange(of: isEditingNote) { _, editing in
+      onAddFieldVisibilityChanged(editing)
+      // The note glyph drives reveal; seed the draft from the current note and
+      // focus when it opens.
+      if editing {
+        noteDraft = note ?? ""
+        noteFocused = true
+      }
     }
   }
 
   // MARK: - Note
 
+  /// The note region: an editable field while the note glyph has opened it,
+  /// otherwise the static (tappable-to-edit) note text when a note exists.
   @ViewBuilder
-  private func noteView(variant: ThemeVariant) -> some View {
-    if let note, !note.isEmpty {
-      Text(note)
-        .font(.footnote)
-        .italic()
-        .foregroundStyle(variant.textSecondary)
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .modifier(NoteTapModifier(enabled: isInteractive, onEditNote: onEditNote))
-        .accessibilityLabel("Note: \(note)")
-        .accessibilityAddTraits(isInteractive ? .isButton : [])
-        #if DEBUG
-          .accessibilityIdentifier("packingSubItems.note")
-        #endif
+  private func noteSection(variant: ThemeVariant) -> some View {
+    if isEditingNote {
+      noteEditor(variant: variant)
+    } else if let note, !note.isEmpty {
+      noteText(note, variant: variant)
     }
+  }
+
+  @ViewBuilder
+  private func noteText(_ note: String, variant: ThemeVariant) -> some View {
+    Text(note)
+      .font(.subheadline)
+      .italic()
+      .foregroundStyle(variant.textSecondary)
+      .fixedSize(horizontal: false, vertical: true)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
+      .modifier(NoteTapModifier(enabled: isInteractive, onEditNote: revealNoteEditor))
+      .accessibilityLabel("Note: \(note)")
+      .accessibilityAddTraits(isInteractive ? .isButton : [])
+      #if DEBUG
+        .accessibilityIdentifier("packingSubItems.note")
+      #endif
+  }
+
+  @ViewBuilder
+  private func noteEditor(variant: ThemeVariant) -> some View {
+    TextField("Note", text: $noteDraft, axis: .vertical)
+      .font(.subheadline)
+      .foregroundStyle(variant.textPrimary)
+      .focused($noteFocused)
+      .lineLimit(1...4)
+      .padding(.vertical, 8)
+      .padding(.horizontal, 10)
+      .frame(minHeight: 44)
+      .background(
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .fill(variant.surface)
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .strokeBorder(accent.opacity(0.6), lineWidth: 1)
+      )
+      .onChange(of: noteDraft) { _, new in
+        // Live 500-grapheme cap (mirrors the edit form's note cap).
+        let capped = PackingSubItems.cappedNote(new)
+        if capped != new { noteDraft = capped }
+      }
+      .onChange(of: noteFocused) { _, focused in
+        // Save on blur — the field collapses and the note persists through the
+        // sheet's `saveNote` chokepoint.
+        if !focused {
+          onSaveNote(noteDraft)
+          isEditingNote = false
+        }
+      }
+      #if DEBUG
+        .accessibilityIdentifier("packingSubItems.noteField")
+      #endif
   }
 
   // MARK: - Sub-item list
@@ -132,9 +208,11 @@ struct PackingSubItemsView: View {
 
   @ViewBuilder
   private func subItemRow(_ draft: SubItemDraft, variant: ThemeVariant) -> some View {
-    HStack(alignment: .top, spacing: 8) {
+    // Centre-aligned so the bullet and the 44pt Remove button line up with the
+    // entry text (top alignment left the Remove glyph sitting below the line).
+    HStack(alignment: .center, spacing: 8) {
       Text("•")
-        .font(.footnote)
+        .font(.subheadline)
         .foregroundStyle(variant.textSecondary)
         .accessibilityHidden(true)
 
@@ -143,7 +221,7 @@ struct PackingSubItemsView: View {
       // remove button is a separate sibling so it stays tappable by pointer /
       // UI tests without being flattened into the text element.
       Text(draft.text)
-        .font(.footnote)
+        .font(.subheadline)
         .foregroundStyle(variant.textSecondary)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -185,37 +263,21 @@ struct PackingSubItemsView: View {
 
   // MARK: - Add affordance
 
+  /// The inline add field, shown only while the parent's `+` button has
+  /// revealed it (`isAddFieldVisible`). The persistent "add item" affordance
+  /// row was removed in favour of the trailing `+` so an item with no
+  /// sub-items keeps a single-line row.
   @ViewBuilder
   private func addAffordance(variant: ThemeVariant) -> some View {
-    if isInteractive && subItems.count < PackingSubItems.maxCount {
-      if isAddFieldVisible {
-        addField(variant: variant)
-      } else {
-        Button {
-          revealAddField()
-        } label: {
-          HStack(spacing: 4) {
-            Image(systemName: "plus")
-            Text("add item")
-          }
-          .font(.footnote.weight(.semibold))
-          .foregroundStyle(accent)
-          .frame(minHeight: 44, alignment: .leading)
-          .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Add sub-item")
-        #if DEBUG
-          .accessibilityIdentifier("packingSubItems.addButton")
-        #endif
-      }
+    if isInteractive && subItems.count < PackingSubItems.maxCount && isAddFieldVisible {
+      addField(variant: variant)
     }
   }
 
   @ViewBuilder
   private func addField(variant: ThemeVariant) -> some View {
     TextField("Add sub-item", text: $addText)
-      .font(.footnote)
+      .font(.subheadline)
       .foregroundStyle(variant.textPrimary)
       .focused($addFieldFocused)
       .submitLabel(.done)
@@ -247,10 +309,11 @@ struct PackingSubItemsView: View {
 
   // MARK: - Actions
 
-  private func revealAddField() {
-    addText = ""
-    isAddFieldVisible = true
-    addFieldFocused = true
+  /// Tapping the static note text opens the inline editor (same path as the
+  /// note glyph). Closes the sub-item add field for one-editor-at-a-time.
+  private func revealNoteEditor() {
+    isAddFieldVisible = false
+    isEditingNote = true
   }
 
   /// Appends the typed entry (if non-empty) and keeps the field open for rapid
