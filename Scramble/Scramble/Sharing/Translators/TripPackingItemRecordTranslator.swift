@@ -64,6 +64,12 @@ enum TripPackingItemRecordTranslator {
   ///   record would silently wipe local note / sub-items. `CKSyncEngine`'s
   ///   fetch path delivers full records, so this holds today; keep it
   ///   that way if a `desiredKeys` path is ever added.
+  /// - Note: Forward-compat constraint — a record written by a *pre-feature*
+  ///   app build never carries `note` / `subItemsData`, so the unconditional
+  ///   clear here wipes a newer client's locally-entered values when an older
+  ///   client edits the same item. Acceptable at v1 (single user, no mixed-
+  ///   version fleet); revisit if old + new builds must coexist. See
+  ///   `docs/agent-notes/sync-infrastructure.md`.
   static func from(_ record: CKRecord, into context: ModelContext) throws {
     guard record.recordType == recordType else {
       throw TranslatorError.recordTypeMismatch(expected: recordType, actual: record.recordType)

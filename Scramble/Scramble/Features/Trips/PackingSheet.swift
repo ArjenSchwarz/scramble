@@ -299,7 +299,16 @@ private struct PackingItemGroup: View {
           onAddSubItem: { raw in addSubItem(item, raw) },
           onRemoveSubItem: { index in removeSubItem(item, at: index) },
           onAddFieldVisibilityChanged: { visible in
-            activeAddFieldItemID = visible ? item.id : nil
+            if visible {
+              activeAddFieldItemID = item.id
+            } else if activeAddFieldItemID == item.id {
+              // Clear only when *this* row owns the catcher. Opening a
+              // different row's editor closes this one in the same render pass;
+              // cross-row onChange ordering is unspecified, so an additive set
+              // (above) plus an own-id-gated clear keeps the tap-catcher
+              // mounted for whichever editor is actually open.
+              activeAddFieldItemID = nil
+            }
           }
         )
       }
