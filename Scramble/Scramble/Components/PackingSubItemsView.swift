@@ -118,6 +118,15 @@ struct PackingSubItemsView: View {
         noteFocused = true
       }
     }
+    .onDisappear {
+      // Save fallback: on a native sheet swipe-down dismiss, `@FocusState` blur
+      // is not guaranteed to fire before teardown, which would silently drop an
+      // in-progress note edit. Commit it here too. `saveNote` no-ops when the
+      // value is unchanged, so this never double-writes after a blur save.
+      guard isEditingNote else { return }
+      onSaveNote(noteDraft)
+      isEditingNote = false
+    }
   }
 
   // MARK: - Note

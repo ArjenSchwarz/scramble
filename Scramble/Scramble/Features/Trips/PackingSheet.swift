@@ -363,9 +363,14 @@ private struct PackingItemGroup: View {
 
   /// Saves the inline-edited note via the same `sanitizedNote` semantics as the
   /// edit form (trim + 500-cap, nil on empty) and commits through the hook
-  /// chokepoint. Never changes the item's state or group.
+  /// chokepoint. Never changes the item's state or group. No-op when the
+  /// sanitized value is unchanged so merely opening + dismissing the note
+  /// editor (or a save-on-disappear fallback firing after a blur save) does
+  /// not dirty the model and push a spurious CKRecord to trip participants.
   private func saveNote(_ item: TripPackingItem, _ raw: String) {
-    item.note = PackingSubItems.sanitizedNote(raw)
+    let sanitized = PackingSubItems.sanitizedNote(raw)
+    guard sanitized != item.note else { return }
+    item.note = sanitized
     save("saveNote")
   }
 
