@@ -158,13 +158,12 @@ extension PackingItemForm {
     String(input.prefix(nameLimit))
   }
 
-  /// Live length cap for the note field: truncates to
-  /// `PackingSubItems.maxNoteLength` (500) graphemes without trimming, so the
-  /// user can still type interior / trailing whitespace while composing
-  /// (Req 4.4). Trimming to `nil` for an empty note happens at save via
+  /// Live length cap for the note field (Req 4.4) — delegates to the single
+  /// `PackingSubItems.cappedNote` so the form and the inline editor share one
+  /// cap. Trimming to `nil` for an empty note happens at save via
   /// `PackingSubItems.sanitizedNote`.
   static func cappedNote(_ input: String) -> String {
-    String(input.prefix(PackingSubItems.maxNoteLength))
+    PackingSubItems.cappedNote(input)
   }
 
   /// Inserts a manual `TripPackingItem` with the documented field values

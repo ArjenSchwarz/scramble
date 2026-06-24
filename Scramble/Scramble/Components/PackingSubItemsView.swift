@@ -98,7 +98,7 @@ struct PackingSubItemsView: View {
       addAffordance(variant: variant)
     }
     .onChange(of: subItems) { _, newValue in
-      drafts = newValue.map { SubItemDraft(text: $0) }
+      drafts = reseededDrafts(for: newValue)
     }
     .onChange(of: isAddFieldVisible) { _, visible in
       // Reveal originates from the parent's list glyph; seed + focus the field
@@ -111,21 +111,35 @@ struct PackingSubItemsView: View {
       }
     }
     .onChange(of: isEditingNote) { _, editing in
-      // The note glyph drives reveal; seed the draft from the current note and
-      // focus when it opens.
       if editing {
+        // Seed the draft from the current note and focus when the glyph opens it.
         noteDraft = note ?? ""
         noteFocused = true
+      } else {
+        // Commit on *any* close — a blur, the background tap, or switching to the
+        // sub-item glyph (which sets this false before the field can blur-save).
+        // `saveNote` no-ops on an unchanged value, so this never double-writes.
+        onSaveNote(noteDraft)
       }
     }
     .onDisappear {
       // Save fallback: on a native sheet swipe-down dismiss, `@FocusState` blur
-      // is not guaranteed to fire before teardown, which would silently drop an
-      // in-progress note edit. Commit it here too. `saveNote` no-ops when the
-      // value is unchanged, so this never double-writes after a blur save.
+      // (and the `isEditingNote` `.onChange` above) are not guaranteed to fire
+      // before teardown, which would silently drop an in-progress note edit.
       guard isEditingNote else { return }
       onSaveNote(noteDraft)
-      isEditingNote = false
+    }
+  }
+
+  /// Re-seed the draft mirror from `subItems`, preserving each existing entry's
+  /// id where the value at that position is unchanged. Sub-items only ever
+  /// append or remove-by-position (no reorder / inline rename), so positional
+  /// reuse keeps `ForEach` identity stable for untouched rows — a one-item sync
+  /// no longer re-animates the whole list.
+  private func reseededDrafts(for newValue: [String]) -> [SubItemDraft] {
+    newValue.enumerated().map { index, text in
+      if index < drafts.count, drafts[index].text == text { return drafts[index] }
+      return SubItemDraft(text: text)
     }
   }
 
@@ -183,12 +197,9 @@ struct PackingSubItemsView: View {
         if capped != new { noteDraft = capped }
       }
       .onChange(of: noteFocused) { _, focused in
-        // Save on blur — the field collapses and the note persists through the
-        // sheet's `saveNote` chokepoint.
-        if !focused {
-          onSaveNote(noteDraft)
-          isEditingNote = false
-        }
+        // Blur closes the editor; the actual save happens on the
+        // `isEditingNote` false transition (one place, covers every close path).
+        if !focused { isEditingNote = false }
       }
       #if DEBUG
         .accessibilityIdentifier("packingSubItems.noteField")
@@ -326,8 +337,16 @@ struct PackingSubItemsView: View {
     // caps length, so passing the trimmed value avoids a second trim/allocation.
     onAdd(trimmed)
     addText = ""
-    // Stay open and focused for the next entry.
-    addFieldFocused = true
+    if subItems.count + 1 >= PackingSubItems.maxCount {
+      // This add fills the list. The cap guard removes the field on the next
+      // render, so its blur `.onChange` won't fire — close it explicitly here
+      // to keep `isAddFieldVisible` (and the parent's list glyph) in sync.
+      isAddFieldVisible = false
+      addFieldFocused = false
+    } else {
+      // Stay open and focused for the next entry.
+      addFieldFocused = true
+    }
   }
 
   /// Maps the draft to its current position in `subItems` and removes by index
