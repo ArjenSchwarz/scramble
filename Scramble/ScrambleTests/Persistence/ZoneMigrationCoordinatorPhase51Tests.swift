@@ -253,6 +253,63 @@ struct ZoneMigrationCoordinatorPhase51Tests {
   }
   // swiftlint:enable function_body_length
 
+  // MARK: - packing-item-subitems — relocation carries note + subItems
+
+  @Test("relocateTrip carries a packing item's note + subItemsData (feature regression guard)")
+  func relocationCarriesNoteAndSubItems() throws {
+    let setup = try ZoneMigrationCoordinatorTests.makeSetup()
+    let trip = Trip(name: "Iceland", startDate: .now, endDate: .now)
+    let snapshot = TripPersonSnapshot(
+      personID: UUID(),
+      name: "Alice",
+      colourID: "cyan",
+      initialSource: "manual",
+      isRosterMember: true,
+      trip: trip
+    )
+    let item = TripPackingItem(
+      trip: trip,
+      name: "Toys",
+      personSnapshot: snapshot,
+      note: "keep batteries out"
+    )
+    item.subItems = ["lego", "blocks", "lego"]  // duplicate + order preserved
+    setup.globalsContext.insert(trip)
+    setup.globalsContext.insert(snapshot)
+    setup.globalsContext.insert(item)
+    try setup.globalsContext.save()
+
+    try setup.coordinator.enqueueAll()
+    try setup.coordinator.runStageB()
+
+    let relocated = try #require(
+      try setup.tripsLocalContext.fetch(FetchDescriptor<TripPackingItem>()).first
+    )
+    #expect(relocated.note == "keep batteries out")
+    #expect(relocated.subItems == ["lego", "blocks", "lego"])
+  }
+
+  @Test("relocateTrip leaves a nil-note nil-subItems item still nil (no empty blob)")
+  func relocationNilFieldsStayNil() throws {
+    let setup = try ZoneMigrationCoordinatorTests.makeSetup()
+    let trip = Trip(name: "Iceland", startDate: .now, endDate: .now)
+    let item = TripPackingItem(trip: trip, name: "Towel")
+    // Both new fields untouched ⇒ nil.
+    setup.globalsContext.insert(trip)
+    setup.globalsContext.insert(item)
+    try setup.globalsContext.save()
+
+    try setup.coordinator.enqueueAll()
+    try setup.coordinator.runStageB()
+
+    let relocated = try #require(
+      try setup.tripsLocalContext.fetch(FetchDescriptor<TripPackingItem>()).first
+    )
+    #expect(relocated.note == nil)
+    #expect(relocated.subItemsData == nil, "nil must relocate as nil, not an empty Data()")
+    #expect(relocated.subItems == [])
+  }
+
   // MARK: - Phase 5.1 — Stage A snapshot retroactive dirty-flagging (Req 4.9)
 
   @Test("Stage A TripPersonSnapshot rows are retroactively dirty-flagged on Stage B entry")

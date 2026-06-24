@@ -279,6 +279,113 @@ struct PackingFormSaveTests {
     #expect(PackingItemForm.isSubmitEnabled("   Toothbrush   ") == true)
   }
 
+  // MARK: - Note field (feature packing-item-subitems, Req 4.2 / 4.3 / 4.4)
+
+  @Test(".add with a note stores the sanitized note on the new item")
+  func addStoresSanitizedNote() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let (trip, person) = try Self.seedTripWithPerson(in: context)
+
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    let inserted = try PackingItemForm.performAdd(
+      name: "Toys",
+      note: "  keep batteries out  ",
+      person: person,
+      trip: trip,
+      context: context,
+      hook: hook
+    )
+
+    #expect(inserted.note == "keep batteries out")
+  }
+
+  @Test(".add with an empty / whitespace note stores nil (Req 4.3)")
+  func addEmptyNoteStoresNil() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let (trip, person) = try Self.seedTripWithPerson(in: context)
+
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    let inserted = try PackingItemForm.performAdd(
+      name: "Toys",
+      note: "   \n\t  ",
+      person: person,
+      trip: trip,
+      context: context,
+      hook: hook
+    )
+
+    #expect(inserted.note == nil)
+  }
+
+  @Test(".edit sets the sanitized note on an existing item")
+  func editSetsNote() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let (trip, person) = try Self.seedTripWithPerson(in: context)
+
+    let item = TripPackingItem(trip: trip, name: "Toys", personSnapshot: nil)
+    _ = person
+    context.insert(item)
+    try context.save()
+
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    try PackingItemForm.performEdit(
+      item: item,
+      name: "Toys",
+      note: "  fragile  ",
+      context: context,
+      hook: hook
+    )
+
+    #expect(item.note == "fragile")
+  }
+
+  @Test(".edit clearing the note to empty stores nil (Req 4.3)")
+  func editClearingNoteStoresNil() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let (trip, _) = try Self.seedTripWithPerson(in: context)
+
+    let item = TripPackingItem(trip: trip, name: "Toys", note: "old note")
+    context.insert(item)
+    try context.save()
+    #expect(item.note == "old note")
+
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    try PackingItemForm.performEdit(
+      item: item, name: "Toys", note: "   ", context: context, hook: hook
+    )
+
+    #expect(item.note == nil)
+  }
+
+  @Test("cappedNote returns input unchanged at or below 500 characters")
+  func cappedNotePassesThroughShortInputs() {
+    #expect(PackingItemForm.cappedNote("") == "")
+    #expect(PackingItemForm.cappedNote("keep batteries out") == "keep batteries out")
+    let exact = String(repeating: "a", count: PackingSubItems.maxNoteLength)
+    #expect(PackingItemForm.cappedNote(exact) == exact)
+    #expect(PackingItemForm.cappedNote(exact).count == PackingSubItems.maxNoteLength)
+  }
+
+  @Test("cappedNote truncates input longer than 500 characters (Req 4.4)")
+  func cappedNoteTruncatesLongInputs() {
+    let long = String(repeating: "x", count: PackingSubItems.maxNoteLength + 50)
+    let capped = PackingItemForm.cappedNote(long)
+    #expect(capped.count == PackingSubItems.maxNoteLength)
+  }
+
+  @Test("cappedNote preserves grapheme clusters at the boundary")
+  func cappedNoteRespectsGraphemeBoundary() {
+    let prefix = String(repeating: "a", count: PackingSubItems.maxNoteLength - 1)
+    let input = prefix + "👨‍👩‍👧"  // single grapheme cluster
+    let capped = PackingItemForm.cappedNote(input)
+    #expect(capped.count == PackingSubItems.maxNoteLength)
+    #expect(capped.hasSuffix("👨‍👩‍👧"))
+  }
+
   // MARK: - Req 5.5 — 200-char cap enforced at input
 
   @Test("cappedName returns input unchanged when at or below 200 characters")

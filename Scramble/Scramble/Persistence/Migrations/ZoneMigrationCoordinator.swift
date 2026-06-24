@@ -367,8 +367,14 @@ final class ZoneMigrationCoordinator {
         source: item.source,
         currentlyMatchesRules: item.currentlyMatchesRules,
         pinnedByUser: item.pinnedByUser,
-        personSnapshot: mappedSnapshot
+        personSnapshot: mappedSnapshot,
+        note: item.note
       )
+      // Feature `packing-item-subitems`: carry the per-trip sub-item blob
+      // across the V2→V3 zone relocation, or the clone silently drops it.
+      // `note` is set via the init above; `subItemsData` is copied here
+      // because it has no init parameter.
+      copiedItem.subItemsData = item.subItemsData
       copiedItem.ckRecordSystemFields = item.ckRecordSystemFields
       tripsLocalContext.insert(copiedItem)
     }

@@ -262,3 +262,14 @@ have all landed. Files:
 - `RulesEngineRunner`'s `ownerIdentity` closure treats `nil` as
   "current user owns" — Phase 1 legacy trips without a
   `TripZoneState` keep receiving engine runs.
+
+## Forward-compat: unconditional note/subItems decode (T-1587)
+
+`TripPackingItemRecordTranslator.from` assigns `note` / `subItemsData`
+**unconditionally** (clear-propagation, Decision 12 — the `masterItemID` /
+`countryCode` precedent). Correct between two feature-aware clients, but a
+record written by a **pre-feature** build carries neither field, so decoding it
+clears a newer client's locally-entered note/sub-items. Accepted at v1 (single
+user, no mixed-version fleet). If old + new builds must ever coexist, gate the
+assignment on field presence — but note that re-introduces the "can't clear a
+value" problem the unconditional path solves. See the doc comment on `from`.

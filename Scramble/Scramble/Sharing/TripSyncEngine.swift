@@ -165,8 +165,20 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
       FetchDescriptor<TripPackingItem>(predicate: #Predicate { $0.id == recordUUID })
     ).first {
       let existing = item.ckRecordSystemFields.flatMap { decodeSystemFields(from: $0) }
-      return try? TripPackingItemRecordTranslator.toRecord(
-        item, in: recordID.zoneID, existing: existing)
+      // Unlike the sibling translators this one can throw (`blobTooLarge` for an
+      // over-cap sub-item blob). The 50×200 inline caps make that unreachable in
+      // normal use, but don't let it vanish silently: a swallowed throw drops the
+      // item from the batch while its pending-upload flag stays set, so
+      // `CKSyncEngine` would retry-and-rethrow forever with no signal. Log it.
+      do {
+        return try TripPackingItemRecordTranslator.toRecord(
+          item, in: recordID.zoneID, existing: existing)
+      } catch {
+        modelLogger.error(
+          "[TripSyncEngine.encode] dropped packing item \(recordUUID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+        )
+        return nil
+      }
     }
     // TripPersonSnapshot
     if let snapshot = try? context.fetch(
