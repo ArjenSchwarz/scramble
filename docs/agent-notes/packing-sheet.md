@@ -66,3 +66,11 @@ Focus restoration on auto-dismiss runs from `TripDetailView.handlePackingSheetDi
 ## Dimmed items count in progress (Decision 5)
 
 A dimmed (`!currentlyMatchesRules && !pinnedByUser`) item that is `packed` is **physically in the suitcase** and still counts toward `packed / (unpacked + packed)`. This diverges from Phase 3's task counts (which exclude dimmed via `+N inactive` suffix) on purpose: tasks are required-vs-not state; packing is physical state. See `PackingListHelpers.counts(for:in:)` — no filtering on `currentlyMatchesRules` / `pinnedByUser`.
+
+## Per-trip note + sub-items inline editors (T-1587, Decision 14)
+
+`PackingItemRow` hosts **two mutually-exclusive inline editors** — a note editor and a sub-item add field — revealed by trailing **note (`note.text`) / list (`list.bullet`) glyphs** left of Skip. Gotchas:
+
+- The reveal state (`isAddingSubItem` / `isEditingNote`) is **owned by `PackingItemRow`** and passed as bindings into `PackingSubItemsView`; the row reports "any editor open" to `PackingSheet` from a **single** `onChange(of: isAddingSubItem || isEditingNote)` (not per-binding) so a direct switch between the two editors never momentarily reads as closed and drops the sheet's background dismiss tap-catcher (`activeAddFieldItemID`).
+- `PackingItemRow.body` must read `item.note` / `item.subItems` **directly** (hoisted into locals, then threaded into `rowContent`) so SwiftData establishes observation — that is what makes an inbound sync re-render the row. `item.subItems` decodes its JSON blob on each access, so read it once.
+- Inline note editing commits through `PackingItemGroup.saveNote` → the same `hook.commit` chokepoint as sub-item add/remove; it saves on blur. The edit form (`PackingItemForm`) still has a note field as the full-edit path.

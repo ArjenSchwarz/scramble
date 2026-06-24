@@ -37,10 +37,6 @@ struct PackingSubItemsView: View {
   let onRemove: (Int) -> Void
   /// Saves the inline-edited note (raw text; the sheet applies `sanitizedNote`).
   let onSaveNote: (String) -> Void
-  /// Reports when either inline editor (note editor or sub-item add field) is
-  /// revealed (`true`) or collapsed (`false`) so the sheet can mount its
-  /// background tap-catcher to dismiss it.
-  let onAddFieldVisibilityChanged: (Bool) -> Void
 
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
@@ -79,8 +75,7 @@ struct PackingSubItemsView: View {
     isEditingNote: Binding<Bool>,
     onAdd: @escaping (String) -> Void,
     onRemove: @escaping (Int) -> Void,
-    onSaveNote: @escaping (String) -> Void,
-    onAddFieldVisibilityChanged: @escaping (Bool) -> Void = { _ in }
+    onSaveNote: @escaping (String) -> Void
   ) {
     self.note = note
     self.subItems = subItems
@@ -91,7 +86,6 @@ struct PackingSubItemsView: View {
     self.onAdd = onAdd
     self.onRemove = onRemove
     self.onSaveNote = onSaveNote
-    self.onAddFieldVisibilityChanged = onAddFieldVisibilityChanged
     _drafts = State(initialValue: subItems.map { SubItemDraft(text: $0) })
   }
 
@@ -107,16 +101,16 @@ struct PackingSubItemsView: View {
       drafts = newValue.map { SubItemDraft(text: $0) }
     }
     .onChange(of: isAddFieldVisible) { _, visible in
-      onAddFieldVisibilityChanged(visible)
-      // Reveal originates from the parent's list glyph now, so seed + focus
-      // the field here when it becomes visible.
+      // Reveal originates from the parent's list glyph; seed + focus the field
+      // here when it becomes visible. The parent owns visibility reporting to
+      // the sheet (one combined source of truth), so this view no longer fires
+      // a per-binding callback.
       if visible {
         addText = ""
         addFieldFocused = true
       }
     }
     .onChange(of: isEditingNote) { _, editing in
-      onAddFieldVisibilityChanged(editing)
       // The note glyph drives reveal; seed the draft from the current note and
       // focus when it opens.
       if editing {

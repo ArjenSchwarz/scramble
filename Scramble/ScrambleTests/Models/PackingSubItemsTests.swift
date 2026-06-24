@@ -184,6 +184,20 @@ struct PackingSubItemsTests {
     #expect(capped?.allSatisfy { String($0) == emoji } == true)
   }
 
+  @Test("cappedNote caps at 500 graphemes without trimming")
+  func cappedNoteCaps() {
+    let over = String(repeating: "n", count: PackingSubItems.maxNoteLength + 100)
+    #expect(PackingSubItems.cappedNote(over).count == PackingSubItems.maxNoteLength)
+  }
+
+  @Test("cappedNote preserves interior/trailing whitespace while composing")
+  func cappedNotePreservesWhitespace() {
+    // Unlike sanitizedNote, the live cap must not trim — the user may still be
+    // typing spaces between words.
+    let composing = "two words "
+    #expect(PackingSubItems.cappedNote(composing) == composing)
+  }
+
   // MARK: - Property-based: encode/decode round-trip
 
   /// The `subItems` model bridge serialises `[String]` through `CodableBridge`

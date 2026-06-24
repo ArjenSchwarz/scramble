@@ -1,5 +1,14 @@
 # Design: Packing Item Sub-items
 
+> **Implementation note (2026-06-24): UI reworked post-design.** The note/sub-item
+> *interaction* below (the "＋ add item" reveal-on-tap row and editing the note
+> through `PackingItemForm`) was superseded after on-device review by trailing
+> **note (`note.text`) and list (`list.bullet`) glyphs** with **inline note
+> editing** via `PackingItemGroup.saveNote`. See **Decision 14** in
+> `decision_log.md` for what changed and why. The data model, sync/translator,
+> migration, and `PackingSubItems` helper sections below are unchanged and
+> remain accurate.
+
 ## Overview
 
 Add an optional per-trip free-form note and an appendable sub-item list to `TripPackingItem`, displayed inline on the packing-sheet row and edited while packing. Two new Optional properties ride on `SchemaV3`; sync flows through the existing `TripPackingItemRecordTranslator`.

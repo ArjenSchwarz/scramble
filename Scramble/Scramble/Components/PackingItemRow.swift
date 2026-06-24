@@ -113,6 +113,12 @@ struct PackingItemRow: View {
   /// note glyph. Mutually exclusive with `isAddingSubItem`.
   @State private var isEditingNote = false
 
+  /// True while either inline editor (note or sub-item) is showing. Reported to
+  /// the sheet as a single source of truth so a direct switch between the two
+  /// editors (one binding false, the other true in the same update) never
+  /// momentarily reads as "closed" — see `handleInlineEditorVisibility`.
+  private var isAnyInlineEditorOpen: Bool { isAddingSubItem || isEditingNote }
+
   var body: some View {
     let variant = theme.variant(for: colorScheme)
     // Read note + subItems here (not only inside the child) so SwiftData
@@ -122,7 +128,7 @@ struct PackingItemRow: View {
     let subItems = item.subItems
 
     VStack(alignment: .leading, spacing: 6) {
-      rowContent(variant: variant, note: note)
+      rowContent(variant: variant, note: note, subItems: subItems)
 
       PackingSubItemsView(
         note: note,
@@ -133,8 +139,7 @@ struct PackingItemRow: View {
         isEditingNote: $isEditingNote,
         onAdd: onAddSubItem,
         onRemove: onRemoveSubItem,
-        onSaveNote: onSaveNote,
-        onAddFieldVisibilityChanged: handleInlineEditorVisibility
+        onSaveNote: onSaveNote
       )
       // Indent the note + sub-items to line up under the item name (checkbox
       // width 44 + the row HStack spacing 12) rather than the row's leading edge.
@@ -165,6 +170,9 @@ struct PackingItemRow: View {
     #if DEBUG
       .accessibilityIdentifier("packingSheet.itemRow.\(item.name)")
     #endif
+    .onChange(of: isAnyInlineEditorOpen) { _, open in
+      handleInlineEditorVisibility(open)
+    }
     .onChange(of: isDisclosureOpen) { _, open in
       if open {
         resolvedReason = WhyResolver.reason(
@@ -206,37 +214,17 @@ struct PackingItemRow: View {
   /// individually addressable — the previous flat `.combine` over the whole
   /// row could not express that.
   @ViewBuilder
-  private func rowContent(variant: ThemeVariant, note: String?) -> some View {
+  private func rowContent(variant: ThemeVariant, note: String?, subItems: [String]) -> some View {
+    // Derive once from the values the body already read — `item.subItems`
+    // decodes its JSON blob on every access, so the glyph guard and the
+    // accessibility-action gate reuse this rather than re-reading the model.
+    let hasNote = !(note?.isEmpty ?? true)
+    let canAddSubItem = !group.isReadOnly && subItems.count < PackingSubItems.maxCount
     HStack(alignment: .top, spacing: 12) {
       checkbox(variant: variant)
-
-      VStack(alignment: .leading, spacing: 6) {
-        // Italic condition tags rendered when master available (deferred; placeholder for v1)
-        Text(item.name)
-          .font(.body)
-          .foregroundStyle(group.isReadOnly ? variant.textSecondary : variant.textPrimary)
-          // Match the 44pt control height so the name's vertical centre lines
-          // up with the checkbox and trailing glyphs (the row HStack is
-          // top-aligned so the WhyDisclosure can still flow beneath the name).
-          .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-          .contentShape(Rectangle())
-          .onLongPressGesture(minimumDuration: 0.4) {
-            #if canImport(UIKit)
-              UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
-            onLongPress()
-          }
-
-        if isDisclosureOpen, let reason = resolvedReason {
-          WhyDisclosureView(reason: reason, style: .packing(personColour: personColour))
-            #if DEBUG
-              .accessibilityIdentifier("packingSheet.whyDisclosure.\(item.name)")
-            #endif
-        }
-      }
-
-      noteButton(variant: variant)
-      addSubItemButton(variant: variant)
+      nameColumn(variant: variant)
+      noteButton(variant: variant, hasNote: hasNote)
+      addSubItemButton(variant: variant, canAdd: canAddSubItem)
       trailingAction(variant: variant)
     }
     .accessibilityElement(children: .combine)
@@ -260,10 +248,37 @@ struct PackingItemRow: View {
     )
     .modifier(
       AddSubItemAccessibilityAction(
-        enabled: !group.isReadOnly && item.subItems.count < PackingSubItems.maxCount,
+        enabled: canAddSubItem,
         onAdd: { onAddSubItem("New sub-item") }
       )
     )
+  }
+
+  /// Item name + (when open) the `WhyDisclosure`. The name is given a 44pt
+  /// min-height so its vertical centre lines up with the checkbox and trailing
+  /// glyphs while the row HStack stays top-aligned (disclosure flows beneath).
+  @ViewBuilder
+  private func nameColumn(variant: ThemeVariant) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(item.name)
+        .font(.body)
+        .foregroundStyle(group.isReadOnly ? variant.textSecondary : variant.textPrimary)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
+        .onLongPressGesture(minimumDuration: 0.4) {
+          #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+          #endif
+          onLongPress()
+        }
+
+      if isDisclosureOpen, let reason = resolvedReason {
+        WhyDisclosureView(reason: reason, style: .packing(personColour: personColour))
+          #if DEBUG
+            .accessibilityIdentifier("packingSheet.whyDisclosure.\(item.name)")
+          #endif
+      }
+    }
   }
 
   @ViewBuilder
@@ -308,9 +323,8 @@ struct PackingItemRow: View {
   /// Replaces editing the note through the full edit form. Hidden on read-only
   /// rows.
   @ViewBuilder
-  private func noteButton(variant: ThemeVariant) -> some View {
+  private func noteButton(variant: ThemeVariant, hasNote: Bool) -> some View {
     if !group.isReadOnly {
-      let hasNote = item.note?.isEmpty == false
       Button {
         isAddingSubItem = false
         isEditingNote = true
@@ -336,8 +350,8 @@ struct PackingItemRow: View {
   /// the count cap; `.disabled` while already adding avoids a double-tap
   /// re-seeding the field.
   @ViewBuilder
-  private func addSubItemButton(variant: ThemeVariant) -> some View {
-    if !group.isReadOnly && item.subItems.count < PackingSubItems.maxCount {
+  private func addSubItemButton(variant: ThemeVariant, canAdd: Bool) -> some View {
+    if canAdd {
       Button {
         isEditingNote = false
         isAddingSubItem = true

@@ -362,7 +362,7 @@ Decode `note` and `subItemsData` with unconditional assignment (`item.note = rec
 ## Decision 13: Note edited in `PackingItemForm`; sub-items added inline (resolves open points 1 & 2)
 
 **Date**: 2026-06-21
-**Status**: accepted
+**Status**: superseded by Decision 14
 
 ### Context
 
@@ -383,6 +383,47 @@ Multiline note editing belongs in the form (which already handles name + save-fa
 ### Note discoverability (post-review refinement)
 
 The design-critic flagged that form-only note editing has no inline signal and no path on read-only rows. Resolution: an **existing** note renders inline and is tappable to open the edit form; the form now carries a labelled Note field, so the path is self-revealing once Edit is opened. A dedicated inline "add note" control for the empty case was rejected — a second per-row affordance fights the density this design protects. The rationale is therefore a deliberate density trade-off, not merely "notes are less frequent." Read-only rows display the note without an edit path, consistent with sub-items (Decision 4).
+
+---
+
+## Decision 14: Trailing note/list glyphs with inline note editing (supersedes Decision 13)
+
+**Date**: 2026-06-24
+**Status**: accepted
+
+### Context
+
+On-device review of the as-built UI (Decision 13) surfaced two problems. The persistent "＋ add item" reveal-on-tap control rendered as a full-width row under *every* interactive item, pushing each one onto two lines and visually cluttering the packing sheet — the exact density the design tried to protect. And editing a note only through `PackingItemForm` was an extra modal step with no per-row affordance for the empty case (the open point Decision 13 left as a deliberate trade-off).
+
+### Decision
+
+Replace the persistent affordance row with two compact glyphs in each row's trailing controls, just left of Skip: a **note glyph** (`note.text`, tinted person-colour when a note exists, secondary when empty) and a **sub-item list glyph** (`list.bullet`). Each glyph reveals its own inline editor on demand and the two are mutually exclusive. The **note is now edited inline** via the note glyph (or by tapping the displayed note text) through a new `PackingItemGroup.saveNote` that commits `PackingSubItems.sanitizedNote(_:)` through the same `LocalWriteHook` chokepoint as the sub-item mutations; the inline note field saves on blur with a live 500-cap (`PackingSubItems.cappedNote`). `PackingItemForm` keeps its note field, so the form remains a full edit path — but the glyph is now the primary path.
+
+### Rationale
+
+Glyphs keep a sub-item-less item a single line (the affordance only costs trailing icon space, not a row), restoring sheet density. Inline note editing removes the open-the-form step and gives the empty-note case a discoverable, person-colour-cued affordance directly on the row, which is strictly better than the Decision 13 trade-off. Reusing the existing `LocalWriteHook` save chokepoint keeps the new note path consistent with the sub-item add/remove writes (no new persistence surface).
+
+### Alternatives Considered
+
+- **Keep Decision 13's reveal-on-tap row**: Rejected — device review showed it doubled every interactive row's height.
+- **Alert / popover for sub-item and note input**: Rejected for now — heavier than an inline field for "add as you think of it"; kept as a fallback if the inline field proves cramped under the keyboard.
+- **A single combined "content" glyph opening a sub-sheet**: Rejected — a sheet-on-sheet is the tap-count cost Decision 13 already ruled out.
+
+### Consequences
+
+**Positive:**
+- Sub-item-less items stay a single line; the sheet reads cleanly again.
+- Note add/edit is one tap on the row, with a has-note colour cue, and works without the form.
+- The note write reuses the existing hook chokepoint (one save path for all per-trip content edits).
+
+**Negative:**
+- Three trailing controls (note, list, Skip) plus the checkbox can be tight on narrow rows / large Dynamic Type — to watch.
+- The inline editors still render *beneath* the row while active; keyboard scroll-into-view on reveal (design § "Focus / keyboard / dismissal") is **not yet wired** and is carried as an open item.
+- VoiceOver labels / UI-test identifiers for the new glyph placement, and tests for `PackingItemGroup.saveNote` + the inline note editor, are outstanding (the test harness can't run under Xcode 26.5 — see `docs/agent-notes/testing.md`).
+
+### Impact
+
+`PackingItemRow` (trailing glyphs, parent-owned `isAddingSubItem` / `isEditingNote` state, single combined visibility report to the sheet), `PackingSubItemsView` (inline note editor alongside the sub-item field, parent-controlled bindings), `PackingSheet`/`PackingItemGroup` (`saveNote`), and `PackingSubItems` (`cappedNote`).
 
 ---
 
