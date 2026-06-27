@@ -45,7 +45,7 @@ The other UI surface for rules-engine output.
 
 Scope:
 
-- Per-person packing summary block on Departure and Day-before-return phases (avatar + progress bar)
+- Per-person packing summary block on Day-before and Day-before-return phases (avatar + progress bar)
 - `PackingSheet` — one SwiftUI view, two modes (pack / repack) per UI doc §"One component, two modes"
 - Pack mode groups: unpacked / packed / excluded with skip + restore actions
 - Repack mode groups: still in suitcase / back in suitcase / left behind (read-only)

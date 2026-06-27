@@ -1,6 +1,6 @@
 import Foundation
 
-/// Which packing surface is active. `pack` is opened from the Departure phase
+/// Which packing surface is active. `pack` is opened from the Day-before phase
 /// and operates over `unpacked` / `packed` / `excluded`. `repack` is opened
 /// from Day-before-return and operates over `packed` / `repacked` plus a
 /// read-only "Left behind" group of `unpacked` ∪ `excluded`.

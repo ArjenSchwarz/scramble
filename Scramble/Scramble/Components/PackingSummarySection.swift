@@ -6,7 +6,7 @@ import os
   import UIKit
 #endif
 
-/// Per-person packing summary block rendered inside the Departure phase
+/// Per-person packing summary block rendered inside the Day-before phase
 /// (`mode: .pack`) and the Day-before-return phase (`mode: .repack`). Each
 /// participant gets a `PackingSummaryRow`; tapping a row asks the parent to
 /// open the `PackingSheet`. Participants are sorted by snapshot `name`
