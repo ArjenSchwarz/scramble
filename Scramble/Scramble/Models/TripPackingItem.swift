@@ -51,6 +51,16 @@ final class TripPackingItem {
   /// relationship.
   var subItemsData: Data?
 
+  /// Managed category projection (feature `packing-item-categories`). `nil`
+  /// or empty ⇒ uncategorised. For master-derived items the owner's device
+  /// re-stamps this from the master's current category; manual one-off items
+  /// (`masterItemID == nil`) own their value and are never re-stamped
+  /// (Decision 2). Stored trimmed + internal-whitespace-collapsed with case
+  /// preserved; normalization lives in the `PackingCategory` namespace.
+  /// Optional with a `nil` default so it rides on `SchemaV3` (same reason as
+  /// `note`).
+  var category: String?
+
   init(
     id: UUID = UUID(),
     trip: Trip? = nil,
@@ -62,7 +72,8 @@ final class TripPackingItem {
     currentlyMatchesRules: Bool = true,
     pinnedByUser: Bool = false,
     personSnapshot: TripPersonSnapshot? = nil,
-    note: String? = nil
+    note: String? = nil,
+    category: String? = nil
   ) {
     self.id = id
     self.trip = trip
@@ -75,6 +86,7 @@ final class TripPackingItem {
     self.pinnedByUser = pinnedByUser
     self.personSnapshotID = personSnapshot?.id
     self.note = note
+    self.category = category
   }
 }
 

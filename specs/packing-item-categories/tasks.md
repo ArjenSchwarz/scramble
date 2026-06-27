@@ -8,7 +8,7 @@ references:
 
 ## Foundation
 
-- [ ] 1. Add category field to packing item models <!-- id:00zzi94 -->
+- [x] 1. Add category field to packing item models <!-- id:00zzi94 -->
   - Optional `category: String?` (nil default) on MasterPackingItem and TripPackingItem, plus init params.
   - Mirrors `note`; rides SchemaV3 lightweight inference — no SchemaV4, no models-array change.
   - Stream: 1
