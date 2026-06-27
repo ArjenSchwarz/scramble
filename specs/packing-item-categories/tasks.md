@@ -14,14 +14,14 @@ references:
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1)
 
-- [ ] 2. Write PackingCategory normalization/ordering tests <!-- id:00zzi95 -->
+- [x] 2. Write PackingCategory normalization/ordering tests <!-- id:00zzi95 -->
   - storageValue trims and collapses internal whitespace, case preserved, nil on empty/whitespace; normalizedKey uses non-localized lowercased().
   - keyOrder and rawOrder use Unicode-scalar order with nil last; displayLabel deterministic via rawOrder.
   - PBT: storageValue/normalizedKey idempotence; keyOrder total order.
   - Stream: 2
   - Requirements: [1.2](requirements.md#1.2), [1.3](requirements.md#1.3), [1.5](requirements.md#1.5), [5.2](requirements.md#5.2), [5.6](requirements.md#5.6)
 
-- [ ] 3. Implement PackingCategory namespace <!-- id:00zzi96 -->
+- [x] 3. Implement PackingCategory namespace <!-- id:00zzi96 -->
   - New pure `Models/PackingCategory.swift` namespace implementing the functions under test. No SwiftData.
   - Blocked-by: 00zzi95 (Write PackingCategory normalization/ordering tests)
   - Stream: 2
