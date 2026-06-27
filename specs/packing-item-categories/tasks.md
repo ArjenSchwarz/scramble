@@ -80,33 +80,33 @@ references:
 
 ## Master-list editing
 
-- [ ] 11. Write MasterPersistence category carry-through tests <!-- id:00zzi9e -->
+- [x] 11. Write MasterPersistence category carry-through tests <!-- id:00zzi9e -->
   - createPacking, applyPacking, and copyPacking (copy-to-people) all persist category; storageValue normalization applied on store.
   - Blocked-by: 00zzi94 (Add category field to packing item models)
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [2.1](requirements.md#2.1)
 
-- [ ] 12. Add category to MasterPackingDraft and thread through persistence <!-- id:00zzi9f -->
+- [x] 12. Add category to MasterPackingDraft and thread through persistence <!-- id:00zzi9f -->
   - Add `category` to MasterPackingDraft (field + newDraft + init(from:)); thread through the three MasterPersistence sites.
   - validate() unchanged (category optional).
   - Blocked-by: 00zzi9e (Write MasterPersistence category carry-through tests)
   - Stream: 1
   - Requirements: [1.1](requirements.md#1.1), [2.1](requirements.md#2.1)
 
-- [ ] 13. Write distinctCategories suggestion-gathering tests <!-- id:00zzi9g -->
+- [x] 13. Write distinctCategories suggestion-gathering tests <!-- id:00zzi9g -->
   - Merges MasterPackingItem (globals) + TripPackingItem (tripsLocal); dedupe by normalizedKey; canonical spelling via displayLabel; ordered by keyOrder.
   - Participant device (no masters) yields trip-visible categories only (Req 2.5).
   - Blocked-by: 00zzi94 (Add category field to packing item models), 00zzi96 (Implement PackingCategory namespace)
   - Stream: 2
   - Requirements: [2.2](requirements.md#2.2), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5)
 
-- [ ] 14. Implement distinctCategories helper <!-- id:00zzi9h -->
+- [x] 14. Implement distinctCategories helper <!-- id:00zzi9h -->
   - Implement distinctCategories(globals:tripsLocal:) reading each container's mainContext via FetchDescriptor.
   - Blocked-by: 00zzi9g (Write distinctCategories suggestion-gathering tests)
   - Stream: 2
   - Requirements: [2.2](requirements.md#2.2), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5)
 
-- [ ] 15. Add category Section with suggestions to MasterPackingEditor <!-- id:00zzi9i -->
+- [x] 15. Add category Section with suggestions to MasterPackingEditor <!-- id:00zzi9i -->
   - Category Section between person and conditions: TextField bound to draft.category + tappable suggestions.
   - Reads modelContext=globals + the tripsLocalContainer env key; computed once on appear; selecting stores canonical spelling; normalized matching presents variants as one.
   - Blocked-by: 00zzi9f (Add category to MasterPackingDraft and thread through persistence), 00zzi9h (Implement distinctCategories helper)

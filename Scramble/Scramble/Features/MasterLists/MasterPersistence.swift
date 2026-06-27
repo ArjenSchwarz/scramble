@@ -62,7 +62,8 @@ nonisolated struct CopyResult: Sendable {
     let item = MasterPackingItem(
       name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
       person: person,
-      conditions: draft.conditions
+      conditions: draft.conditions,
+      category: PackingCategory.storageValue(draft.category)
     )
     context.insert(item)
     return item
@@ -76,6 +77,7 @@ nonisolated struct CopyResult: Sendable {
     item.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
     item.person = resolvePerson(id: draft.personID, in: context)
     item.conditions = draft.conditions
+    item.category = PackingCategory.storageValue(draft.category)
   }
 
   static func deletePacking(_ item: MasterPackingItem, in context: ModelContext) {
@@ -128,6 +130,7 @@ nonisolated struct CopyResult: Sendable {
   ) -> CopyResult {
     let trimmedName = source.name.trimmingCharacters(in: .whitespacesAndNewlines)
     let sourceConditions = source.conditions
+    let sourceCategory = PackingCategory.storageValue(source.category)
     let sourceKey = normalizedName(trimmedName)
 
     var result = CopyResult(createdCount: 0, copiedNames: [], skippedNames: [])
@@ -148,7 +151,8 @@ nonisolated struct CopyResult: Sendable {
       let copy = MasterPackingItem(
         name: trimmedName,
         person: target,
-        conditions: sourceConditions
+        conditions: sourceConditions,
+        category: sourceCategory
       )
       context.insert(copy)
       result.createdCount += 1
