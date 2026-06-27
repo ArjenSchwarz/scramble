@@ -125,7 +125,7 @@ references:
 
 ## Grouped display
 
-- [ ] 17. Write categorySections grouping-helper tests <!-- id:00zzi9k -->
+- [x] 17. Write categorySections grouping-helper tests <!-- id:00zzi9k -->
   - Partition (each item in exactly one section; section count == distinct normalized keys); uncategorised last.
   - within-section order via supplied comparator; single-uncategorised input => one nil section (the flat signal); deterministic label.
   - PBT: partition invariant.
@@ -133,13 +133,13 @@ references:
   - Stream: 2
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.5](requirements.md#5.5), [5.6](requirements.md#5.6), [6.1](requirements.md#6.1), [6.2](requirements.md#6.2)
 
-- [ ] 18. Implement categorySections helper <!-- id:00zzi9l -->
+- [x] 18. Implement categorySections helper <!-- id:00zzi9l -->
   - Generic categorySections<Item>(_:category:sortWithin:) returning ordered CategorySection values. Place in PackingListHelpers or PackingCategory.
   - Blocked-by: 00zzi9k (Write categorySections grouping-helper tests)
   - Stream: 2
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.6](requirements.md#5.6), [6.1](requirements.md#6.1), [6.2](requirements.md#6.2)
 
-- [ ] 19. Render category sub-grouping in PackingSheet <!-- id:00zzi9m -->
+- [x] 19. Render category sub-grouping in PackingSheet <!-- id:00zzi9m -->
   - PackingItemGroup uses categorySections(filter(group.matches)): flat (no sub-header) when single-uncategorised; else category sub-headers with .accessibilityAddTraits(.isHeader).
   - within-section sorted order preserved; both modes incl read-only repack sections; one pass per body.
   - One-off items group identically (Req 4.2); uncategorised bucket includes pre-existing items (Req 1.4).
@@ -147,7 +147,7 @@ references:
   - Stream: 2
   - Requirements: [1.4](requirements.md#1.4), [4.2](requirements.md#4.2), [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.4](requirements.md#5.4), [5.5](requirements.md#5.5), [5.7](requirements.md#5.7), [5.8](requirements.md#5.8)
 
-- [ ] 20. Sub-group by category within each person in MasterPackingList <!-- id:00zzi9n -->
+- [x] 20. Sub-group by category within each person in MasterPackingList <!-- id:00zzi9n -->
   - Within each existing per-person Section, sub-group items via categorySections; flat when none categorised; ordering consistent with the sheet.
   - Uncategorised includes pre-existing items (Req 1.4).
   - Blocked-by: 00zzi9l (Implement categorySections helper), 00zzi94 (Add category field to packing item models)
