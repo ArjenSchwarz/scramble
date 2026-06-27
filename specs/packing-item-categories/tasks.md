@@ -156,7 +156,7 @@ references:
 
 ## Release prep
 
-- [ ] 21. Update release-prep CloudKit schema-promotion checklist <!-- id:00zzi9o -->
+- [x] 21. Update release-prep CloudKit schema-promotion checklist <!-- id:00zzi9o -->
   - Add MasterPackingItem.category (auto-mirrored private DB) and TripPackingItem.category (shared zone) to the promote-to-Production checklist in docs/release-prep.md.
   - The manual Dashboard promotion itself is a release prerequisite, not a code task.
   - Stream: 1
