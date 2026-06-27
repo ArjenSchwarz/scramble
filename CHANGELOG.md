@@ -39,6 +39,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - The **note is edited inline** via the note glyph (or by tapping the note text) instead of opening the full edit form — a new `PackingItemGroup.saveNote` commits `PackingSubItems.sanitizedNote(_:)` through the same `LocalWriteHook` chokepoint; the edit form still edits the name. `PackingSubItemsView` gains an inline note `TextField` (vertical, live 500-cap via the new `PackingSubItems.cappedNote`) alongside the existing sub-item add field, both parent-controlled via `isEditingNote` / `isAddFieldVisible` bindings; the sheet's background tap-catcher dismisses either.
   - Layout fixes: the item name is given a 44pt min-height so it centres with the checkbox + glyphs; the sub-item row is centre-aligned so the Remove `−` lines up with the entry text; the note + sub-items are indented 56pt to sit under the item name; and note / sub-item text is bumped from `.footnote` to `.subheadline` for readability.
 
+### Removed
+
+- Packing-sheet `WhyDisclosure` long-press explainability (packing rows only; task-side explainability is unchanged). The long-press gesture, the inline "Why is this here?" panel, and the matching VoiceOver custom action are gone from `PackingItemRow` / `PackingSheet`, along with the per-row `WhyResolver` fetches that backed them (a net efficiency win on the packing sheet). The shared `WhyResolver.reason(for:TripPackingItem)` overload and `WhyDisclosure.Style.packing` are now test-only but retained. Also untangles #11's inline note/sub-item editors from the removed disclosure (the editor-visibility handler no longer closes it). Divergence from accepted Phase 4 (Req 6.5 / §7 / 9.2 / 9.9) and Phase 6 (Req 8.5 / 9.5) requirements is recorded as `specs/phase-4-packing-sheet/decision_log.md` Decision 10; `docs/agent-notes/packing-sheet.md` + `accessibility.md`, `CLAUDE.md`, and `docs/scramble-ui-design-doc.md` updated to match. Removed the now-obsolete `hasWhyJustification` unit tests and packing `WhyDisclosure` UI tests.
+
 ### Fixed
 
 - On-device launch failures (SwiftData migration + CloudKit):

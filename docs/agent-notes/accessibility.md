@@ -21,8 +21,10 @@ Conventions used by Phase 6 polish:
 - `PackingItemRow` — combined label includes item name + current
   `PackingState` + owning person name. Excluded items labelled
   `"not bringing"`; repack-mode Left Behind items labelled
-  `"left behind"`. Same `"Why is this here?"` custom action, same
-  gating.
+  `"left behind"`. Packing rows do **not** expose a `"Why is this here?"`
+  action — the long-press explainability surface was removed from the
+  packing sheet (see "Packing WhyDisclosure removed" in `packing-sheet.md`
+  and phase-4 `decision_log.md` Decision 10). The action remains on `TaskRow`.
 - Per-person packing progress bar in `PackingSummarySection` —
   `accessibilityValue` reads `"{name}'s packing, {packed} of {total}
   packed"`.
@@ -30,10 +32,11 @@ Conventions used by Phase 6 polish:
   because the destination is already part of the spoken trip name
   (Req 9.6).
 
-`Why is this here?` accessibility action: presence is gated on the same
-`WhyResolver.reason(...)` check the long-press uses. Rows whose items
-have no rule justification (manual one-offs, items whose master was
-deleted under certain conditions) do not expose the action.
+`Why is this here?` accessibility action (`TaskRow` only): presence is
+gated on the same `WhyResolver.reason(...)` check the long-press uses.
+Tasks with no rule justification (manual one-offs, items whose master was
+deleted under certain conditions) do not expose the action. Packing rows
+no longer expose this action (long-press explainability removed).
 
 ## Dynamic Type
 
@@ -66,7 +69,7 @@ Five interactions fire haptics (Reqs 8.1–8.5):
 | `PackingItemRow` skip / restore | `.light` | `Components/PackingItemRow.swift` |
 | `PhaseRow` tap (expand/collapse) | `.medium` | `Components/PhaseRow.swift` |
 | `PackingSheet` root `.onAppear` | `.soft` | `Features/Trips/PackingSheet.swift` |
-| `WhyDisclosure` becoming visible (long-press) | `.light` | `Components/TaskRow.swift` / `PackingItemRow.swift` |
+| `WhyDisclosure` becoming visible (long-press) | `.light` | `Components/TaskRow.swift` |
 
 All use `UIImpactFeedbackGenerator(style:)` per Req 8.6. iOS's native
 "reduce haptics" preference suppresses them automatically.

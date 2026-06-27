@@ -372,8 +372,7 @@
         context.insert(sam)
         trip.participants = (trip.participants ?? []) + [sam]
 
-        // Master item used by the rule-driven "Toothbrush" entry; gives
-        // `WhyDisclosureView` a `.ruleMatched` reason to render.
+        // Master item backing the rule-driven "Toothbrush" entry (`source: .rule`).
         let masterToothbrush = MasterPackingItem(
           name: "Toothbrush",
           person: arjen,
@@ -474,8 +473,7 @@
         context.insert(sam)
         trip.participants = (trip.participants ?? []) + [sam]
 
-        // Master item for the rule-driven "Boots" entry so a `WhyDisclosure`
-        // long-press on a left-behind row renders a real reason.
+        // Master item backing the rule-driven "Boots" entry (`source: .rule`).
         let masterBoots = MasterPackingItem(
           name: "Boots",
           person: arjen,

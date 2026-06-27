@@ -4,8 +4,7 @@ import Testing
 
 @testable import Scramble
 
-/// Phase 6 Req 9.3 + 9.5 — `PackingItemRow.composedAccessibilityLabel`
-/// and the gated "Why is this here?" custom action.
+/// Phase 6 Req 9.3 — `PackingItemRow.composedAccessibilityLabel`.
 @Suite("PackingItemRow accessibility", .serialized)
 @MainActor
 struct PackingItemRowAccessibilityTests {
@@ -87,40 +86,6 @@ struct PackingItemRowAccessibilityTests {
       item: item, group: .stillNeedToPack
     )
     #expect(label == "Socks, not packed")
-  }
-
-  // MARK: - Why action gate (Req 9.5)
-
-  @Test("Manual one-off item exposes the Why action")
-  func manualHasWhy() throws {
-    let setup = try Self.makeSetup()
-    let trip = Trip(name: "T", startDate: .now, endDate: .now)
-    setup.context.insert(trip)
-    let item = TripPackingItem(trip: trip, name: "Manual", source: .manual)
-    setup.context.insert(item)
-    try setup.context.save()
-
-    let hasWhy = PackingItemRow.hasWhyJustification(
-      item: item, context: setup.context, hideOnUnresolvedMaster: false
-    )
-    #expect(hasWhy)
-  }
-
-  @Test("Participant-side unresolved-master rule item hides the Why action")
-  func participantUnresolvedHidesWhy() throws {
-    let setup = try Self.makeSetup()
-    let trip = Trip(name: "T", startDate: .now, endDate: .now)
-    setup.context.insert(trip)
-    let item = TripPackingItem(
-      trip: trip, masterItemID: UUID(), name: "Rule", source: .rule
-    )
-    setup.context.insert(item)
-    try setup.context.save()
-
-    let hasWhy = PackingItemRow.hasWhyJustification(
-      item: item, context: setup.context, hideOnUnresolvedMaster: true
-    )
-    #expect(!hasWhy)
   }
 
   // MARK: - Helpers

@@ -29,8 +29,8 @@ struct PackingSheetState: Identifiable {
 
 /// Per-person packing surface presented from a participant row inside the
 /// Departure (`pack`) or Day-before-return (`repack`) phase. Owns its inner
-/// state — disclosure id, manual-add form presentation — and dismisses when
-/// the bound person disappears from `trip.participants` (Req 2.8).
+/// state — active inline-add-field id, manual-add form presentation — and
+/// dismisses when the bound person disappears from `trip.participants` (Req 2.8).
 struct PackingSheet: View {
   let trip: Trip
   let person: Person
@@ -41,7 +41,6 @@ struct PackingSheet: View {
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
 
-  @State private var openDisclosureItemID: UUID?
   /// Identity of the row whose inline sub-item add field is currently
   /// revealed, so the background tap-catcher can be mounted to dismiss it
   /// (design § "Focus / keyboard / dismissal"). Reported by `PackingItemRow`.
@@ -77,7 +76,7 @@ struct PackingSheet: View {
               mode: mode,
               personColour: personColour,
               headerFocused: $headerFocused,
-              onClose: handleClose
+              onClose: onDismiss
             )
             #if DEBUG
               .accessibilityIdentifier("packingSheet.header")
@@ -89,7 +88,6 @@ struct PackingSheet: View {
                 group: group,
                 mode: mode,
                 personColour: personColour,
-                openDisclosureItemID: $openDisclosureItemID,
                 activeAddFieldItemID: $activeAddFieldItemID,
                 onEdit: { item in
                   pendingForm = .edit(item: item)
@@ -121,16 +119,15 @@ struct PackingSheet: View {
         }
       }
       .background {
-        // Disclosure / add-field dismiss tap target, mounted only when a
-        // disclosure or an inline add field is open. Lives on the background
-        // so it can't intercept taps destined for checkboxes, action buttons,
-        // or the close button. Ending editing makes the active add field lose
-        // focus, which collapses it (design § "Focus / keyboard / dismissal").
-        if openDisclosureItemID != nil || activeAddFieldItemID != nil {
+        // Add-field dismiss tap target, mounted only when an inline add field
+        // is open. Lives on the background so it can't intercept taps destined
+        // for checkboxes, action buttons, or the close button. Ending editing
+        // makes the active add field lose focus, which collapses it
+        // (design § "Focus / keyboard / dismissal").
+        if activeAddFieldItemID != nil {
           Color.clear
             .contentShape(Rectangle())
             .onTapGesture {
-              openDisclosureItemID = nil
               activeAddFieldItemID = nil
               endTextEditing()
             }
@@ -160,14 +157,6 @@ struct PackingSheet: View {
         onSave: { pendingForm = nil },
         onCancel: { pendingForm = nil }
       )
-    }
-  }
-
-  private func handleClose() {
-    if openDisclosureItemID != nil {
-      openDisclosureItemID = nil
-    } else {
-      onDismiss()
     }
   }
 
@@ -264,7 +253,6 @@ private struct PackingItemGroup: View {
   let group: SheetGroup
   let mode: PackingMode
   let personColour: Color
-  @Binding var openDisclosureItemID: UUID?
   @Binding var activeAddFieldItemID: UUID?
   let onEdit: (TripPackingItem) -> Void
 
@@ -290,10 +278,8 @@ private struct PackingItemGroup: View {
           group: group,
           mode: mode,
           personColour: personColour,
-          isDisclosureOpen: openDisclosureItemID == item.id,
           onToggleState: { toggleState(item) },
           onSkipOrRestore: { skipOrRestore(item) },
-          onLongPress: { toggleDisclosure(item) },
           onEdit: { onEdit(item) },
           onSaveNote: { raw in saveNote(item, raw) },
           onAddSubItem: { raw in addSubItem(item, raw) },
@@ -343,10 +329,6 @@ private struct PackingItemGroup: View {
     default: return
     }
     save("skipOrRestore")
-  }
-
-  private func toggleDisclosure(_ item: TripPackingItem) {
-    openDisclosureItemID = (openDisclosureItemID == item.id) ? nil : item.id
   }
 
   /// Appends a sub-item via the pure `PackingSubItems` helper, then commits
