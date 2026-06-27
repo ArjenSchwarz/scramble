@@ -360,8 +360,8 @@
         // row to exercise the dimmed-counts path. Single qualifying trip so
         // it auto-opens; `.dayBefore` (the pack-mode packing phase)
         // auto-expands per Phase 3 rules.
-        let start = calendar.date(byAdding: .day, value: 1, to: day) ?? day
-        let end = calendar.date(byAdding: .day, value: 6, to: day) ?? day
+        let start = calendar.date(byAdding: .day, value: 1, to: day)!
+        let end = calendar.date(byAdding: .day, value: 6, to: day)!
         let trip = Trip(name: "Beach Trip", startDate: start, endDate: end)
         context.insert(trip)
 

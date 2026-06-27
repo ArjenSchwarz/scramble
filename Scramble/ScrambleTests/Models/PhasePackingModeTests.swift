@@ -19,13 +19,12 @@ struct PhasePackingModeTests {
     #expect(Phase.dayBeforeReturn.packingMode == .repack)
   }
 
-  @Test("Departure day is no longer a packing phase")
-  func departureDayHostsNoPacking() {
-    #expect(Phase.departureDay.packingMode == nil)
-  }
-
-  @Test("Exactly two phases are packing phases; the rest host none")
+  @Test("Exactly two phases are packing phases; the rest (incl. .departureDay) host none")
   func onlyTwoPackingPhases() {
+    // Completeness invariant, not just the two positive mappings above: asserts
+    // that NO other phase — including the former .departureDay packing phase —
+    // hosts packing. Catches a future Phase case being wired to a packing mode
+    // (or .departureDay regressing back) without a matching test update.
     let packingPhases = Set(Phase.allCases.filter { $0.packingMode != nil })
     #expect(packingPhases == [.dayBefore, .dayBeforeReturn])
   }

@@ -172,8 +172,8 @@ struct AutoExpandTests {
     #expect(result == nil)
   }
 
-  @Test("Compressed duringTrip is rejected if it ever surfaces as current")
-  func compressedDuringTripGuard() throws {
+  @Test("2-day trip on departure day → nil: departureDay shadows the dayBeforeReturn repack phase")
+  func twoDayTripDepartureDayShadowsRepack() throws {
     // Defensive: simulate a 2-day trip where duringTrip is compressed
     // (duration 0). For any plausible today on a 2-day trip, duringTrip
     // is never .current per state(...). This test verifies the guard

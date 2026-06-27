@@ -512,6 +512,10 @@ import os
     today: Date,
     calendar: Calendar
   ) -> Phase? {
+    // Known limitation, tracked as T-1606: first-current-wins can stop at a
+    // non-packing current phase (e.g. departureDay on a 2-day trip, where
+    // dayBeforeReturn is also current) and return nil, shadowing a later
+    // expandable packing phase. Accepted per phase-4 Decision 11.
     let current = Phase.allCases.first { phase in
       Self.state(
         for: phase,
