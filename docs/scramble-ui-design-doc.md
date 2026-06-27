@@ -173,6 +173,8 @@ Forking pack and repack into divergent UIs is a deliberate non-goal — the cons
 
 ## Explainability — “Why is this here?”
 
+> **Superseded for packing (phase-4 Decision 10):** the long-press explainability described in this section was **removed from the packing sheet** — it now applies to **tasks only** (`TaskRow`). The packing-specific paragraphs below (packing long-press, the “Packing context” visual treatment, and the packing rotor action) are retained as historical design intent but no longer ship. See `specs/phase-4-packing-sheet/decision_log.md` Decision 10.
+
 Every task and packing item supports a long-press gesture to reveal why it appears on this trip. There is no dedicated visual affordance — the gesture is discoverable through standard iOS conventions (long-press for context). This keeps row layouts uncluttered.
 
 ### Behaviour

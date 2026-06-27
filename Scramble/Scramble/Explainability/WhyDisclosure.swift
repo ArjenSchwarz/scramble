@@ -27,6 +27,8 @@ enum WhyDisclosure {
   /// background and no border (Phase 4 design §"Integration with WhyDisclosure").
   nonisolated enum Style: Sendable {
     case tasks(phaseColour: Color)
+    // Test-only since phase-4 Decision 10 (packing WhyDisclosure removed): no
+    // production caller, retained for WhyDisclosureStyleTests. Do not delete.
     case packing(personColour: Color)
 
     var resolvedAppearance: ResolvedAppearance {

@@ -1,4 +1,3 @@
-import SwiftData
 import SwiftUI
 
 #if canImport(UIKit)
@@ -70,23 +69,18 @@ enum SheetGroup: Sendable {
 
 /// Single row inside the `PackingSheet`. Mirrors `TaskRow`'s structure with
 /// packing-specific differences: the trailing avatar is replaced by an inline
-/// Skip / Restore button (or nothing for read-only / repack groups), the
-/// checkbox follows the pack vs repack colour rules in the UI doc, and the
-/// `WhyDisclosureView` renders with `.packing(personColour:)` style.
+/// Skip / Restore button (or nothing for read-only / repack groups), and the
+/// checkbox follows the pack vs repack colour rules in the UI doc.
 ///
-/// Long-press is spatially constrained to the name + tags region so it does
-/// not overlap with the trailing context menu (Req 6.5). Read-only rows
-/// (`notBringing` / `leftBehind`) keep the long-press for `WhyDisclosure` per
-/// Req 7.10 but expose no checkbox toggle, no Skip/Restore, and no Edit.
+/// Read-only rows (`notBringing` / `leftBehind`) expose no checkbox toggle, no
+/// Skip/Restore, and no Edit.
 struct PackingItemRow: View {
   let item: TripPackingItem
   let group: SheetGroup
   let mode: PackingMode
   let personColour: Color
-  let isDisclosureOpen: Bool
   let onToggleState: () -> Void
   let onSkipOrRestore: () -> Void
-  let onLongPress: () -> Void
   let onEdit: () -> Void
   /// Saves the inline-edited note (raw text). Wired to
   /// `PackingItemGroup.saveNote` — the note glyph edits inline rather than via
@@ -101,11 +95,8 @@ struct PackingItemRow: View {
   /// dismiss tap-catcher.
   let onAddFieldVisibilityChanged: (Bool) -> Void
 
-  @Environment(\.modelContext) private var modelContext
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
-  @Environment(\.isParticipantViewingSharedTrip) private var isParticipantViewingSharedTrip
-  @State private var resolvedReason: WhyDisclosure.Reason?
   /// Drives the inline add field in `PackingSubItemsView`, toggled by the
   /// sub-item (list) glyph in the trailing controls (left of Skip).
   @State private var isAddingSubItem = false
@@ -114,9 +105,9 @@ struct PackingItemRow: View {
   @State private var isEditingNote = false
 
   /// True while either inline editor (note or sub-item) is showing. Reported to
-  /// the sheet as a single source of truth so a direct switch between the two
-  /// editors (one binding false, the other true in the same update) never
-  /// momentarily reads as "closed" — see `handleInlineEditorVisibility`.
+  /// the sheet (via the `.onChange` below) as a single source of truth so a
+  /// direct switch between the two editors (one binding false, the other true in
+  /// the same update) never momentarily reads as "closed".
   private var isAnyInlineEditorOpen: Bool { isAddingSubItem || isEditingNote }
 
   var body: some View {
@@ -170,49 +161,23 @@ struct PackingItemRow: View {
     #if DEBUG
       .accessibilityIdentifier("packingSheet.itemRow.\(item.name)")
     #endif
+    // Forward either inline editor's visibility (note editor or sub-item add
+    // field) to the sheet so it can mount the dismiss tap-catcher
+    // (design § "Focus / keyboard / dismissal").
     .onChange(of: isAnyInlineEditorOpen) { _, open in
-      handleInlineEditorVisibility(open)
-    }
-    .onChange(of: isDisclosureOpen) { _, open in
-      if open {
-        resolvedReason = WhyResolver.reason(
-          for: item,
-          context: modelContext,
-          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
-        )
-      } else {
-        resolvedReason = nil
-      }
-    }
-    .onChange(of: item.trip?.attributesData) { _, _ in
-      if isDisclosureOpen {
-        resolvedReason = WhyResolver.reason(
-          for: item,
-          context: modelContext,
-          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
-        )
-      }
-    }
-    .onChange(of: item.currentlyMatchesRules) { _, _ in
-      if isDisclosureOpen {
-        resolvedReason = WhyResolver.reason(
-          for: item,
-          context: modelContext,
-          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
-        )
-      }
+      onAddFieldVisibilityChanged(open)
     }
   }
 
   // MARK: - Subviews
 
-  /// Checkbox + name + `WhyDisclosure` + trailing action. This is the single
-  /// combined accessibility "row" element (name + state + owner + note in its
-  /// label) carrying the row-level custom actions, including the new
-  /// **Add sub-item** action (Req 8.2). The sub-item list is a sibling
-  /// `.contain` container rendered by `PackingSubItemsView` so its entries stay
-  /// individually addressable — the previous flat `.combine` over the whole
-  /// row could not express that.
+  /// Checkbox + name + trailing action. This is the single combined
+  /// accessibility "row" element (name + state + owner + note in its label)
+  /// carrying the row-level custom actions, including the new **Add sub-item**
+  /// action (Req 8.2). The sub-item list is a sibling `.contain` container
+  /// rendered by `PackingSubItemsView` so its entries stay individually
+  /// addressable — the previous flat `.combine` over the whole row could not
+  /// express that.
   @ViewBuilder
   private func rowContent(variant: ThemeVariant, note: String?, subItems: [String]) -> some View {
     // Derive once from the values the body already read — `item.subItems`
@@ -229,16 +194,6 @@ struct PackingItemRow: View {
     }
     .accessibilityElement(children: .combine)
     .accessibilityLabel(combinedLabel(note: note))
-    .modifier(
-      WhyAccessibilityAction(
-        enabled: PackingItemRow.hasWhyJustification(
-          item: item,
-          context: modelContext,
-          hideOnUnresolvedMaster: isParticipantViewingSharedTrip
-        ),
-        onWhy: onLongPress
-      )
-    )
     .modifier(EditAccessibilityAction(enabled: !group.isReadOnly, onEdit: onEdit))
     .modifier(
       SkipRestoreAccessibilityAction(
@@ -254,31 +209,14 @@ struct PackingItemRow: View {
     )
   }
 
-  /// Item name + (when open) the `WhyDisclosure`. The name is given a 44pt
-  /// min-height so its vertical centre lines up with the checkbox and trailing
-  /// glyphs while the row HStack stays top-aligned (disclosure flows beneath).
+  /// Item name. Given a 44pt min-height so its vertical centre lines up with the
+  /// checkbox and trailing glyphs while the row HStack stays top-aligned.
   @ViewBuilder
   private func nameColumn(variant: ThemeVariant) -> some View {
-    VStack(alignment: .leading, spacing: 6) {
-      Text(item.name)
-        .font(.body)
-        .foregroundStyle(group.isReadOnly ? variant.textSecondary : variant.textPrimary)
-        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        .contentShape(Rectangle())
-        .onLongPressGesture(minimumDuration: 0.4) {
-          #if canImport(UIKit)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-          #endif
-          onLongPress()
-        }
-
-      if isDisclosureOpen, let reason = resolvedReason {
-        WhyDisclosureView(reason: reason, style: .packing(personColour: personColour))
-          #if DEBUG
-            .accessibilityIdentifier("packingSheet.whyDisclosure.\(item.name)")
-          #endif
-      }
-    }
+    Text(item.name)
+      .font(.body)
+      .foregroundStyle(group.isReadOnly ? variant.textSecondary : variant.textPrimary)
+      .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
   }
 
   @ViewBuilder
@@ -422,17 +360,6 @@ struct PackingItemRow: View {
     #endif
   }
 
-  /// Forwards either inline editor's visibility (note editor or sub-item add
-  /// field) to the sheet so it can mount the dismiss tap-catcher, and closes
-  /// this row's `WhyDisclosure` when an editor reveals — one inline expansion
-  /// at a time (design § "Focus / keyboard / dismissal").
-  private func handleInlineEditorVisibility(_ visible: Bool) {
-    if visible && isDisclosureOpen {
-      onLongPress()  // toggles the open disclosure closed
-    }
-    onAddFieldVisibilityChanged(visible)
-  }
-
   // MARK: - Visual state derivation
 
   /// Whether the row's checkbox is rendered in the "checked" state. Items
@@ -532,18 +459,6 @@ struct PackingItemRow: View {
     }
   }
 
-  // Phase 6 Req 9.5 — "Why is this here?" gate, mirrors the long-press
-  // disclosure's resolved-reason check.
-  static func hasWhyJustification(
-    item: TripPackingItem,
-    context: ModelContext,
-    hideOnUnresolvedMaster: Bool
-  ) -> Bool {
-    WhyResolver.reason(
-      for: item, context: context, hideOnUnresolvedMaster: hideOnUnresolvedMaster
-    ) != nil
-  }
-
   /// Flat 0.5 dimming for unmatched-non-pinned rows per Req 3.9 / 4.8.
   /// Single multiplier — chained `.opacity()` modifiers compose
   /// multiplicatively, which would overshoot the design intent.
@@ -564,21 +479,6 @@ private struct EditAccessibilityAction: ViewModifier {
   func body(content: Content) -> some View {
     if enabled {
       content.accessibilityAction(named: Text("Edit")) { onEdit() }
-    } else {
-      content
-    }
-  }
-}
-
-/// Phase 6 Req 9.5 — exposes the "Why is this here?" custom action only
-/// when the underlying item has a non-nil `WhyResolver.reason(...)`.
-private struct WhyAccessibilityAction: ViewModifier {
-  let enabled: Bool
-  let onWhy: () -> Void
-
-  func body(content: Content) -> some View {
-    if enabled {
-      content.accessibilityAction(named: Text("Why is this here?")) { onWhy() }
     } else {
       content
     }

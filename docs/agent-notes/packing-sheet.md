@@ -44,6 +44,20 @@ Focus restoration on auto-dismiss runs from `TripDetailView.handlePackingSheetDi
 
 `PackingSheet.body.task` runs `try? await Task.sleep(for: .milliseconds(500))` before setting `headerFocused = true`. Setting the focus inside `.onAppear` is too early on real devices — the a11y frame for the sheet has not been built yet and the focus binding silently fails. 500ms matches Apple's WWDC guidance for cross-context VoiceOver focus handoff.
 
+## Packing WhyDisclosure removed (long-press)
+
+Packing rows **no longer** surface the "why is this here?" explainability panel. The long-press gesture, the inline `WhyDisclosureView`, the `openDisclosureItemID` sheet state + background dismiss-tap target, and the VoiceOver "Why is this here?" custom action were all removed from `PackingItemRow` / `PackingSheet` — the owner found it unused and the long-press made the row interaction noisy. This is a deliberate divergence from phase-4 Req 6.5 / 7.10 and phase-6 Req 9.5 (which were packing-specific).
+
+Consequences:
+- `WhyDisclosureView` and `WhyResolver` still exist — the **task** surface (`TaskRow` / `TaskListSection`) keeps long-press WhyDisclosure unchanged.
+- `WhyResolver.reason(for: TripPackingItem, …)` now has no production caller; it stays in place (and is still covered by `WhyResolverPackingTests` / `WhyResolverParticipantHideTests`) rather than being torn out, since it's a pure function and removing it would churn the shared resolver the task path depends on. The `WhyDisclosure.Style.packing(personColour:)` case is likewise now test-only.
+
+## Gotcha: `PackingItemRowAccessibilityTests` crashes when run in isolation
+
+`PackingItemRowAccessibilityTests` (and likely other `@MainActor .serialized` suites that build a fresh `ModelContainer(for: SchemaV3)` per test) **crashes the xctest process when run via a narrow `-only-testing` selection** — every test reports `failed (0.000 seconds)` and the suite re-runs (xcodebuild relaunches after a crash). This is **pre-existing and not a logic failure**: an individual test (`-only-testing:…/unownedLabel`) passes, and the full `make test-quick` (whole `ScrambleTests` target) passes too. The crash is the repeated CloudKit-schema `ModelContainer` creation issue (see `rules/language-rules/swift.md` → "Shared ModelContainer Initialization in Tests").
+
+Practical consequence: **verify these suites with the full `make test-quick`, not a hand-picked `-only-testing` subset.** A green/red from a small subset run is unreliable for the container-creating suites. (Confirmed by stashing all changes and reproducing the identical crash on unmodified `main`.)
+
 ## WhyDisclosure `Style` migration
 
 `WhyDisclosureView` migrated from `init(reason:, phaseColour:)` to `init(reason:, style:)` where `style` is a `WhyDisclosure.Style` enum with `.tasks(phaseColour:)` and `.packing(personColour:)` cases. The case resolves internally to `(tint: Color, backgroundOpacity: Double, borderOpacity: Double?)`:

@@ -52,6 +52,9 @@ enum WhyResolver {
     return .ruleNoLongerMatches
   }
 
+  // Test-only since phase-4 Decision 10 (packing WhyDisclosure removed): no
+  // production caller, retained for WhyResolverPackingTests /
+  // WhyResolverParticipantHideTests. Do not delete.
   static func reason(
     for item: TripPackingItem,
     context: ModelContext,

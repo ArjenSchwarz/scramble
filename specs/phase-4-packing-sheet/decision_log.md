@@ -293,3 +293,44 @@ Nested sheets are the iOS-standard pattern for a focused secondary task. `Naviga
 - Two-sheet stack is a known iOS UI complexity (e.g., swipe-down can target the inner or outer sheet depending on framework version); accept and validate during testing.
 
 ---
+
+## Decision 10: Remove the WhyDisclosure long-press explainability from the packing sheet
+
+**Date**: 2026-06-26
+**Status**: accepted — supersedes the packing-side parts of Req 6.1 / 6.5 / 7.1–7.10 / 9.2 / 9.9 (this spec) and Phase 6 Req 8.5 / 9.5 (the `PackingItemRow` carve-out only)
+
+### Context
+
+Phase 4 Section 7 specified a `WhyDisclosure` explainability panel for packing items, revealed by a long-press on the item name (Req 6.5) and mirrored by a `"Why is this here?"` VoiceOver custom action (Req 9.2, hardened in Phase 6 Req 9.5). In practice the owner found the packing-side surface unused, and the long-press made the (already action-dense) packing rows feel noisy — every name-region press armed a gesture, and the panel most often resolved to a low-value reason. The packing masters frequently fail to resolve from the trip's local context, so the panel often showed only the generic "added by a rule that has since been removed" message regardless of the item.
+
+### Decision
+
+Remove the long-press `WhyDisclosure`, its inline panel, the `"Why is this here?"` VoiceOver custom action, and the supporting per-row state/fetches from `PackingItemRow` / `PackingSheet`. The task-side explainability (`TaskRow` / `TaskListSection`, Phase 3) is unchanged. The shared `WhyResolver` and `WhyDisclosureView` stay in place — they are still used by the task surface; their `TripPackingItem` overload and the `WhyDisclosure.Style.packing` case become test-only but are retained rather than torn out (removing them would churn the shared resolver for no behavioural gain and lose existing test coverage).
+
+### Rationale
+
+The feature was a confirmed product cost (annoying gesture) with little realised benefit on the packing side. Removing it also deletes per-row SwiftData fetches that ran on accessibility-action setup and on every disclosure-open / attribute-change / rules-change event — a net efficiency win on the packing sheet. Scoping the removal to packing (leaving tasks intact) keeps the change small and avoids touching Phase 3's shipped, still-wanted task explainability.
+
+### Alternatives Considered
+
+- **Keep the VoiceOver action, drop only the long-press**: Rejected — the action exposes the same panel; keeping it is inconsistent with the removed visual affordance and still pays the per-row resolver fetch.
+- **Fix the underlying master-resolution bug instead of removing**: Rejected — the owner does not want the surface at all on packing, independent of the bug.
+- **Replace long-press with a tap affordance (e.g., a "?" glyph)**: Rejected — adds another glyph to an already-dense row for a feature the owner does not use.
+
+### Consequences
+
+**Positive:**
+- Simpler, quieter packing rows; the name region no longer arms a gesture.
+- Eliminates per-row `WhyResolver.reason(...)` fetches on the packing sheet.
+- Task explainability is untouched.
+
+**Negative:**
+- Packing items lose in-app "why is this here?" explainability (sighted and VoiceOver). Accepted per owner request.
+- `WhyResolver.reason(for: TripPackingItem,…)` and `WhyDisclosure.Style.packing` now have no production caller (test-only); a future reader must not mistake them for dead code — see `docs/agent-notes/packing-sheet.md`.
+- The source-of-truth UI doc (`docs/scramble-ui-design-doc.md`) still describes packing long-press explainability in places; this ADR is the authoritative override.
+
+### Impact
+
+`Scramble/Scramble/Components/PackingItemRow.swift`, `Scramble/Scramble/Features/Trips/PackingSheet.swift`; removed tests in `PackingItemRowAccessibilityTests.swift` and `PackingSheetUITests.swift`; notes updated in `docs/agent-notes/packing-sheet.md` and `docs/agent-notes/accessibility.md`.
+
+---

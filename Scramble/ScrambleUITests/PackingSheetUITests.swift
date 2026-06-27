@@ -258,33 +258,6 @@ final class PackingSheetUITests: XCTestCase {
     )
   }
 
-  @MainActor
-  func testLeftBehindRowLongPressShowsWhy() {
-    let app = launchedApp(fixture: "phase4-repack-mode-trip")
-    openTripDetail(app, tripName: "Mountain Trip")
-
-    openPackingSheetForFirstParticipant(app)
-
-    let header = app.descendants(matching: .any)
-      .matching(identifier: "packingSheet.header")
-      .firstMatch
-    XCTAssertTrue(header.waitForExistence(timeout: 5))
-
-    let row = app.descendants(matching: .any)
-      .matching(identifier: "packingSheet.itemRow.Boots")
-      .firstMatch
-    XCTAssertTrue(row.waitForExistence(timeout: 5))
-    row.press(forDuration: 0.6)
-
-    let disclosure = app.descendants(matching: .any)
-      .matching(identifier: "packingSheet.whyDisclosure.Boots")
-      .firstMatch
-    XCTAssertTrue(
-      disclosure.waitForExistence(timeout: 3),
-      "Long-press on a left-behind row should still expose WhyDisclosure (Req 7.10)"
-    )
-  }
-
   // MARK: - 5. Manual item creation
 
   @MainActor
@@ -359,43 +332,6 @@ final class PackingSheetUITests: XCTestCase {
     XCTAssertTrue(
       renamed.waitForExistence(timeout: 5),
       "After rename, the row identifier should reflect the new name"
-    )
-  }
-
-  // MARK: - 7. WhyDisclosure
-
-  @MainActor
-  func testWhyDisclosurePackingMatched() {
-    let app = launchedApp(fixture: "phase4-pack-mode-trip")
-    openTripDetail(app, tripName: "Beach Trip")
-
-    openPackingSheetForFirstParticipant(app)
-
-    let header = app.descendants(matching: .any)
-      .matching(identifier: "packingSheet.header")
-      .firstMatch
-    XCTAssertTrue(header.waitForExistence(timeout: 5))
-
-    // Toothbrush is rule-driven (`source: .rule`) with conditions: .always.
-    let row = app.descendants(matching: .any)
-      .matching(identifier: "packingSheet.itemRow.Toothbrush")
-      .firstMatch
-    XCTAssertTrue(row.waitForExistence(timeout: 5))
-    row.press(forDuration: 0.6)
-
-    let disclosure = app.descendants(matching: .any)
-      .matching(identifier: "packingSheet.whyDisclosure.Toothbrush")
-      .firstMatch
-    XCTAssertTrue(
-      disclosure.waitForExistence(timeout: 3),
-      "Long-press on a rule-driven item should expand the WhyDisclosure"
-    )
-  }
-
-  @MainActor
-  func testWhyDisclosurePersonColouredBackground() throws {
-    throw XCTSkip(
-      "Requires colour-key debug marker; can be added when accessibility-coloured-marker pattern formalised"
     )
   }
 
