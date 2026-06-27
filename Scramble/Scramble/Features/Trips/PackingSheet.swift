@@ -302,7 +302,9 @@ private struct PackingItemGroup: View {
       // uncategorised rows un-headered.
       ForEach(sections, id: \.key) { section in
         if let label = section.label {
-          Text(label)
+          // `verbatim:` — category labels are user-typed free text, not a
+          // localisation key.
+          Text(verbatim: label)
             .font(.system(size: 11, weight: .heavy))
             .textCase(.uppercase)
             .foregroundStyle(variant.textSecondary)

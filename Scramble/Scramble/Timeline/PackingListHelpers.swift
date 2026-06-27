@@ -186,7 +186,10 @@ nonisolated struct CategorySection<Item> {
   /// One pass over `items` builds the buckets and the per-key spelling variants,
   /// so a caller renders a body without re-scanning per row (Req 5.7). The
   /// closures are `@MainActor` because both call sites pass actor-isolated
-  /// values (`\.category` / `\.name` on `@Model` items, `sorted`).
+  /// values (`\.category` / `\.name` on `@Model` items, `sorted`). The function
+  /// inherits `@MainActor` from the enclosing enum; it is also annotated
+  /// explicitly so the isolation contract is visible at the declaration.
+  @MainActor
   static func categorySections<Item>(
     _ items: [Item],
     category: @MainActor (Item) -> String?,
