@@ -29,14 +29,14 @@ references:
 
 ## Rules engine re-stamp
 
-- [ ] 4. Add category to snapshots, refs, and Plan re-stamp type <!-- id:00zzi97 -->
+- [x] 4. Add category to snapshots, refs, and Plan re-stamp type <!-- id:00zzi97 -->
   - Add `category` to MasterPackingSnapshot and TripPackingItemRef; capture in fetchMasterPackingSnapshots and TripSnapshot.capture.
   - Add `PackingCategoryRestamp { id; category: String? }` and `Plan.toRestampCategory` (sorted by id, included in isEmpty). Types/wiring only.
   - Blocked-by: 00zzi94 (Add category field to packing item models)
   - Stream: 1
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2)
 
-- [ ] 5. Write ComputeTests for category re-stamp <!-- id:00zzi98 -->
+- [x] 5. Write ComputeTests for category re-stamp <!-- id:00zzi98 -->
   - present and differs => emit; equal => none; present-with-nil over non-nil item => emit nil (clear).
   - master absent/deleted => none (freeze); manual one-off (masterItemID nil) => none.
   - second pass with unchanged master => empty (idempotence). Exact-string compare.
@@ -44,20 +44,20 @@ references:
   - Stream: 1
   - Requirements: [3.2](requirements.md#3.2), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [3.7](requirements.md#3.7), [4.3](requirements.md#4.3)
 
-- [ ] 6. Implement compute re-stamp emission <!-- id:00zzi99 -->
+- [x] 6. Implement compute re-stamp emission <!-- id:00zzi99 -->
   - compute branches on master presence (not value) and emits toRestampCategory per the test matrix.
   - Blocked-by: 00zzi98 (Write ComputeTests for category re-stamp)
   - Stream: 1
   - Requirements: [3.2](requirements.md#3.2), [3.4](requirements.md#3.4), [3.6](requirements.md#3.6), [4.3](requirements.md#4.3)
 
-- [ ] 7. Write ApplyTests for re-stamp and creation stamping <!-- id:00zzi9a -->
+- [x] 7. Write ApplyTests for re-stamp and creation stamping <!-- id:00zzi9a -->
   - apply writes only category (no other field, especially not name); empty toRestampCategory => no write.
   - insertAddedPacking stamps master.category at creation.
   - Blocked-by: 00zzi97 (Add category to snapshots, refs, and Plan re-stamp type)
   - Stream: 1
   - Requirements: [3.1](requirements.md#3.1), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4)
 
-- [ ] 8. Implement apply re-stamp and insertAddedPacking stamping <!-- id:00zzi9b -->
+- [x] 8. Implement apply re-stamp and insertAddedPacking stamping <!-- id:00zzi9b -->
   - apply runs restampCategories before hook.commit; insertAddedPacking passes category: master.category.
   - Blocked-by: 00zzi9a (Write ApplyTests for re-stamp and creation stamping)
   - Stream: 1

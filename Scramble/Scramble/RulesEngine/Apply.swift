@@ -16,6 +16,7 @@ func apply(plan: Plan, context: ModelContext, hook: LocalWriteHook) throws {
   insertAddedTasks(plan.toAddTasks, on: trip, context: context)
   insertAddedPacking(plan.toAddPacking, on: trip, context: context)
   try applyFlags(plan, context: context)
+  try restampPackingCategories(plan.toRestampCategory, context: context)
 
   do {
     try hook.commit(context)
@@ -76,7 +77,8 @@ private func insertAddedPacking(
       source: .rule,
       currentlyMatchesRules: true,
       pinnedByUser: false,
-      personSnapshot: snapshot
+      personSnapshot: snapshot,
+      category: master.category
     )
     context.insert(item)
   }
@@ -132,5 +134,43 @@ private func flagPacking(ids: [UUID], to value: Bool, context: ModelContext) thr
   }
   for item in fetched {
     item.currentlyMatchesRules = value
+  }
+}
+
+/// Category re-stamp (feature `packing-item-categories`, Decision 2/6). Writes
+/// the master's current category onto its derived trip items. Re-checks
+/// inequality per item so a snapshot-vs-store race (a sync arrival between
+/// `compute` and here) cannot turn a no-op into a spurious write — keeping the
+/// step idempotent and bounding CloudKit churn. The breadcrumb log of each
+/// applied/skipped decision (with the value) is the observability for telling
+/// "still converging" from "stuck" under eventual consistency.
+@MainActor
+private func restampPackingCategories(
+  _ restamps: [PackingCategoryRestamp], context: ModelContext
+) throws {
+  guard !restamps.isEmpty else { return }
+  let idSet = Set(restamps.map(\.id))
+  let descriptor = FetchDescriptor<TripPackingItem>(predicate: #Predicate { idSet.contains($0.id) })
+  // `uniquingKeysWith` (not `uniqueKeysWithValues`) so a CloudKit merge that
+  // briefly surfaces two items with the same UUID does not trap. First-wins,
+  // matching the compute-side dedup posture.
+  let itemsByID = Dictionary(
+    try context.fetch(descriptor).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+  for restamp in restamps {
+    guard let item = itemsByID[restamp.id] else {
+      modelLogger.info(
+        "[RulesEngine.skip-restamp-orphan] id=\(restamp.id, privacy: .public) not found")
+      continue
+    }
+    guard item.category != restamp.category else {
+      modelLogger.info(
+        "[RulesEngine.restamp-skip] id=\(restamp.id, privacy: .public) already=\(restamp.category ?? "nil", privacy: .public)"
+      )
+      continue
+    }
+    modelLogger.info(
+      "[RulesEngine.restamp-apply] id=\(restamp.id, privacy: .public) category=\(restamp.category ?? "nil", privacy: .public)"
+    )
+    item.category = restamp.category
   }
 }
