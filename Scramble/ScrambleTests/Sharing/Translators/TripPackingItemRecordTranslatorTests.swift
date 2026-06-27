@@ -171,6 +171,75 @@ struct TripPackingItemRecordTranslatorTests {
     #expect(stored.subItemsData == nil)
   }
 
+  // MARK: - category round-trip (feature packing-item-categories, Req 7.1/7.2/7.3)
+
+  @Test("category survives a toRecord → from round-trip")
+  func categoryRoundTrips() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let zoneID = Self.zoneID()
+    let id = UUID()
+    let source = TripPackingItem(id: id, name: "Shirt", category: "Clothes")
+
+    let record = try TripPackingItemRecordTranslator.toRecord(source, in: zoneID)
+    #expect(record["category"] as? String == "Clothes")
+
+    try TripPackingItemRecordTranslator.from(record, into: context)
+    try context.save()
+
+    let stored = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(stored.category == "Clothes")
+  }
+
+  @Test("a nil category round-trips as nil (absent record field)")
+  func nilCategoryRoundTrips() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let zoneID = Self.zoneID()
+    let id = UUID()
+    let source = TripPackingItem(id: id, name: "Towel", category: nil)
+
+    let record = try TripPackingItemRecordTranslator.toRecord(source, in: zoneID)
+    #expect(record["category"] == nil, "nil category ⇒ absent field")
+
+    try TripPackingItemRecordTranslator.from(record, into: context)
+    try context.save()
+
+    let stored = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(stored.category == nil)
+  }
+
+  @Test("inbound record omitting the category key decodes to nil, no error (Req 7.3)")
+  func absentCategoryKeyDecodesToNil() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let zoneID = Self.zoneID()
+    let id = UUID()
+
+    // Receiver already holds a category. The read is UNCONDITIONAL
+    // (Decision 8) — an absent `category` key means "cleared", so the
+    // local value is wiped to nil rather than preserved. This mirrors the
+    // adjacent `note` field and propagates clears for one-off items, which
+    // have no re-stamp backstop.
+    let existing = TripPackingItem(id: id, name: "Shirt", category: "Clothes")
+    context.insert(existing)
+    try context.save()
+
+    // A pre-feature / older-build record carries no `category` key at all.
+    let record = CKRecord(
+      recordType: TripPackingItemRecordTranslator.recordType,
+      recordID: CKRecord.ID(recordName: id.uuidString, zoneID: zoneID)
+    )
+    record["name"] = "Shirt" as CKRecordValue
+    #expect(record["category"] as? String == nil, "absent key reads as nil")
+
+    try TripPackingItemRecordTranslator.from(record, into: context)
+    try context.save()
+
+    let stored = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(stored.category == nil, "absent category key decodes to uncategorised")
+  }
+
   // MARK: - blobTooLarge guard (Req 6.4)
 
   @Test("toRecord throws blobTooLarge when subItemsData is forced over the cap")

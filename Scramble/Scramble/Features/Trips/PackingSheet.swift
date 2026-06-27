@@ -40,6 +40,15 @@ struct PackingSheet: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
+  // Held so they can be re-injected onto the presented `PackingItemForm`: a
+  // `.sheet` does not inherit custom environment keys from its presenter, so
+  // the form's read-only gate and cross-container suggestions would silently
+  // break without this. `isParticipantViewingSharedTrip` is re-injected onto
+  // this sheet by `TripDetailView` (it is set deep in that view, below the
+  // scene root); `globalsContainer` resolves via the scene-root injection /
+  // default.
+  @Environment(\.isParticipantViewingSharedTrip) private var isParticipantViewingSharedTrip
+  @Environment(\.globalsContainer) private var globalsContainer
 
   /// Identity of the row whose inline sub-item add field is currently
   /// revealed, so the background tap-catcher can be mounted to dismiss it
@@ -157,6 +166,11 @@ struct PackingSheet: View {
         onSave: { pendingForm = nil },
         onCancel: { pendingForm = nil }
       )
+      // Re-inject both keys: a `.sheet` does not inherit custom environment
+      // keys, so the form's read-only gate (Req 3.5) and cross-container
+      // suggestions would otherwise fall back to their defaults.
+      .environment(\.isParticipantViewingSharedTrip, isParticipantViewingSharedTrip)
+      .environment(\.globalsContainer, globalsContainer)
     }
   }
 
@@ -263,7 +277,16 @@ private struct PackingItemGroup: View {
 
   var body: some View {
     let variant = theme.variant(for: colorScheme)
-    let items = PackingListHelpers.sorted(personItems.filter(group.matches))
+    // One pass per body (Req 5.7): filter to the group, then sub-group by
+    // category. `sortWithin` keeps the existing active-before-dimmed, then
+    // case-insensitive-name order within each category (Req 5.3). One-off items
+    // (nil `masterItemID`) group identically to master-derived (Req 4.2), and
+    // never-categorised items fall into the uncategorised bucket (Req 1.4).
+    let sections = PackingListHelpers.categorySections(
+      personItems.filter(group.matches),
+      category: \.category,
+      sortWithin: PackingListHelpers.sorted
+    )
 
     VStack(alignment: .leading, spacing: 8) {
       Text(group.headerTitle)
@@ -272,33 +295,57 @@ private struct PackingItemGroup: View {
         .foregroundStyle(headerColour(variant: variant))
         .padding(.top, 4)
 
-      ForEach(items, id: \.id) { item in
-        PackingItemRow(
-          item: item,
-          group: group,
-          mode: mode,
-          personColour: personColour,
-          onToggleState: { toggleState(item) },
-          onSkipOrRestore: { skipOrRestore(item) },
-          onEdit: { onEdit(item) },
-          onSaveNote: { raw in saveNote(item, raw) },
-          onAddSubItem: { raw in addSubItem(item, raw) },
-          onRemoveSubItem: { index in removeSubItem(item, at: index) },
-          onAddFieldVisibilityChanged: { visible in
-            if visible {
-              activeAddFieldItemID = item.id
-            } else if activeAddFieldItemID == item.id {
-              // Clear only when *this* row owns the catcher. Opening a
-              // different row's editor closes this one in the same render pass;
-              // cross-row onChange ordering is unspecified, so an additive set
-              // (above) plus an own-id-gated clear keeps the tap-catcher
-              // mounted for whichever editor is actually open.
-              activeAddFieldItemID = nil
-            }
-          }
-        )
+      // A category sub-header renders only when the section has a label. The
+      // all-uncategorised case is a single `key == nil` / `label == nil`
+      // section, so its rows render flat with no sub-header (Req 5.5); a mixed
+      // list shows a header per categorised group and leaves the trailing
+      // uncategorised rows un-headered.
+      ForEach(sections, id: \.key) { section in
+        if let label = section.label {
+          // `verbatim:` — category labels are user-typed free text, not a
+          // localisation key.
+          Text(verbatim: label)
+            .font(.system(size: 11, weight: .heavy))
+            .textCase(.uppercase)
+            .foregroundStyle(variant.textSecondary)
+            .padding(.top, 2)
+            .accessibilityAddTraits(.isHeader)
+        }
+        ForEach(section.items, id: \.id) { item in
+          row(for: item)
+        }
       }
     }
+  }
+
+  /// One packing row, factored out so the flat and sub-grouped branches share
+  /// identical row wiring.
+  @ViewBuilder
+  private func row(for item: TripPackingItem) -> some View {
+    PackingItemRow(
+      item: item,
+      group: group,
+      mode: mode,
+      personColour: personColour,
+      onToggleState: { toggleState(item) },
+      onSkipOrRestore: { skipOrRestore(item) },
+      onEdit: { onEdit(item) },
+      onSaveNote: { raw in saveNote(item, raw) },
+      onAddSubItem: { raw in addSubItem(item, raw) },
+      onRemoveSubItem: { index in removeSubItem(item, at: index) },
+      onAddFieldVisibilityChanged: { visible in
+        if visible {
+          activeAddFieldItemID = item.id
+        } else if activeAddFieldItemID == item.id {
+          // Clear only when *this* row owns the catcher. Opening a
+          // different row's editor closes this one in the same render pass;
+          // cross-row onChange ordering is unspecified, so an additive set
+          // (above) plus an own-id-gated clear keeps the tap-catcher
+          // mounted for whichever editor is actually open.
+          activeAddFieldItemID = nil
+        }
+      }
+    )
   }
 
   private func headerColour(variant: ThemeVariant) -> Color {

@@ -65,9 +65,30 @@ import SwiftUI
         ForEach(allPeople) { person in
           let items = grouped[person.id] ?? []
           if !items.isEmpty {
+            // Sub-group within the person by category, ordering consistent with
+            // the Packing Sheet (uncategorised last, same collation). A person
+            // with no categorised item is a single `key == nil` / `label == nil`
+            // section, so its rows render flat with no sub-header (Req 6.2);
+            // pre-existing/never-categorised items land in that bucket (Req 1.4).
+            let sections = PackingListHelpers.categorySections(
+              items,
+              category: \.category,
+              sortWithin: { items in items.sorted { byName($0, $1) } }
+            )
             Section {
-              ForEach(items) { item in
-                itemRow(item, variant: variant)
+              ForEach(sections, id: \.key) { section in
+                if let label = section.label {
+                  // `verbatim:` — category labels are user-typed free text,
+                  // not a localisation key.
+                  Text(verbatim: label)
+                    .font(.system(size: 11, weight: .heavy))
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                }
+                ForEach(section.items) { item in
+                  itemRow(item, variant: variant)
+                }
               }
             } header: {
               HStack {
@@ -95,6 +116,15 @@ import SwiftUI
   }
 
   // MARK: - Rows
+
+  /// Case-insensitive ascending name order with an `id` tiebreak — the same
+  /// name tier the Packing Sheet uses (`PackingListHelpers.sorted`), so a
+  /// category's items collate identically across both surfaces.
+  private func byName(_ lhs: MasterPackingItem, _ rhs: MasterPackingItem) -> Bool {
+    let order = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+    if order != .orderedSame { return order == .orderedAscending }
+    return lhs.id.uuidString < rhs.id.uuidString
+  }
 
   @ViewBuilder
   private func itemRow(_ item: MasterPackingItem, variant: ThemeVariant) -> some View {

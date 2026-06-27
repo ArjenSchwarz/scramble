@@ -43,13 +43,41 @@ nonisolated func compute(
     matched: &toFlagMatched
   )
 
+  let toRestampCategory = computeCategoryRestamps(trip.existingPacking, packingMap: packingMap)
+
   return Plan(
     tripID: trip.id,
     toAddTasks: toAddTasks,
     toAddPacking: toAddPacking,
     toFlagUnmatched: toFlagUnmatched,
-    toFlagMatched: toFlagMatched
+    toFlagMatched: toFlagMatched,
+    toRestampCategory: toRestampCategory
   )
+}
+
+/// Category re-stamp diff (feature `packing-item-categories`, Decision 2/6).
+/// Manual items are excluded outright (`source == .manual`, mirroring
+/// `classifyPackingRefs`) so a manual one-off owns its category even with a
+/// stray non-nil `masterItemID` (Req 4.3). For master-derived items it branches
+/// on the master's **presence** in the packing map, not on the value: a master
+/// that is absent — deleted, or a `nil` `masterItemID` — is skipped entirely,
+/// freezing the trip item's last category (Req 3.6). When the master is present,
+/// an exact-string compare (including the present-with-`nil` clear case) emits a
+/// re-stamp only when the values differ (compare-before-write). Category is not a
+/// matching input, so this is independent of the four-way flag classification above.
+private nonisolated func computeCategoryRestamps(
+  _ refs: [TripPackingItemRef],
+  packingMap: [UUID: MasterPackingSnapshot]
+) -> [PackingCategoryRestamp] {
+  var restamps: [PackingCategoryRestamp] = []
+  for ref in refs {
+    guard ref.source != .manual, let masterID = ref.masterItemID, let master = packingMap[masterID]
+    else { continue }
+    if master.category != ref.category {
+      restamps.append(PackingCategoryRestamp(id: ref.id, category: master.category))
+    }
+  }
+  return restamps
 }
 
 private nonisolated func referencedMasterIDs(in trip: TripSnapshot) -> Set<UUID> {

@@ -19,6 +19,17 @@ nonisolated struct PackingCounts: Sendable, Equatable {
   let excluded: Int
 }
 
+/// One category sub-group produced by `PackingListHelpers.categorySections`.
+/// `key` is the normalized category key (`nil` ⇒ uncategorised); `label` is the
+/// deterministic display spelling (`nil` ⇒ uncategorised). A result of a single
+/// section with `key == nil` is the flat-when-none signal both surfaces use to
+/// render rows without a sub-header (Req 5.5 / 6.2).
+nonisolated struct CategorySection<Item> {
+  let label: String?
+  let key: String?
+  let items: [Item]
+}
+
 /// Pure helpers used by `PackingSummarySection`, `PackingSheet`, and
 /// `AccordionTimeline`. Mirrors the shape of `TaskListHelpers` but operates
 /// over `TripPackingItem`. `@MainActor` because the helpers traverse
@@ -161,6 +172,52 @@ nonisolated struct PackingCounts: Sendable, Equatable {
       if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
       return lhs.id.uuidString < rhs.id.uuidString
     }
+  }
+
+  /// Generic category grouping shared by the Packing Sheet and Master Lists.
+  /// Partitions `items` by `PackingCategory.normalizedKey`, orders the resulting
+  /// sections via `PackingCategory.keyOrder` (uncategorised/nil last, Req 5.2),
+  /// sorts within each group with `sortWithin` (Req 5.3), and resolves each
+  /// section's label via `PackingCategory.displayLabel` of that group's stored
+  /// spellings (Req 5.6; `nil` for the uncategorised group). When no item is
+  /// categorised the result is a single section with `key == nil` — the
+  /// flat-when-none signal callers use to drop sub-headers (Req 5.5 / 6.2).
+  ///
+  /// One pass over `items` builds the buckets and the per-key spelling variants,
+  /// so a caller renders a body without re-scanning per row (Req 5.7). The
+  /// closures are `@MainActor` because both call sites pass actor-isolated
+  /// values (`\.category` / `\.name` on `@Model` items, `sorted`). The function
+  /// inherits `@MainActor` from the enclosing enum; it is also annotated
+  /// explicitly so the isolation contract is visible at the declaration.
+  @MainActor
+  static func categorySections<Item>(
+    _ items: [Item],
+    category: @MainActor (Item) -> String?,
+    sortWithin: @MainActor ([Item]) -> [Item]
+  ) -> [CategorySection<Item>] {
+    var itemsByKey: [String?: [Item]] = [:]
+    // A `Set` per key so each distinct spelling is recorded once; `displayLabel`
+    // then runs its `min` over the deduped variants rather than one entry per item.
+    var variantsByKey: [String: Set<String>] = [:]
+    for item in items {
+      let raw = category(item)
+      let key = PackingCategory.normalizedKey(raw)
+      itemsByKey[key, default: []].append(item)
+      // A non-nil key always has a non-nil storageValue spelling.
+      if let key, let spelling = PackingCategory.storageValue(raw) {
+        variantsByKey[key, default: []].insert(spelling)
+      }
+    }
+
+    return itemsByKey.keys
+      .sorted(by: PackingCategory.keyOrder)
+      .map { key in
+        CategorySection(
+          label: key.map { PackingCategory.displayLabel(Array(variantsByKey[$0] ?? [])) },
+          key: key,
+          items: sortWithin(itemsByKey[key] ?? [])
+        )
+      }
   }
 
   // MARK: - Private

@@ -40,9 +40,20 @@ struct PackingItemForm: View {
 
   @Environment(\.modelContext) private var modelContext
   @Environment(\.localWriteHook) private var hook
+  // Re-injected at `PackingSheet`'s `.sheet` presentation site — a `.sheet`
+  // does not inherit custom environment keys from its presenter, so these
+  // would silently fall back to their defaults without that re-injection.
+  @Environment(\.isParticipantViewingSharedTrip) private var isParticipantViewingSharedTrip
+  @Environment(\.globalsContainer) private var globalsContainer
 
   @State private var name: String = ""
   @State private var note: String = ""
+  @State private var category: String = ""
+  /// Category suggestion vocabulary, gathered once when the form appears
+  /// (never per keystroke). Drawn from both containers via
+  /// `PackingCategory.distinctCategories` — this form's own context is the
+  /// trip side (`tripsLocal`); `globalsContainer` supplies the master side.
+  @State private var categorySuggestions: [String] = []
   @State private var inlineError: String?
 
   private static let nameLimit = 200
@@ -67,6 +78,7 @@ struct PackingItemForm: View {
             #if DEBUG
               .accessibilityIdentifier("packingItemForm.noteField")
             #endif
+          categoryField
         }
 
         if let inlineError {
@@ -105,16 +117,76 @@ struct PackingItemForm: View {
     }
   }
 
+  /// Category control. Read-only for a shared-trip participant editing a
+  /// master-derived item (Req 3.5): the value is owner-controlled, so it is
+  /// shown without an editable control or suggestions. Add mode and manual
+  /// one-off items stay editable with suggestion chips (Req 4.1).
+  @ViewBuilder
+  private var categoryField: some View {
+    if isCategoryReadOnly {
+      if !category.isEmpty {
+        LabeledContent("Category", value: category)
+          .accessibilityIdentifier("packingItemForm.categoryReadOnly")
+      }
+    } else {
+      TextField("Category (optional)", text: $category)
+        .textInputAutocapitalization(.words)
+        .accessibilityIdentifier("packingItemForm.categoryField")
+      if !visibleSuggestions.isEmpty {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 8) {
+            ForEach(visibleSuggestions, id: \.self) { suggestion in
+              // Tapping stores the suggestion's canonical spelling verbatim so a
+              // case/whitespace variant is never recreated (Req 2.4).
+              Button(suggestion) { category = suggestion }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("packingItemForm.categorySuggestion.\(suggestion)")
+            }
+          }
+          .padding(.vertical, 2)
+        }
+      }
+    }
+  }
+
+  /// `true` only when a participant is viewing a shared trip AND the edited
+  /// item is master-derived (`masterItemID != nil`). The engine `isOwned` gate
+  /// is the real enforcement; this UI gate removes the confusing transient
+  /// where a participant edit is visibly reverted (Req 3.5).
+  private var isCategoryReadOnly: Bool {
+    switch mode {
+    case .add:
+      return false
+    case .edit(let item):
+      return isParticipantViewingSharedTrip && item.masterItemID != nil
+    }
+  }
+
+  /// Suggestions filtered against what's currently typed via
+  /// `PackingCategory.filterSuggestions` — an in-memory pass over the
+  /// once-gathered `categorySuggestions` (no per-keystroke fetch).
+  private var visibleSuggestions: [String] {
+    PackingCategory.filterSuggestions(categorySuggestions, typed: category)
+  }
+
   private func prefill() {
     switch mode {
     case .add:
       name = ""
       note = ""
+      category = ""
     case .edit(let item):
       name = item.name
       note = item.note ?? ""
+      category = item.category ?? ""
     }
     inlineError = nil
+    // Gathered once on appear (never per keystroke). The form's own context is
+    // the trip side (tripsLocal); `globalsContainer` supplies the master side.
+    categorySuggestions = PackingCategory.distinctCategories(
+      globals: globalsContainer.mainContext,
+      tripsLocal: modelContext
+    )
   }
 
   // MARK: - Save
@@ -124,12 +196,13 @@ struct PackingItemForm: View {
       switch mode {
       case .add(let person, let trip):
         _ = try Self.performAdd(
-          name: name, note: note, person: person, trip: trip,
+          name: name, note: note, category: category, person: person, trip: trip,
           context: modelContext, hook: hook
         )
       case .edit(let item):
         try Self.performEdit(
-          item: item, name: name, note: note, context: modelContext, hook: hook
+          item: item, name: name, note: note, category: category,
+          context: modelContext, hook: hook
         )
       }
       onSave()
@@ -179,6 +252,7 @@ extension PackingItemForm {
   static func performAdd(
     name: String,
     note: String = "",
+    category: String = "",
     person: Person,
     trip: Trip,
     context: ModelContext,
@@ -210,7 +284,8 @@ extension PackingItemForm {
       currentlyMatchesRules: true,
       pinnedByUser: false,
       personSnapshot: snapshot,
-      note: PackingSubItems.sanitizedNote(note)
+      note: PackingSubItems.sanitizedNote(note),
+      category: PackingCategory.storageValue(category)
     )
     context.insert(item)
     do {
@@ -223,21 +298,24 @@ extension PackingItemForm {
   }
 
   /// Renames an existing `TripPackingItem` and sets its note from `note`
-  /// (`PackingSubItems.sanitizedNote` ⇒ `nil` when empty, Req 4.3). On save
-  /// failure the catch path calls `context.rollback()` so the `@Model`
-  /// instance reverts to its pre-edit values (SwiftData does not auto-rollback
-  /// in-memory edits).
+  /// (`PackingSubItems.sanitizedNote` ⇒ `nil` when empty, Req 4.3) and its
+  /// category from `category` (`PackingCategory.storageValue` ⇒ `nil` when
+  /// empty/whitespace, normalized otherwise). On save failure the catch path
+  /// calls `context.rollback()` so the `@Model` instance reverts to its
+  /// pre-edit values (SwiftData does not auto-rollback in-memory edits).
   @MainActor
   static func performEdit(
     item: TripPackingItem,
     name: String,
     note: String = "",
+    category: String = "",
     context: ModelContext,
     hook: LocalWriteHook
   ) throws {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     item.name = trimmed
     item.note = PackingSubItems.sanitizedNote(note)
+    item.category = PackingCategory.storageValue(category)
     do {
       try hook.commit(context)
     } catch {

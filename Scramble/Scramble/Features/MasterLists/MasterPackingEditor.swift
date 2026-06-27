@@ -24,6 +24,10 @@ import SwiftUI
   @State private var errors: [MasterPackingDraft.Field: String] = [:]
   @State private var toastMessage: String?
   @State private var showDeleteConfirmation = false
+  /// Category suggestion vocabulary, gathered once when the editor appears
+  /// (never per keystroke). Drawn from both containers via
+  /// `PackingCategory.distinctCategories`. (Req 2.2)
+  @State private var categorySuggestions: [String] = []
 
   init(mode: Mode) {
     self.mode = mode
@@ -51,10 +55,17 @@ import SwiftUI
       Form {
         nameSection
         personSection
+        categorySection
         conditionsSection
         if case .edit = mode {
           deleteSection
         }
+      }
+      .onAppear {
+        categorySuggestions = PackingCategory.distinctCategories(
+          globals: modelContext,
+          tripsLocal: tripsLocalContainer.mainContext
+        )
       }
       .navigationTitle(navigationTitle)
       .navigationBarTitleDisplayMode(.inline)
@@ -110,6 +121,45 @@ import SwiftUI
           .foregroundStyle(.red)
       }
     }
+  }
+
+  private var categorySection: some View {
+    Section("Category") {
+      TextField("Category (optional)", text: categoryBinding)
+        .textInputAutocapitalization(.words)
+        .accessibilityIdentifier("masterPacking.categoryField")
+      if !visibleSuggestions.isEmpty {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 8) {
+            ForEach(visibleSuggestions, id: \.self) { suggestion in
+              // Tapping stores the suggestion's canonical spelling verbatim so a
+              // case/whitespace variant is never recreated (Req 2.4).
+              Button(suggestion) { draft.category = suggestion }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("masterPacking.categorySuggestion.\(suggestion)")
+            }
+          }
+          .padding(.vertical, 2)
+        }
+      }
+    }
+  }
+
+  /// Bridges the optional `draft.category` to the `TextField`'s `String` binding.
+  /// Keeps the raw, in-progress text in the draft; normalization happens at the
+  /// persistence boundary (`MasterPersistence` → `PackingCategory.storageValue`).
+  private var categoryBinding: Binding<String> {
+    Binding(
+      get: { draft.category ?? "" },
+      set: { draft.category = $0 }
+    )
+  }
+
+  /// Suggestions filtered against what's currently typed via
+  /// `PackingCategory.filterSuggestions` — an in-memory pass over the
+  /// once-gathered `categorySuggestions` (no per-keystroke fetch).
+  private var visibleSuggestions: [String] {
+    PackingCategory.filterSuggestions(categorySuggestions, typed: draft.category)
   }
 
   @ViewBuilder

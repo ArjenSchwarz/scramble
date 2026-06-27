@@ -11,6 +11,7 @@
 | [Phase 6 Notifications Polish](#phase-6-notifications-polish) | 2026-05-19 | Done | Local phase-activation notifications, deep-link routing, country flag, transitions, haptics, VoiceOver, Dynamic Type AX2. |
 | [Copy Master Packing Items](#copy-master-packing-items) | 2026-06-20 | Done | Copy a master packing item to other people from the Master Lists tab, creating independent copies the rules engine materialises onto trips. |
 | [Packing Item Sub-items](#packing-item-sub-items) | 2026-06-21 | Done | Per-trip free-form note plus an appendable sub-item list on packing items, shown inline on the packing sheet and synced across the shared trip. |
+| [Packing Item Categories](#packing-item-categories) | 2026-06-27 | Done | Optional free-text category on packing items, grouping the Packing Sheet and Master Lists by category with autocomplete suggestions; category re-stamps onto trip items via the rules engine. |
 
 ---
 
@@ -101,3 +102,13 @@ Per-trip free-form note plus an appendable sub-item list on packing items, shown
 - [design.md](packing-item-subitems/design.md)
 - [requirements.md](packing-item-subitems/requirements.md)
 - [tasks.md](packing-item-subitems/tasks.md)
+
+## Packing Item Categories
+
+Optional free-text category on packing items, grouping the Packing Sheet and Master Lists by category with autocomplete suggestions; category re-stamps onto trip items via the rules engine.
+
+- [decision_log.md](packing-item-categories/decision_log.md)
+- [design.md](packing-item-categories/design.md)
+- [prerequisites.md](packing-item-categories/prerequisites.md)
+- [requirements.md](packing-item-categories/requirements.md)
+- [tasks.md](packing-item-categories/tasks.md)

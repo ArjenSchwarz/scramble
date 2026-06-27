@@ -435,6 +435,162 @@ struct ApplyTests {
     #expect(addedPack.personSnapshot?.personID == person.id)
   }
 
+  // MARK: - Category re-stamp (packing-item-categories, Decision 2/6)
+
+  @Test("Re-stamp: apply writes only category on the targeted item; no other field touched")
+  func restampWritesOnlyCategory() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let person = Person(name: "P", colorKey: "blue")
+    context.insert(person)
+    let trip = Trip(name: "Test", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let masterID = UUID()
+    let item = TripPackingItem(
+      trip: trip,
+      person: person,
+      masterItemID: masterID,
+      name: "Rain jacket",
+      state: .packed,
+      source: .rule,
+      currentlyMatchesRules: true,
+      pinnedByUser: true,
+      note: "keep dry",
+      category: nil
+    )
+    context.insert(item)
+    try context.save()
+
+    let plan = Plan(
+      tripID: trip.id,
+      toAddTasks: [],
+      toAddPacking: [],
+      toFlagUnmatched: [],
+      toFlagMatched: [],
+      toRestampCategory: [PackingCategoryRestamp(id: item.id, category: "Clothes")]
+    )
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
+
+    let updated = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(updated.category == "Clothes")
+    // Every other field is untouched (Req 3.3) — especially the snapshotted name.
+    #expect(updated.name == "Rain jacket")
+    #expect(updated.state == .packed)
+    #expect(updated.source == .rule)
+    #expect(updated.currentlyMatchesRules == true)
+    #expect(updated.pinnedByUser == true)
+    #expect(updated.masterItemID == masterID)
+    #expect(updated.note == "keep dry")
+  }
+
+  @Test("Re-stamp: apply clears category to nil when the restamp value is nil")
+  func restampClearsCategory() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let trip = Trip(name: "Test", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let item = TripPackingItem(
+      trip: trip,
+      masterItemID: UUID(),
+      name: "Rain jacket",
+      source: .rule,
+      category: "Clothes"
+    )
+    context.insert(item)
+    try context.save()
+
+    let plan = Plan(
+      tripID: trip.id,
+      toAddTasks: [],
+      toAddPacking: [],
+      toFlagUnmatched: [],
+      toFlagMatched: [],
+      toRestampCategory: [PackingCategoryRestamp(id: item.id, category: nil)]
+    )
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
+
+    let updated = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(updated.category == nil)
+    #expect(updated.name == "Rain jacket")
+  }
+
+  @Test("Re-stamp: empty toRestampCategory leaves existing categories untouched")
+  func restampEmptyDoesNotWrite() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let trip = Trip(name: "Test", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let item = TripPackingItem(
+      trip: trip,
+      masterItemID: UUID(),
+      name: "Existing",
+      source: .rule,
+      category: "Original"
+    )
+    context.insert(item)
+    try context.save()
+
+    // Plan does other work (adds a task) but carries no re-stamps, so the
+    // item's category must be left as-is.
+    let plan = Plan(
+      tripID: trip.id,
+      toAddTasks: [
+        MasterTaskSnapshot(id: UUID(), name: "Added", phase: .weeksBefore, conditions: .always)
+      ],
+      toAddPacking: [],
+      toFlagUnmatched: [],
+      toFlagMatched: [],
+      toRestampCategory: []
+    )
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
+
+    let updated = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(updated.category == "Original")
+  }
+
+  @Test("Add path: insertAddedPacking stamps master.category at creation (Req 3.1)")
+  func insertAddedPackingStampsCategory() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let person = Person(name: "Arjen", colorKey: "cyan")
+    context.insert(person)
+    let trip = Trip(name: "Test", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let snapshot = TripPersonSnapshot(
+      personID: person.id,
+      name: person.name,
+      colourID: person.colorKey,
+      initialSource: "name",
+      isRosterMember: true,
+      trip: trip
+    )
+    context.insert(snapshot)
+    try context.save()
+
+    let master = MasterPackingSnapshot(
+      id: UUID(),
+      name: "Rain jacket",
+      personID: person.id,
+      conditions: .always,
+      category: "Outerwear"
+    )
+    let plan = Plan(
+      tripID: trip.id,
+      toAddTasks: [],
+      toAddPacking: [master],
+      toFlagUnmatched: [],
+      toFlagMatched: []
+    )
+    try apply(plan: plan, context: context, hook: LocalWriteHook(notifier: RecordingNotifier()))
+
+    let inserted = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
+    #expect(inserted.category == "Outerwear")
+  }
+
   /// Phase 5.1: rule-driven packing inserts look up the trip's
   /// `TripPersonSnapshot` for the master's `personID`. The shared seed
   /// keeps `mixedPlanFullPath` under the function-length limit.

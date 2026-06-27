@@ -20,3 +20,16 @@ by walking the list every time.
   - Confirm custom per-trip zones (`trip-<uuid>`) are creatable in
     Production by exercising a fresh-account end-to-end test (see
     `specs/phase-5-cloudkit-sharing/manual-test-plan.md`).
+
+- [ ] **Promote the packing-item `category` fields to Production.**
+  The `packing-item-categories` feature (Req
+  [7.1](../specs/packing-item-categories/requirements.md#7.1) /
+  [7.2](../specs/packing-item-categories/requirements.md#7.2)) adds two
+  fields that must exist in Production before the build ships, or
+  category sync silently no-ops for real users:
+  - `MasterPackingItem.category` — auto-mirrored into the private
+    CloudKit database by the SwiftData CloudKit mirror. No hand-written
+    code generates this record field, so it is easy to miss; verify it
+    in the Dashboard explicitly.
+  - `TripPackingItem.category` — added to the shared-zone
+    `TripPackingItem` record type.

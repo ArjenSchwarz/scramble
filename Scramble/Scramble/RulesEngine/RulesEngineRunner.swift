@@ -150,7 +150,8 @@ struct RulesEngineRunner {
           id: master.id,
           name: master.name,
           personID: person.id,
-          conditions: master.conditions
+          conditions: master.conditions,
+          category: master.category
         )
       )
     }
@@ -179,7 +180,8 @@ extension TripSnapshot {
         currentlyMatchesRules: item.currentlyMatchesRules,
         pinnedByUser: item.pinnedByUser,
         source: item.source,
-        state: item.state
+        state: item.state,
+        category: item.category
       )
     }
     return TripSnapshot(
