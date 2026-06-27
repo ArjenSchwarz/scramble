@@ -22,15 +22,13 @@ nonisolated enum Phase: String, Codable, CaseIterable, Hashable, Sendable {
   }
 
   /// The packing surface this phase hosts, or `nil` if it hosts none.
-  /// Pack mode lives on `.dayBefore` (you pack the day before departure);
-  /// repack on `.dayBeforeReturn`. Single source of truth for both the
-  /// "is this a packing phase?" predicate and the phase→mode mapping used by
-  /// `AccordionTimeline` and `TripDetailView.autoExpandPhase`.
+  /// Pack the day before departure; repack the day before return. Exhaustive
+  /// (no `default`) so a new `Phase` case must make a packing decision here.
   var packingMode: PackingMode? {
     switch self {
     case .dayBefore: .pack
     case .dayBeforeReturn: .repack
-    default: nil
+    case .weeksBefore, .departureDay, .duringTrip, .returnDay, .afterTrip: nil
     }
   }
 }

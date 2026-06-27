@@ -28,9 +28,5 @@ struct PhasePackingModeTests {
   func onlyTwoPackingPhases() {
     let packingPhases = Phase.allCases.filter { $0.packingMode != nil }
     #expect(packingPhases == [.dayBefore, .dayBeforeReturn])
-
-    for phase in [Phase.weeksBefore, .departureDay, .duringTrip, .returnDay, .afterTrip] {
-      #expect(phase.packingMode == nil)
-    }
   }
 }

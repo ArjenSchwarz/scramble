@@ -16,7 +16,6 @@ struct PhaseRow<Content: View>: View {
   let counts: PhaseCounts
   let isExpanded: Bool
   let isCompressed: Bool
-  let isPackingPhase: Bool
   let phaseColour: Color
   var packingSubline: String?
   let onToggle: () -> Void
@@ -26,7 +25,7 @@ struct PhaseRow<Content: View>: View {
   @Environment(\.colorScheme) private var colorScheme
 
   private var expandable: Bool {
-    !isCompressed && (counts.total > 0 || isPackingPhase)
+    !isCompressed && (counts.total > 0 || phase.packingMode != nil)
   }
 
   var body: some View {
@@ -68,7 +67,6 @@ struct PhaseRow<Content: View>: View {
         PhaseNode(
           phase: phase,
           state: state,
-          isPackingPhase: isPackingPhase,
           phaseColour: phaseColour
         )
         #if DEBUG

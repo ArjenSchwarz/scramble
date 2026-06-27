@@ -337,7 +337,7 @@ The feature was a confirmed product cost (annoying gesture) with little realised
 
 ## Decision 11: Pack mode lives on the Day-before phase, not Departure day
 
-**Date**: 2026-06-28
+**Date**: 2026-06-27
 **Status**: accepted — supersedes this spec's pack-mode placement (Introduction line 5, "Phase-to-mode mapping", Req 1 story, AC 1.1, AC 1.10) and Phase 3 (`specs/phase-3-timeline-tasks`) AC 1.5 / AC 2.6 / AC 3.3 and its compression-exemption decision, wherever they name `departureDay` as the pack-mode phase
 
 ### Context

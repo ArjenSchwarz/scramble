@@ -81,7 +81,6 @@ struct AccordionTimeline: View {
       counts: counts,
       isExpanded: expandedPhase == phase,
       isCompressed: compressed,
-      isPackingPhase: packing,
       phaseColour: colour,
       packingSubline: packingSubline,
       onToggle: { toggle(phase: phase, counts: counts, packing: packing, proxy: proxy) },

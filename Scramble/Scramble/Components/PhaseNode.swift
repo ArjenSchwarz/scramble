@@ -9,27 +9,25 @@ import SwiftUI
 ///   stacked shadows so the bloom is visible on both light and dark variants.
 /// - `.future` — outlined circle (1.5pt stroke), 24pt.
 ///
-/// When `isPackingPhase == true` and the state is `.current` or `.future`, an
-/// SF Symbol packing glyph overlays the node at ~50% of its diameter
-/// (`suitcase.fill` for the day-before pack, `shippingbox.fill` for the
-/// day-before-return repack). The NOW pill is owned by `PhaseRow`, not by this view.
+/// On a packing phase (`phase.packingMode != nil`) when the state is
+/// `.current` or `.future`, an SF Symbol packing glyph overlays the node at
+/// ~50% of its diameter (`suitcase.fill` for the day-before pack,
+/// `shippingbox.fill` for the day-before-return repack). The NOW pill is owned
+/// by `PhaseRow`, not by this view.
 struct PhaseNode: View {
   let phase: Phase
   let state: PhaseNodeState
-  let isPackingPhase: Bool
   let phaseColour: Color
   var diameter: CGFloat?
 
   init(
     phase: Phase,
     state: PhaseNodeState,
-    isPackingPhase: Bool,
     phaseColour: Color,
     diameter: CGFloat? = nil
   ) {
     self.phase = phase
     self.state = state
-    self.isPackingPhase = isPackingPhase
     self.phaseColour = phaseColour
     self.diameter = diameter
   }
@@ -76,7 +74,7 @@ struct PhaseNode: View {
 
   @ViewBuilder
   private func glyph(diameter d: CGFloat) -> some View {
-    if isPackingPhase, state != .past, let symbol = glyphSymbol {
+    if state != .past, let symbol = glyphSymbol {
       Image(systemName: symbol)
         .font(.system(size: d * 0.5, weight: .semibold))
         .foregroundStyle(glyphForeground)
@@ -84,10 +82,10 @@ struct PhaseNode: View {
   }
 
   private var glyphSymbol: String? {
-    switch phase {
-    case .dayBefore: "suitcase.fill"
-    case .dayBeforeReturn: "shippingbox.fill"
-    default: nil
+    switch phase.packingMode {
+    case .pack: "suitcase.fill"
+    case .repack: "shippingbox.fill"
+    case nil: nil
     }
   }
 
