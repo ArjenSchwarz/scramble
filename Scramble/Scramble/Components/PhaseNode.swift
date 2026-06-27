@@ -11,8 +11,8 @@ import SwiftUI
 ///
 /// When `isPackingPhase == true` and the state is `.current` or `.future`, an
 /// SF Symbol packing glyph overlays the node at ~50% of its diameter
-/// (`suitcase.fill` for departure, `shippingbox.fill` for the day-before-return
-/// repack). The NOW pill is owned by `PhaseRow`, not by this view.
+/// (`suitcase.fill` for the day-before pack, `shippingbox.fill` for the
+/// day-before-return repack). The NOW pill is owned by `PhaseRow`, not by this view.
 struct PhaseNode: View {
   let phase: Phase
   let state: PhaseNodeState
@@ -85,7 +85,7 @@ struct PhaseNode: View {
 
   private var glyphSymbol: String? {
     switch phase {
-    case .departureDay: "suitcase.fill"
+    case .dayBefore: "suitcase.fill"
     case .dayBeforeReturn: "shippingbox.fill"
     default: nil
     }

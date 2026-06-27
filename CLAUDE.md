@@ -75,11 +75,11 @@ Trip Detail is a single vertical timeline of seven phases. The only tab bar in t
 
 ### One-at-a-time accordion
 
-Tapping a phase expands it and collapses any other expanded phase. Current phase auto-expands on launch. Phases with no content are non-expandable spine markers; packing phases (Departure, Day-before-return) are always expandable.
+Tapping a phase expands it and collapses any other expanded phase. Current phase auto-expands on launch. Phases with no content are non-expandable spine markers; packing phases (Day-before, Day-before-return) are always expandable.
 
 ### Packing reached via bottom sheet, not navigation
 
-Tapping a person row inside Departure/Day-before-return opens a `PackingSheet` over the timeline. The timeline is **not unmounted** — scroll position is preserved on dismiss.
+Tapping a person row inside Day-before/Day-before-return opens a `PackingSheet` over the timeline. The timeline is **not unmounted** — scroll position is preserved on dismiss.
 
 ### One SwiftUI view shared by Pack and Repack modes
 
@@ -110,7 +110,7 @@ From the UI design doc — follow this sequence when starting:
 3. Timeline composition with one-at-a-time accordion
 4. Task row + checkbox + assignee avatar
 5. `WhyDisclosure` (tasks only; removed from packing — see phase-4 Decision 10)
-6. Packing summary block on Departure / Day-before-return phases
+6. Packing summary block on Day-before / Day-before-return phases
 7. `PackingSheet` pack mode
 8. `PackingSheet` repack mode (filter swap, read-only Left Behind group)
 9. Rules engine: per-item matching condition exposure for explainability

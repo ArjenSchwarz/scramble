@@ -70,10 +70,9 @@ struct AccordionTimeline: View {
     let phaseTasks = (trip.tasks ?? []).filter { $0.phase == phase && !$0.userDeletedOnThisTrip }
     let counts = TaskListHelpers.counts(phaseTasks)
     let compressed = PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar)
-    let packing = phase == .departureDay || phase == .dayBeforeReturn
+    let packingMode = phase.packingMode
+    let packing = packingMode != nil
     let colour = variant.phaseColour(for: phase)
-    let packingMode: PackingMode? =
-      phase == .departureDay ? .pack : (phase == .dayBeforeReturn ? .repack : nil)
     let packingSubline = packingMode.map { PackingListHelpers.phaseSubline(trip, mode: $0) }
 
     PhaseRow(

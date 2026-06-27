@@ -74,20 +74,21 @@ struct AutoExpandTests {
   // MARK: - Packing phases are expandable even with no tasks
 
   @Test(
-    "Departure-day current, no tasks → returns .departureDay (packing phases always expandable)")
+    "Day-before current, no tasks → returns .dayBefore (packing phases always expandable)")
   func packingPhaseExpandableWithoutTasks() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
 
     let start = Self.date(2026, 6, 1)
     let end = Self.date(2026, 6, 7)
-    let today = start  // today == start → .departureDay is .current
+    // start - 1 → .dayBefore is .current. Derived so it tracks `start`.
+    let today = Self.calendar.date(byAdding: .day, value: -1, to: start)!
     let trip = Trip(name: "T", startDate: start, endDate: end)
     context.insert(trip)
     try context.save()
 
     let result = TripDetailView.autoExpandPhase(for: trip, today: today, calendar: Self.calendar)
-    #expect(result == .departureDay)
+    #expect(result == .dayBefore)
   }
 
   @Test(
@@ -133,7 +134,7 @@ struct AutoExpandTests {
 
   // MARK: - Compressed duringTrip never selected
 
-  @Test("Compressed duringTrip (1-day trip) is never .current; today=start returns .departureDay")
+  @Test("1-day trip on the day before → returns .dayBefore (packing phase expandable)")
   func compressedDuringTripFallsThroughToPacking() throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
@@ -143,12 +144,13 @@ struct AutoExpandTests {
     context.insert(trip)
     try context.save()
 
-    let result = TripDetailView.autoExpandPhase(for: trip, today: day, calendar: Self.calendar)
-    // Per state(for:today:start:end:calendar) on a 1-day trip with today == start:
-    // - departureDay: today == start → .current  (packing, expandable)
-    // - dayBeforeReturn: today == dayBeforeReturn (== start) → .current  (packing, expandable)
-    // The scanning order in Phase.allCases hits departureDay first.
-    #expect(result == .departureDay)
+    let dayBefore = Self.calendar.date(byAdding: .day, value: -1, to: day)!
+    let result = TripDetailView.autoExpandPhase(
+      for: trip, today: dayBefore, calendar: Self.calendar)
+    // On a 1-day trip with today == start - 1:
+    // - dayBefore: today == start - 1 → .current  (packing, expandable)
+    // - duringTrip is compressed and never .current.
+    #expect(result == .dayBefore)
   }
 
   @Test("Compressed duringTrip is rejected if it ever surfaces as current")
@@ -171,9 +173,11 @@ struct AutoExpandTests {
     context.insert(task)
     try context.save()
 
-    // today == start: departureDay & dayBeforeReturn are simultaneously current.
-    // Scanning order hits departureDay first.
+    // today == start on a 2-day trip: departureDay & dayBeforeReturn are
+    // simultaneously current. Scanning order hits departureDay first; it is
+    // no longer a packing phase and has no tasks, so autoExpand returns nil.
+    // The orphan duringTrip task is never returned (the point of this guard).
     let result = TripDetailView.autoExpandPhase(for: trip, today: start, calendar: Self.calendar)
-    #expect(result == .departureDay)
+    #expect(result == nil)
   }
 }

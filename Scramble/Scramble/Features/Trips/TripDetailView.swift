@@ -498,7 +498,7 @@ import os
   /// Implements Req 2.3 + 3.2: finds the `.current` phase via the existing
   /// `state(for:today:start:end:calendar)` helper, then gates expandability:
   /// - Compressed `duringTrip` is never auto-expanded.
-  /// - Packing phases (`departureDay`, `dayBeforeReturn`) are always
+  /// - Packing phases (`dayBefore`, `dayBeforeReturn`) are always
   ///   expandable, even with no tasks (the Phase 4 packing summary will
   ///   live there).
   /// - Other phases are expandable only when at least one non-soft-deleted
@@ -526,7 +526,7 @@ import os
     if PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar) {
       return nil
     }
-    if phase == .departureDay || phase == .dayBeforeReturn {
+    if phase.packingMode != nil {
       return phase
     }
     let hasVisibleTask = (trip.tasks ?? []).contains { task in
