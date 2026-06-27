@@ -26,7 +26,7 @@ struct PhasePackingModeTests {
 
   @Test("Exactly two phases are packing phases; the rest host none")
   func onlyTwoPackingPhases() {
-    let packingPhases = Phase.allCases.filter { $0.packingMode != nil }
+    let packingPhases = Set(Phase.allCases.filter { $0.packingMode != nil })
     #expect(packingPhases == [.dayBefore, .dayBeforeReturn])
   }
 }

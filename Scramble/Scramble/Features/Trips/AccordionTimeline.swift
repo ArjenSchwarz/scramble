@@ -71,7 +71,6 @@ struct AccordionTimeline: View {
     let counts = TaskListHelpers.counts(phaseTasks)
     let compressed = PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar)
     let packingMode = phase.packingMode
-    let packing = packingMode != nil
     let colour = variant.phaseColour(for: phase)
     let packingSubline = packingMode.map { PackingListHelpers.phaseSubline(trip, mode: $0) }
 
@@ -83,7 +82,7 @@ struct AccordionTimeline: View {
       isCompressed: compressed,
       phaseColour: colour,
       packingSubline: packingSubline,
-      onToggle: { toggle(phase: phase, counts: counts, packing: packing, proxy: proxy) },
+      onToggle: { toggle(phase: phase, counts: counts, proxy: proxy) },
       content: {
         VStack(alignment: .leading, spacing: 12) {
           TaskListSection(
@@ -113,11 +112,12 @@ struct AccordionTimeline: View {
   private func toggle(
     phase: Phase,
     counts: PhaseCounts,
-    packing: Bool,
     proxy: ScrollViewProxy
   ) {
-    let expandable = counts.total > 0 || packing
-    guard expandable else { return }
+    // Defensive: the tap gesture is only attached when the row is expandable
+    // (PhaseRow gates on the same predicate), but derive from the single
+    // source of truth rather than threading a precomputed flag through.
+    guard counts.total > 0 || phase.packingMode != nil else { return }
     #if canImport(UIKit)
       UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     #endif

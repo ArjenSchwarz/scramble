@@ -153,6 +153,25 @@ struct AutoExpandTests {
     #expect(result == .dayBefore)
   }
 
+  @Test("1-day trip on departure day (today == start) → nil (no departure-day pack surface)")
+  func oneDayTripDepartureDayReturnsNil() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+
+    let day = Self.date(2026, 6, 1)
+    let trip = Trip(name: "T", startDate: day, endDate: day)  // 1-day trip
+    context.insert(trip)
+    try context.save()
+
+    // today == start on a 1-day trip: departureDay is the only .current phase
+    // (dayBefore and dayBeforeReturn are both in the past; duringTrip is
+    // compressed → never current). departureDay no longer hosts packing and
+    // has no tasks, so autoExpand returns nil — packing happened the day
+    // before, and there is no departure-day pack surface.
+    let result = TripDetailView.autoExpandPhase(for: trip, today: day, calendar: Self.calendar)
+    #expect(result == nil)
+  }
+
   @Test("Compressed duringTrip is rejected if it ever surfaces as current")
   func compressedDuringTripGuard() throws {
     // Defensive: simulate a 2-day trip where duringTrip is compressed
@@ -173,10 +192,13 @@ struct AutoExpandTests {
     context.insert(task)
     try context.save()
 
-    // today == start on a 2-day trip: departureDay & dayBeforeReturn are
-    // simultaneously current. Scanning order hits departureDay first; it is
-    // no longer a packing phase and has no tasks, so autoExpand returns nil.
-    // The orphan duringTrip task is never returned (the point of this guard).
+    // today == start on a 2-day trip: departureDay & dayBeforeReturn are BOTH
+    // .current. The primary mechanism here is the first-current-wins scan: it
+    // hits departureDay first — now a non-packing phase with no tasks — and
+    // returns nil, SHADOWING the dayBeforeReturn repack phase. That shadow is
+    // the accepted edge in Decision 11 (tracked for follow-up). Secondarily,
+    // the orphan duringTrip task is never returned (duringTrip is never current
+    // on a 2-day trip).
     let result = TripDetailView.autoExpandPhase(for: trip, today: start, calendar: Self.calendar)
     #expect(result == nil)
   }
