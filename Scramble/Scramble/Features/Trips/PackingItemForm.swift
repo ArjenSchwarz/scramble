@@ -162,18 +162,11 @@ struct PackingItemForm: View {
     }
   }
 
-  /// Suggestions filtered against what's currently typed: an in-memory pass over
-  /// the once-gathered `categorySuggestions` (no per-keystroke fetch). Matches by
-  /// normalized key so case/whitespace variants present as one suggestion, and
-  /// hides the suggestion that exactly equals the current input.
+  /// Suggestions filtered against what's currently typed via
+  /// `PackingCategory.filterSuggestions` — an in-memory pass over the
+  /// once-gathered `categorySuggestions` (no per-keystroke fetch).
   private var visibleSuggestions: [String] {
-    guard let typed = PackingCategory.normalizedKey(category) else {
-      return categorySuggestions
-    }
-    return categorySuggestions.filter { suggestion in
-      guard let key = PackingCategory.normalizedKey(suggestion) else { return false }
-      return key != typed && key.contains(typed)
-    }
+    PackingCategory.filterSuggestions(categorySuggestions, typed: category)
   }
 
   private func prefill() {

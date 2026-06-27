@@ -130,6 +130,10 @@ nonisolated struct CopyResult: Sendable {
   ) -> CopyResult {
     let trimmedName = source.name.trimmingCharacters(in: .whitespacesAndNewlines)
     let sourceConditions = source.conditions
+    // Normalize defensively at the copy boundary: in practice every master
+    // write path already runs through `PackingCategory.storageValue` (so this is
+    // idempotent), but a copy should never propagate an un-normalized category
+    // even if one ever reaches a source item.
     let sourceCategory = PackingCategory.storageValue(source.category)
     let sourceKey = normalizedName(trimmedName)
 

@@ -125,6 +125,23 @@ struct ComputeCategoryRestampTests {
     #expect(plan.toRestampCategory.isEmpty)
   }
 
+  @Test("Manual item with a stray non-nil masterItemID present in the map → never re-stamped")
+  func skipsManualWithStrayMasterID() {
+    // A manual item owns its category. Even though masterIDA IS present in the
+    // packing map and its category differs, the `source == .manual` guard wins
+    // — proving a manual item is never re-stamped via a stray masterItemID (Req 4.3).
+    let plan = compute(
+      trip: Self.snapshot(
+        packing: [
+          Self.packingRef(masterItemID: Self.masterIDA, source: .manual, category: "Clothes")
+        ]
+      ),
+      masterTasks: [],
+      masterPacking: [Self.packingMaster(id: Self.masterIDA, category: "Toiletries")]
+    )
+    #expect(plan.toRestampCategory.isEmpty)
+  }
+
   @Test("Second pass after applying the restamp → empty toRestampCategory (idempotence)")
   func isIdempotent() {
     let first = compute(

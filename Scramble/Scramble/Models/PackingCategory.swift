@@ -54,6 +54,23 @@ nonisolated enum PackingCategory {
     variants.min(by: rawOrder) ?? ""
   }
 
+  /// Filters `suggestions` against the user's in-progress `typed` text for the
+  /// category fields. Returns every suggestion when `typed` normalizes to `nil`
+  /// (empty / whitespace-only). Otherwise keeps the suggestions whose normalized
+  /// key *contains* the typed key, excluding the one that exactly equals it.
+  ///
+  /// The substring match (`contains`, not `hasPrefix`) is deliberate: the
+  /// category vocabulary is small, so substring matching lets e.g. typing "aid"
+  /// surface "First Aid" — a prefix match would not. Matching by normalized key
+  /// means case/whitespace variants present as a single suggestion (Req 2.3).
+  static func filterSuggestions(_ suggestions: [String], typed: String?) -> [String] {
+    guard let typedKey = normalizedKey(typed) else { return suggestions }
+    return suggestions.filter { suggestion in
+      guard let key = normalizedKey(suggestion) else { return false }
+      return key != typedKey && key.contains(typedKey)
+    }
+  }
+
   /// Strict Unicode-scalar lexicographic order (compares scalar code points). A fixed,
   /// locale-independent total order over distinct scalar sequences.
   private static func scalarOrder(_ lhs: String, _ rhs: String) -> Bool {

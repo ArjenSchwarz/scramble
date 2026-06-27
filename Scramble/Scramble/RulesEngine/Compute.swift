@@ -56,20 +56,23 @@ nonisolated func compute(
 }
 
 /// Category re-stamp diff (feature `packing-item-categories`, Decision 2/6).
-/// Branches on the master's **presence** in the packing map, not on the value:
-/// a master that is absent — deleted, or a manual one-off whose `masterItemID`
-/// is `nil` — is skipped entirely, freezing the trip item's last category
-/// (Req 3.6, Req 4.3). When the master is present, an exact-string compare
-/// (including the present-with-`nil` clear case) emits a re-stamp only when the
-/// values differ (compare-before-write). Category is not a matching input, so
-/// this is independent of the four-way flag classification above.
+/// Manual items are excluded outright (`source == .manual`, mirroring
+/// `classifyPackingRefs`) so a manual one-off owns its category even with a
+/// stray non-nil `masterItemID` (Req 4.3). For master-derived items it branches
+/// on the master's **presence** in the packing map, not on the value: a master
+/// that is absent — deleted, or a `nil` `masterItemID` — is skipped entirely,
+/// freezing the trip item's last category (Req 3.6). When the master is present,
+/// an exact-string compare (including the present-with-`nil` clear case) emits a
+/// re-stamp only when the values differ (compare-before-write). Category is not a
+/// matching input, so this is independent of the four-way flag classification above.
 private nonisolated func computeCategoryRestamps(
   _ refs: [TripPackingItemRef],
   packingMap: [UUID: MasterPackingSnapshot]
 ) -> [PackingCategoryRestamp] {
   var restamps: [PackingCategoryRestamp] = []
   for ref in refs {
-    guard let masterID = ref.masterItemID, let master = packingMap[masterID] else { continue }
+    guard ref.source != .manual, let masterID = ref.masterItemID, let master = packingMap[masterID]
+    else { continue }
     if master.category != ref.category {
       restamps.append(PackingCategoryRestamp(id: ref.id, category: master.category))
     }

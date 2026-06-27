@@ -376,5 +376,15 @@ struct PlanTests {
       toFlagMatched: [TripItemRef(kind: .task, id: Self.idA)]
     )
     #expect(!withMatched.isEmpty)
+
+    let withRestamp = Plan(
+      tripID: Self.idA,
+      toAddTasks: [],
+      toAddPacking: [],
+      toFlagUnmatched: [],
+      toFlagMatched: [],
+      toRestampCategory: [PackingCategoryRestamp(id: Self.idA, category: "Clothes")]
+    )
+    #expect(!withRestamp.isEmpty)
   }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 /// SwiftData-backed suggestion gathering for packing categories. Lives apart
 /// from the pure `PackingCategory.swift` so that namespace stays free of
@@ -21,10 +22,20 @@ extension PackingCategory {
   static func distinctCategories(globals: ModelContext, tripsLocal: ModelContext) -> [String] {
     var rawValues: [String] = []
 
-    let masters = (try? globals.fetch(FetchDescriptor<MasterPackingItem>())) ?? []
+    // Predicate-filter to categorised rows so the store does not materialise
+    // every item just to read `.category`.
+    let masters = fetchCategorised(
+      FetchDescriptor<MasterPackingItem>(predicate: #Predicate { $0.category != nil }),
+      from: globals,
+      label: "masters"
+    )
     rawValues.append(contentsOf: masters.compactMap { storageValue($0.category) })
 
-    let tripItems = (try? tripsLocal.fetch(FetchDescriptor<TripPackingItem>())) ?? []
+    let tripItems = fetchCategorised(
+      FetchDescriptor<TripPackingItem>(predicate: #Predicate { $0.category != nil }),
+      from: tripsLocal,
+      label: "tripItems"
+    )
     rawValues.append(contentsOf: tripItems.compactMap { storageValue($0.category) })
 
     // Group the spelling variants under their normalized key.
@@ -37,6 +48,25 @@ extension PackingCategory {
     // Order keys deterministically, then render each with its canonical spelling.
     return variantsByKey.keys
       .sorted { keyOrder($0, $1) }
-      .compactMap { key in variantsByKey[key].map(displayLabel) }
+      .map { key in displayLabel(variantsByKey[key, default: []]) }
+  }
+
+  /// Fetches `descriptor` from `context`, returning `[]` on failure. Suggestions
+  /// are a pure UX affordance, so a fetch error is non-fatal — but it is logged
+  /// rather than swallowed silently. `label` names the container in the log line.
+  @MainActor
+  private static func fetchCategorised<Model: PersistentModel>(
+    _ descriptor: FetchDescriptor<Model>,
+    from context: ModelContext,
+    label: String
+  ) -> [Model] {
+    do {
+      return try context.fetch(descriptor)
+    } catch {
+      modelLogger.warning(
+        "[PackingCategory.distinctCategories] \(label, privacy: .public) fetch failed error=\(String(describing: error), privacy: .public)"
+      )
+      return []
+    }
   }
 }

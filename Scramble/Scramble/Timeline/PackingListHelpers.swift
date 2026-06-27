@@ -193,14 +193,16 @@ nonisolated struct CategorySection<Item> {
     sortWithin: @MainActor ([Item]) -> [Item]
   ) -> [CategorySection<Item>] {
     var itemsByKey: [String?: [Item]] = [:]
-    var variantsByKey: [String: [String]] = [:]
+    // A `Set` per key so each distinct spelling is recorded once; `displayLabel`
+    // then runs its `min` over the deduped variants rather than one entry per item.
+    var variantsByKey: [String: Set<String>] = [:]
     for item in items {
       let raw = category(item)
       let key = PackingCategory.normalizedKey(raw)
       itemsByKey[key, default: []].append(item)
       // A non-nil key always has a non-nil storageValue spelling.
       if let key, let spelling = PackingCategory.storageValue(raw) {
-        variantsByKey[key, default: []].append(spelling)
+        variantsByKey[key, default: []].insert(spelling)
       }
     }
 
@@ -208,7 +210,7 @@ nonisolated struct CategorySection<Item> {
       .sorted(by: PackingCategory.keyOrder)
       .map { key in
         CategorySection(
-          label: key.map { PackingCategory.displayLabel(variantsByKey[$0] ?? []) },
+          label: key.map { PackingCategory.displayLabel(Array(variantsByKey[$0] ?? [])) },
           key: key,
           items: sortWithin(itemsByKey[key] ?? [])
         )

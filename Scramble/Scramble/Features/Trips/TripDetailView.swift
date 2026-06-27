@@ -175,11 +175,14 @@ import os
         mode: state.mode,
         onDismiss: { packingSheetState = nil }
       )
-      // `isParticipantViewingSharedTrip` is set on the view body below the
-      // scene root, so it does not cross this `.sheet` boundary on its own;
-      // re-inject it so `PackingSheet` (and the `PackingItemForm` it presents)
-      // can apply the participant read-only category gate (Req 3.5).
+      // `isParticipantViewingSharedTrip` and `globalsContainer` are custom
+      // environment keys that do not cross this `.sheet` boundary on their own;
+      // re-inject both so `PackingSheet` (and the `PackingItemForm` it presents)
+      // can apply the participant read-only category gate (Req 3.5) and gather
+      // cross-container category suggestions against the actually-injected
+      // container rather than relying on the scene-root singleton default.
       .environment(\.isParticipantViewingSharedTrip, isParticipantOnShared)
+      .environment(\.globalsContainer, globalsContainer)
     }
     .sheet(isPresented: $showEditor) {
       TripEditorView(mode: .edit(trip), focusAttribute: editAttributeFocus) { draft in
