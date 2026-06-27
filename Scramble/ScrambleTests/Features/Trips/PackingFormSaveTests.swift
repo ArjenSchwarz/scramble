@@ -386,6 +386,88 @@ struct PackingFormSaveTests {
     #expect(capped.hasSuffix("👨‍👩‍👧"))
   }
 
+  // MARK: - Category field (feature packing-item-categories, Req 1.1 / 4.1)
+
+  @Test(".add with a category stores the normalized category on the new item")
+  func addStoresNormalizedCategory() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let (trip, person) = try Self.seedTripWithPerson(in: context)
+
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    let inserted = try PackingItemForm.performAdd(
+      name: "Sunscreen",
+      category: "  Beach   gear  ",
+      person: person,
+      trip: trip,
+      context: context,
+      hook: hook
+    )
+
+    // Trimmed + internal-whitespace-collapsed, case preserved (Req 1.3).
+    #expect(inserted.category == "Beach gear")
+  }
+
+  @Test(".add with an empty / whitespace category stores nil (Req 1.2)")
+  func addEmptyCategoryStoresNil() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let (trip, person) = try Self.seedTripWithPerson(in: context)
+
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    let inserted = try PackingItemForm.performAdd(
+      name: "Sunscreen",
+      category: "   \n\t  ",
+      person: person,
+      trip: trip,
+      context: context,
+      hook: hook
+    )
+
+    #expect(inserted.category == nil)
+  }
+
+  @Test(".edit sets the normalized category on an existing item")
+  func editSetsCategory() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let (trip, _) = try Self.seedTripWithPerson(in: context)
+
+    let item = TripPackingItem(trip: trip, name: "Sandals")
+    context.insert(item)
+    try context.save()
+
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    try PackingItemForm.performEdit(
+      item: item,
+      name: "Sandals",
+      category: "  Footwear  ",
+      context: context,
+      hook: hook
+    )
+
+    #expect(item.category == "Footwear")
+  }
+
+  @Test(".edit clearing the category to empty stores nil (Req 1.2)")
+  func editClearingCategoryStoresNil() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let (trip, _) = try Self.seedTripWithPerson(in: context)
+
+    let item = TripPackingItem(trip: trip, name: "Sandals", category: "Footwear")
+    context.insert(item)
+    try context.save()
+    #expect(item.category == "Footwear")
+
+    let hook = LocalWriteHook(notifier: RecordingNotifier())
+    try PackingItemForm.performEdit(
+      item: item, name: "Sandals", category: "   ", context: context, hook: hook
+    )
+
+    #expect(item.category == nil)
+  }
+
   // MARK: - Req 5.5 — 200-char cap enforced at input
 
   @Test("cappedName returns input unchanged when at or below 200 characters")

@@ -115,7 +115,7 @@ references:
 
 ## Trip manual form
 
-- [ ] 16. Add category field, suggestions, and read-only gate to PackingItemForm <!-- id:00zzi9j -->
+- [x] 16. Add category field, suggestions, and read-only gate to PackingItemForm <!-- id:00zzi9j -->
   - Category field in Section("Item"); thread into performAdd/performEdit.
   - Inject the globalsContainer env key for suggestions; render read-only when isParticipantViewingSharedTrip && item.masterItemID != nil.
   - Re-inject the participant env key at PackingSheet's .sheet presentation site (sheets don't inherit custom env keys).

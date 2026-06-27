@@ -40,6 +40,15 @@ struct PackingSheet: View {
   @Environment(\.modelContext) private var modelContext
   @Environment(\.theme) private var theme
   @Environment(\.colorScheme) private var colorScheme
+  // Held so they can be re-injected onto the presented `PackingItemForm`: a
+  // `.sheet` does not inherit custom environment keys from its presenter, so
+  // the form's read-only gate and cross-container suggestions would silently
+  // break without this. `isParticipantViewingSharedTrip` is re-injected onto
+  // this sheet by `TripDetailView` (it is set deep in that view, below the
+  // scene root); `globalsContainer` resolves via the scene-root injection /
+  // default.
+  @Environment(\.isParticipantViewingSharedTrip) private var isParticipantViewingSharedTrip
+  @Environment(\.globalsContainer) private var globalsContainer
 
   /// Identity of the row whose inline sub-item add field is currently
   /// revealed, so the background tap-catcher can be mounted to dismiss it
@@ -157,6 +166,11 @@ struct PackingSheet: View {
         onSave: { pendingForm = nil },
         onCancel: { pendingForm = nil }
       )
+      // Re-inject both keys: a `.sheet` does not inherit custom environment
+      // keys, so the form's read-only gate (Req 3.5) and cross-container
+      // suggestions would otherwise fall back to their defaults.
+      .environment(\.isParticipantViewingSharedTrip, isParticipantViewingSharedTrip)
+      .environment(\.globalsContainer, globalsContainer)
     }
   }
 
