@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `packing-item-categories` (T-1605) — Sync phase (category over CloudKit):
+  - `Scramble/Scramble/Sharing/Translators/TripPackingItemRecordTranslator.swift` — unconditional `category` read/write placed next to the `note` handling: `record["category"] = item.category as CKRecordValue?` on write (a clear-to-nil serialises as an *absent* field so it propagates) and `item.category = record["category"] as? String` on read (an absent inbound key decodes to nil, no error — Req 7.3). Unconditional rather than guarded so a category clear is never silently dropped — fatal for manual one-off items that have no re-stamp backstop (Decision 8); carries the same accepted mixed-fleet-wipe posture as `note`/`subItems`. The `from` doc comment now lists `category` alongside `note`/`subItemsData` as a full-snapshot unconditional field.
+  - Tests: three new cases in `TripPackingItemRecordTranslatorTests` — non-nil round-trip, nil round-trip, and absent-key-decodes-to-nil (proving the read is unconditional, not guarded). Runtime-verified on a physical device (12 translator tests pass).
+
 - `packing-item-categories` (T-1605) — Rules engine re-stamp phase (owner-device category reconciliation):
   - Narrows the engine's "never rewrites existing trip items" invariant to permit rewriting the single `category` projection field (and only that), folding reconciliation into the existing deterministic `compute`→`apply` pipeline (owner-gated, committed via `LocalWriteHook`) rather than a separate subsystem (Decision 2/6).
   - `RulesEngine/Snapshots.swift` — `MasterPackingSnapshot` and `TripPackingItemRef` gain `category` (explicit memberwise inits with a nil default so the ~15 existing call sites compile); `RulesEngineRunner` captures `master.category` / `item.category`.
