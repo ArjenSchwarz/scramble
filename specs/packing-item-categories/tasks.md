@@ -65,13 +65,13 @@ references:
 
 ## Sync
 
-- [ ] 9. Write translator round-trip tests for category <!-- id:00zzi9c -->
+- [x] 9. Write translator round-trip tests for category <!-- id:00zzi9c -->
   - category survives toRecord then from; nil round-trips; absent inbound key decodes to nil (unconditional).
   - Blocked-by: 00zzi94 (Add category field to packing item models)
   - Stream: 1
   - Requirements: [7.2](requirements.md#7.2), [7.3](requirements.md#7.3)
 
-- [ ] 10. Implement unconditional category read/write in translator <!-- id:00zzi9d -->
+- [x] 10. Implement unconditional category read/write in translator <!-- id:00zzi9d -->
   - Unconditional read/write in TripPackingItemRecordTranslator, matching note.
   - write record["category"] = item.category as CKRecordValue?; read item.category = record["category"] as? String.
   - Blocked-by: 00zzi9c (Write translator round-trip tests for category)

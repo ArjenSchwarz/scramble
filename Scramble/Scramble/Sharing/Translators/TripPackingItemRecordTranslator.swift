@@ -37,6 +37,11 @@ enum TripPackingItemRecordTranslator {
     // deletion to other devices (Req 6.5, Decision 10/12 — the
     // `masterItemID` / `countryCode` clear-propagation precedent).
     record["note"] = item.note as CKRecordValue?
+    // Feature `packing-item-categories` (Req 7.2, Decision 8). Unconditional
+    // write mirroring `note`: a clear-to-nil serialises as an ABSENT field so
+    // a category clear propagates. Guarded encoding could not represent a
+    // clear — fatal for manual one-off items, which have no re-stamp backstop.
+    record["category"] = item.category as CKRecordValue?
     // Write the sub-item blob only when non-empty. A `nil` or a non-nil
     // empty `Data()` both serialise as an ABSENT field — never a present
     // empty blob — so a cleared list reads back as `[]` on the receiver.
@@ -58,10 +63,11 @@ enum TripPackingItemRecordTranslator {
   /// Decode a `CKRecord` into the matching `TripPackingItem`.
   ///
   /// - Important: This requires a FULL server snapshot. Never pass a
-  ///   partial / `desiredKeys` record here. `note` and `subItemsData`
-  ///   are assigned UNCONDITIONALLY (clear-propagation, Req 6.5 /
-  ///   Decision 12), so an absent field is read as "cleared" — a partial
-  ///   record would silently wipe local note / sub-items. `CKSyncEngine`'s
+  ///   partial / `desiredKeys` record here. `note`, `category`, and
+  ///   `subItemsData` are assigned UNCONDITIONALLY (clear-propagation,
+  ///   Req 6.5 / Decision 12, plus categories Req 7.3 / Decision 8), so an
+  ///   absent field is read as "cleared" — a partial record would silently
+  ///   wipe local note / category / sub-items. `CKSyncEngine`'s
   ///   fetch path delivers full records, so this holds today; keep it
   ///   that way if a `desiredKeys` path is ever added.
   /// - Note: Forward-compat constraint — a record written by a *pre-feature*
@@ -109,6 +115,11 @@ enum TripPackingItemRecordTranslator {
     // `masterItemID` in-file precedent). Relies on the full-snapshot
     // contract documented on this method.
     item.note = record["note"] as? String
+    // Feature `packing-item-categories` (Req 7.3, Decision 8). Unconditional
+    // read mirroring `note`: an absent `category` key reads as nil
+    // (uncategorised) with no error, propagating clears for both
+    // master-derived and one-off items.
+    item.category = record["category"] as? String
     item.subItemsData = record["subItemsData"] as? Data
     item.ckRecordSystemFields = encodeSystemFields(of: record)
   }
