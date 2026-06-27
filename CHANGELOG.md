@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `packing-item-categories` (T-1605) — Trip manual form phase (category on one-off trip items + participant read-only):
+  - `Features/Trips/PackingItemForm.swift` — a category `TextField` + suggestion chips in `Section("Item")`, threaded through `performAdd`/`performEdit` (normalised on store via `PackingCategory.storageValue`). Suggestions come from `PackingCategory.distinctCategories` over the injected `\.globalsContainer` (master side) plus the form's own trip context, gathered once on appear. A read-only gate (`isParticipantViewingSharedTrip && item.masterItemID != nil`, Req 3.5) renders the category as a non-editable `LabeledContent` for a shared-trip participant editing a master-derived item (shown only when non-empty); one-off items and add mode stay fully editable with chips (Req 4.1).
+  - `Features/Trips/PackingSheet.swift` + `Features/Trips/TripDetailView.swift` — env-key re-injection at both `.sheet` boundaries, since a `.sheet` does not inherit custom environment keys and `isParticipantViewingSharedTrip` originates below the scene root: `TripDetailView` re-injects it (as its computed `isParticipantOnShared`) onto the presented `PackingSheet`, and `PackingSheet` re-injects both `\.isParticipantViewingSharedTrip` and `\.globalsContainer` onto the presented `PackingItemForm`. Without this the read-only gate and suggestions would silently break.
+  - Tests: 4 new `PackingFormSaveTests` cases (add stores normalized category, add empty ⇒ nil, edit sets category, edit clearing ⇒ nil). Compile-verified; runtime execution pending a working test runner.
+
 - `packing-item-categories` (T-1605) — Master-list editing phase (set + suggest categories):
   - `Features/MasterLists/MasterPackingDraft.swift` — optional `category` field, set in `newDraft` and `init(from:)`; `validate()` unchanged (category is optional).
   - `Features/MasterLists/MasterPersistence.swift` — `category` threaded through `createPacking`, `applyPacking`, and `copyPacking`, each normalising on store via `PackingCategory.storageValue` (trim + internal-whitespace collapse; empty ⇒ nil). The same-name dedup key in `copyPacking` stays name-only — category does not participate.
