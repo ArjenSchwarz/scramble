@@ -334,3 +334,44 @@ The feature was a confirmed product cost (annoying gesture) with little realised
 `Scramble/Scramble/Components/PackingItemRow.swift`, `Scramble/Scramble/Features/Trips/PackingSheet.swift`; removed tests in `PackingItemRowAccessibilityTests.swift` and `PackingSheetUITests.swift`; notes updated in `docs/agent-notes/packing-sheet.md` and `docs/agent-notes/accessibility.md`.
 
 ---
+
+## Decision 11: Pack mode lives on the Day-before phase, not Departure day
+
+**Date**: 2026-06-27
+**Status**: accepted — supersedes this spec's pack-mode placement (Introduction line 5, "Phase-to-mode mapping", Req 1 story, AC 1.1, AC 1.10) and Phase 3 (`specs/phase-3-timeline-tasks`) AC 1.5 / AC 2.6 / AC 3.3 and its compression-exemption decision, wherever they name `departureDay` as the pack-mode phase
+
+### Context
+
+Phase 4 placed the pack-mode packing summary (and the entry to the `PackingSheet`) on the `departureDay` phase, with repack on `dayBeforeReturn`. In use the owner found this wrong: you prepare a suitcase the day *before* you leave, not on the morning of departure. Departure day is for last things (grab toiletries, leave) — not for working a packing checklist.
+
+### Decision
+
+Move pack mode from `departureDay` to `dayBefore`. Repack stays on `dayBeforeReturn`. The "is this a packing phase?" predicate and the phase→mode mapping are centralised in a new `Phase.packingMode` computed property (`Scramble/Scramble/Models/Enums.swift`), consumed by `AccordionTimeline` (summary block, sheet entry, subline) and `TripDetailView.autoExpandPhase` (always-expandable gate). The `PhaseNode` suitcase glyph moves to `dayBefore`. Departure day reverts to a plain task-only phase.
+
+### Rationale
+
+Packing the day before departure matches how trips are actually prepared and makes the timeline symmetric: pack on `dayBefore`, repack on `dayBeforeReturn` — both "day-before-X" phases. Centralising the mapping in `Phase.packingMode` removes the pre-existing two-site duplication of the phase predicate, so the placement can never drift between the timeline and the auto-expand logic again.
+
+### Alternatives Considered
+
+- **Keep pack on Departure day**: Rejected — contradicts real packing behaviour; the owner explicitly asked to move it.
+- **Show pack on both Day-before and Departure day**: Rejected — duplicates the same per-person summary on two adjacent phases, doubling the surface and the "where do I tap?" ambiguity for no benefit.
+- **Make `autoExpandPhase` prefer an expandable current phase over the first current phase** (to fix the 2-day-trip edge below): Rejected as out of scope — it changes the documented first-current-wins rule and affects untouched phases; revisit separately if the edge proves annoying.
+
+### Consequences
+
+**Positive:**
+- Packing is prepared on the day it actually happens; pack/repack placement is symmetric.
+- `Phase.packingMode` is a single source of truth; the timeline and auto-expand can no longer disagree.
+- Departure day is a quieter, task-only phase.
+
+**Negative:**
+- On a 1-day trip the pack list sits on the prior day (the `dayBefore` phase); there is no in-trip-day pack surface. Accepted.
+- On a 2-day trip where Departure day and Day-before-return fall on the same calendar day, nothing auto-expands on that day: `departureDay` is scanned first under the first-current-wins rule and is no longer a packing phase, so it shadows the `dayBeforeReturn` repack surface. Edge case; not worth changing the scan rule for.
+- The source-of-truth docs (`docs/scramble-ui-design-doc.md`, `CLAUDE.md`, `docs/implementation-phases.md`) and the Phase 3/4 spec ACs still describe Departure-day packing in places; this ADR is the authoritative override. The living docs were updated to match; the accepted spec ACs are left as historical record.
+
+### Impact
+
+`Scramble/Scramble/Models/Enums.swift` (new `Phase.packingMode`), `AccordionTimeline.swift`, `TripDetailView.swift`, `PhaseNode.swift`; doc comments in `PackingListHelpers.swift` / `PackingSummarySection.swift` / `PackingSheet.swift`; the `phase4-pack-mode-trip` seed in `UITestSeed.swift`; tests `AutoExpandTests.swift`, `PhaseRowAccessibilityTests.swift`, `PackingSheetUITests.swift`, and new `PhasePackingModeTests.swift`; notes in `docs/agent-notes/packing-sheet.md`.
+
+---

@@ -1,18 +1,18 @@
 # Packing sheet (Phase 4)
 
-The per-person packing surface presented from the Departure and Day-before-return phases. Pack mode operates over `unpacked / packed / excluded`; repack mode operates over `packed / repacked` with a read-only "Left behind" group of `unpacked ∪ excluded`.
+The per-person packing surface presented from the Day-before and Day-before-return phases. Pack mode lives on `.dayBefore` (you pack the day before departure, not on departure day); repack mode lives on `.dayBeforeReturn` — symmetric "day-before-X" placement. Pack mode operates over `unpacked / packed / excluded`; repack mode operates over `packed / repacked` with a read-only "Left behind" group of `unpacked ∪ excluded`.
 
 ## Files
 
 - `Scramble/Scramble/Timeline/PackingListHelpers.swift` — `PackingMode`, `PackingCounts`, and the helpers (`counts`, `countsByPerson`, `summaryStatus`, `progressRatio`, `phaseSubline`, `sorted`, `itemsForPerson`). The enum is `@MainActor` because the helpers traverse SwiftData `@Model` relationship arrays (`trip.packingItems`, `trip.participants`) whose ownership is tied to the main `ModelContext`. `PackingMode` and `PackingCounts` are `nonisolated` value types.
-- `Scramble/Scramble/Components/PackingSummarySection.swift` — `PackingSummarySection`, `PackingSummaryRow`, and the private `PackingProgressBar`. Rendered inside the Departure / Day-before-return phase content slot, below `TaskListSection`.
+- `Scramble/Scramble/Components/PackingSummarySection.swift` — `PackingSummarySection`, `PackingSummaryRow`, and the private `PackingProgressBar`. Rendered inside the Day-before / Day-before-return phase content slot, below `TaskListSection`.
 - `Scramble/Scramble/Components/PackingItemRow.swift` — Single row inside the sheet plus the file-scope `SheetGroup` enum (referenced from both `PackingItemRow` and `PackingSheet`). The enum carries its own `headerTitle`, `scrollAnchor`, `matches(_:)`, and `isReadOnly`.
 - `Scramble/Scramble/Features/Trips/PackingSheet.swift` — `PackingSheet`, `PackingSheetState`, and the private `PackingSheetHeader` and `PackingItemGroup`.
 - `Scramble/Scramble/Features/Trips/PackingItemForm.swift` — Sheet-on-sheet form for manual-add and rename. Carries static testable helpers (`performAdd`, `performEdit`, `isSubmitEnabled`, `cappedName`).
 
 ## Counts and the timeline subline
 
-`AccordionTimeline.row(for:variant:proxy:)` calls `PackingListHelpers.phaseSubline(trip, mode:)` for `.departureDay` and `.dayBeforeReturn`. The helper does **one** pass over `trip.packingItems` — earlier versions did O(participants × items) via per-person `counts(for:in:)` calls in a loop; do not regress.
+`AccordionTimeline.row(for:variant:proxy:)` calls `PackingListHelpers.phaseSubline(trip, mode:)` for `.dayBefore` and `.dayBeforeReturn`. The helper does **one** pass over `trip.packingItems` — earlier versions did O(participants × items) via per-person `counts(for:in:)` calls in a loop; do not regress.
 
 Similarly `PackingSummarySection.body` calls `PackingListHelpers.countsByPerson(trip)` **once** and then looks up each row's `PackingCounts` by `Person.id` rather than re-scanning per row. `counts(for:in:)` still exists for single-person callers and tests, but the multi-person fanout is the one to use inside `body`.
 

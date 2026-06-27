@@ -20,6 +20,16 @@ nonisolated enum Phase: String, Codable, CaseIterable, Hashable, Sendable {
     case .afterTrip: "After trip"
     }
   }
+
+  /// Exhaustive (no `default`) so a new `Phase` case must make a packing
+  /// decision here rather than silently defaulting to "no packing".
+  var packingMode: PackingMode? {
+    switch self {
+    case .dayBefore: .pack
+    case .dayBeforeReturn: .repack
+    case .weeksBefore, .departureDay, .duringTrip, .returnDay, .afterTrip: nil
+    }
+  }
 }
 
 nonisolated enum ItemSource: String, Codable, CaseIterable, Hashable, Sendable {

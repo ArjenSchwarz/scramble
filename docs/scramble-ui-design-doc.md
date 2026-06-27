@@ -67,7 +67,7 @@ Seven vertical nodes, one per phase, connected by a 2pt spine line.
 |Past                                         |Filled circle in phase colour, white checkmark inside. Spine line above also in phase colour.                                |
 |Current                                      |Filled circle with glow ring (`0 0 0 6pt phaseColour/22%`, `0 0 16pt phaseColour/55%`). Small “NOW” pill next to phase label.|
 |Future                                       |Outlined circle, dim spine line.                                                                                             |
-|Packing phase (Departure / Day-before-return)|Small 🧳 / 📦 glyph inside the node when not yet past.                                                                         |
+|Packing phase (Day-before / Day-before-return)|Small 🧳 / 📦 glyph inside the node when not yet past.                                                                         |
 
 #### Phase header (next to each node)
 
@@ -82,7 +82,7 @@ Seven vertical nodes, one per phase, connected by a 2pt spine line.
 - On launch, the current phase is auto-expanded.
 - Expanded phase scrolls to the top of the visible area on expansion.
 - Phases with no content (no tasks, not a packing phase) are not expandable — they render as a marker on the spine for completeness.
-- Packing phases (Departure, Day-before-return) are always expandable, even if they have no tasks, because they always have a packing summary.
+- Packing phases (Day-before, Day-before-return) are always expandable, even if they have no tasks, because they always have a packing summary.
 
 ### Expanded phase content
 
@@ -94,9 +94,9 @@ Seven vertical nodes, one per phase, connected by a 2pt spine line.
 - Long-press a task to see why it appears (see Explainability).
 - “+ Add task” dashed-border button at the end of the list. Adds a trip-specific task (`source: .manual`).
 
-#### Packing block (Departure and Day-before-return only)
+#### Packing block (Day-before and Day-before-return only)
 
-- Section label: “Packing” (Departure) or “Repack” (Day-before-return), with subtitle “tap a person”.
+- Section label: “Packing” (Day-before) or “Repack” (Day-before-return), with subtitle “tap a person”.
 - One row per person: avatar (26pt) + name (13pt, weight 600) + thin progress bar in person colour + status label + chevron.
 - Status label varies by mode:
   - Pack mode: “X to pack” or “✓ ready” when all packed.
@@ -120,7 +120,7 @@ A bottom sheet, ~82% screen height, presented over the timeline. The timeline is
 
 The sheet supports two modes determined by which phase node was tapped to open it. The two modes share a single SwiftUI view; the mode flag determines group definitions, available actions, and counter text.
 
-#### Pack mode (opened from Departure node)
+#### Pack mode (opened from Day-before node)
 
 |Group             |Filter              |Header colour|
 |------------------|--------------------|-------------|
@@ -455,7 +455,7 @@ All theme colour pairings must pass WCAG AA. The Midnight Atlas dark variant has
 1. Timeline composition with one-at-a-time accordion expand.
 1. Task row + checkbox + assignee avatar.
 1. `WhyDisclosure` component (used by tasks AND packing items).
-1. Packing summary block (per-person rows w/ progress bar) on Departure / Day-before-return phases.
+1. Packing summary block (per-person rows w/ progress bar) on Day-before / Day-before-return phases.
 1. `PackingSheet` — pack mode (groups, item rows, skip/restore, add).
 1. `PackingSheet` — repack mode (filter swap, read-only Left Behind group).
 1. Rules engine: expose per-item matching conditions for explainability strings.

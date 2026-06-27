@@ -47,8 +47,8 @@
       case phase3OneDayTrip = "phase3-one-day-trip"
       /// Phase 3: trip with no participants for the assignee-picker placeholder.
       case phase3TripNoParticipants = "phase3-trip-no-participants"
-      /// Phase 4: trip currently on `.departureDay` (today == start, end ==
-      /// today+5) with two participants and a mix of packing item states. Used
+      /// Phase 4: trip currently on `.dayBefore` (today == start - 1, end ==
+      /// today+6) with two participants and a mix of packing item states. Used
       /// by pack-mode UI tests covering the summary block, sheet groups,
       /// checkbox toggle, Skip/Restore, manual add, dimmed-row counting, and
       /// `WhyDisclosure` for rule-driven items.
@@ -354,13 +354,14 @@
     ) {
       switch fixture {
       case .phase4PackModeTrip:
-        // Trip on `.departureDay` (today == start, end == today+5). Two
+        // Trip on `.dayBefore` (today == start - 1, end == today+6). Two
         // participants, each with a mix of packing item states. Includes a
         // dimmed (`currentlyMatchesRules == false`, `pinnedByUser == false`)
         // row to exercise the dimmed-counts path. Single qualifying trip so
-        // it auto-opens; `.departureDay` auto-expands per Phase 3 rules.
-        let start = day
-        let end = calendar.date(byAdding: .day, value: 5, to: day) ?? day
+        // it auto-opens; `.dayBefore` (the pack-mode packing phase)
+        // auto-expands per Phase 3 rules.
+        let start = calendar.date(byAdding: .day, value: 1, to: day)!
+        let end = calendar.date(byAdding: .day, value: 6, to: day)!
         let trip = Trip(name: "Beach Trip", startDate: start, endDate: end)
         context.insert(trip)
 

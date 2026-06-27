@@ -69,12 +69,12 @@ struct PhaseRowAccessibilityTests {
   @Test("Packing subline (e.g. 'Alice 2 / 3 packed') appears at the tail")
   func packingSublineAppended() {
     let label = PhaseRow<EmptyView>.accessibilityLabel(
-      phase: .departureDay,
+      phase: .dayBefore,
       state: .current,
       counts: PhaseCounts(completed: 0, total: 0, inactive: 0),
       packingSubline: "Alice 2 / 3 packed"
     )
-    #expect(label == "Departure day, current phase, Alice 2 / 3 packed")
+    #expect(label == "Day before, current phase, Alice 2 / 3 packed")
   }
 
   // MARK: - Hint flips with expansion state

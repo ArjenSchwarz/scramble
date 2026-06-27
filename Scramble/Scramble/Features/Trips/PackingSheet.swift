@@ -28,7 +28,7 @@ struct PackingSheetState: Identifiable {
 }
 
 /// Per-person packing surface presented from a participant row inside the
-/// Departure (`pack`) or Day-before-return (`repack`) phase. Owns its inner
+/// Day-before (`pack`) or Day-before-return (`repack`) phase. Owns its inner
 /// state — active inline-add-field id, manual-add form presentation — and
 /// dismisses when the bound person disappears from `trip.participants` (Req 2.8).
 struct PackingSheet: View {

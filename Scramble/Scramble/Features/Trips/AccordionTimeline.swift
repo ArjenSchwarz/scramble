@@ -70,10 +70,8 @@ struct AccordionTimeline: View {
     let phaseTasks = (trip.tasks ?? []).filter { $0.phase == phase && !$0.userDeletedOnThisTrip }
     let counts = TaskListHelpers.counts(phaseTasks)
     let compressed = PhaseDateMapping.isCompressed(phase, for: trip, calendar: calendar)
-    let packing = phase == .departureDay || phase == .dayBeforeReturn
+    let packingMode = phase.packingMode
     let colour = variant.phaseColour(for: phase)
-    let packingMode: PackingMode? =
-      phase == .departureDay ? .pack : (phase == .dayBeforeReturn ? .repack : nil)
     let packingSubline = packingMode.map { PackingListHelpers.phaseSubline(trip, mode: $0) }
 
     PhaseRow(
@@ -82,10 +80,9 @@ struct AccordionTimeline: View {
       counts: counts,
       isExpanded: expandedPhase == phase,
       isCompressed: compressed,
-      isPackingPhase: packing,
       phaseColour: colour,
       packingSubline: packingSubline,
-      onToggle: { toggle(phase: phase, counts: counts, packing: packing, proxy: proxy) },
+      onToggle: { toggle(phase: phase, counts: counts, proxy: proxy) },
       content: {
         VStack(alignment: .leading, spacing: 12) {
           TaskListSection(
@@ -115,11 +112,12 @@ struct AccordionTimeline: View {
   private func toggle(
     phase: Phase,
     counts: PhaseCounts,
-    packing: Bool,
     proxy: ScrollViewProxy
   ) {
-    let expandable = counts.total > 0 || packing
-    guard expandable else { return }
+    // Defensive: the tap gesture is only attached when the row is expandable
+    // (PhaseRow gates on the same predicate), but derive from the single
+    // source of truth rather than threading a precomputed flag through.
+    guard counts.total > 0 || phase.packingMode != nil else { return }
     #if canImport(UIKit)
       UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     #endif

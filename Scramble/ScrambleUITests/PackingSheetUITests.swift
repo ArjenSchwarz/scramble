@@ -62,12 +62,12 @@ final class PackingSheetUITests: XCTestCase {
   // MARK: - 1. Summary block rendering
 
   @MainActor
-  func testPackingSummaryRendersInDeparturePhase() {
+  func testPackingSummaryRendersInDayBeforePhase() {
     let app = launchedApp(fixture: "phase4-pack-mode-trip")
     openTripDetail(app, tripName: "Beach Trip")
 
     // Two participants seeded; both summary rows should be present once the
-    // .departureDay phase auto-expands.
+    // .dayBefore phase auto-expands.
     let summaryRows = app.descendants(matching: .any)
       .matching(NSPredicate(format: "identifier BEGINSWITH 'tripDetail.packingSummary.'"))
     let predicate = NSPredicate(format: "count == 2")
@@ -75,7 +75,7 @@ final class PackingSheetUITests: XCTestCase {
     XCTAssertEqual(
       XCTWaiter().wait(for: [expectation], timeout: 5),
       .completed,
-      "Departure phase should render one PackingSummaryRow per participant"
+      "Day-before phase should render one PackingSummaryRow per participant"
     )
   }
 
@@ -393,17 +393,18 @@ final class PackingSheetUITests: XCTestCase {
     openTripDetail(app, tripName: "Beach Trip")
 
     let header = app.descendants(matching: .any)
-      .matching(identifier: "tripDetail.phaseHeader.departureDay")
+      .matching(identifier: "tripDetail.phaseHeader.dayBefore")
       .firstMatch
     XCTAssertTrue(header.waitForExistence(timeout: 5))
 
-    // The departureDay header's accessibility label should append the
-    // packing clause ("X to pack" or "packing ready") per Req 1.10. With
-    // Arjen unpacked=1 and Sam unpacked=1 the total is 2, so the clause
-    // should mention "to pack".
+    // The dayBefore header's accessibility label should append the packing
+    // clause ("X to pack" or "packing ready") per Req 1.10, re-pointed from
+    // .departureDay to .dayBefore by decision_log Decision 11. With Arjen
+    // unpacked=1 and Sam unpacked=1 the total is 2, so the clause should
+    // mention "to pack".
     XCTAssertTrue(
       header.label.contains("to pack"),
-      "Departure phase subline should include packing clause; got: \(header.label)"
+      "Day-before phase subline should include packing clause; got: \(header.label)"
     )
   }
 
