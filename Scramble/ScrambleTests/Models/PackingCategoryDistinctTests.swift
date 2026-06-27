@@ -27,8 +27,10 @@ struct PackingCategoryDistinctTests {
 
   @Test("Merges both containers, dedupes by normalized key, orders by keyOrder")
   func mergesAndDedupesOrdered() throws {
-    let globals = try Self.makeContainer().mainContext
-    let tripsLocal = try Self.makeContainer().mainContext
+    let globalsContainer = try Self.makeContainer()
+    let tripsLocalContainer = try Self.makeContainer()
+    let globals = globalsContainer.mainContext
+    let tripsLocal = tripsLocalContainer.mainContext
 
     globals.insert(MasterPackingItem(name: "Jacket", category: "Clothes"))
     globals.insert(MasterPackingItem(name: "Soap", category: "toiletries"))
@@ -49,8 +51,10 @@ struct PackingCategoryDistinctTests {
 
   @Test("Canonical spelling is the rawOrder-first variant across both containers")
   func canonicalSpellingAcrossContainers() throws {
-    let globals = try Self.makeContainer().mainContext
-    let tripsLocal = try Self.makeContainer().mainContext
+    let globalsContainer = try Self.makeContainer()
+    let tripsLocalContainer = try Self.makeContainer()
+    let globals = globalsContainer.mainContext
+    let tripsLocal = tripsLocalContainer.mainContext
 
     // Lowercase master, uppercase trip — both normalize to "clothes".
     globals.insert(MasterPackingItem(name: "Jacket", category: "clothes"))
@@ -65,8 +69,10 @@ struct PackingCategoryDistinctTests {
 
   @Test("Participant device (empty globals) yields trip-visible categories only (2.5)")
   func participantSeesTripCategoriesOnly() throws {
-    let globals = try Self.makeContainer().mainContext  // no masters — participant
-    let tripsLocal = try Self.makeContainer().mainContext
+    let globalsContainer = try Self.makeContainer()  // no masters — participant
+    let tripsLocalContainer = try Self.makeContainer()
+    let globals = globalsContainer.mainContext
+    let tripsLocal = tripsLocalContainer.mainContext
 
     tripsLocal.insert(TripPackingItem(name: "Shirt", category: "Clothes"))
     tripsLocal.insert(TripPackingItem(name: "Soap", category: "Toiletries"))
@@ -79,8 +85,10 @@ struct PackingCategoryDistinctTests {
 
   @Test("Uncategorised items (nil / blank category) contribute no suggestion")
   func uncategorisedContributesNothing() throws {
-    let globals = try Self.makeContainer().mainContext
-    let tripsLocal = try Self.makeContainer().mainContext
+    let globalsContainer = try Self.makeContainer()
+    let tripsLocalContainer = try Self.makeContainer()
+    let globals = globalsContainer.mainContext
+    let tripsLocal = tripsLocalContainer.mainContext
 
     globals.insert(MasterPackingItem(name: "Jacket", category: "Clothes"))
     globals.insert(MasterPackingItem(name: "Passport", category: nil))
@@ -95,8 +103,10 @@ struct PackingCategoryDistinctTests {
 
   @Test("No categories anywhere yields an empty suggestion list")
   func emptyWhenNoCategories() throws {
-    let globals = try Self.makeContainer().mainContext
-    let tripsLocal = try Self.makeContainer().mainContext
+    let globalsContainer = try Self.makeContainer()
+    let tripsLocalContainer = try Self.makeContainer()
+    let globals = globalsContainer.mainContext
+    let tripsLocal = tripsLocalContainer.mainContext
 
     globals.insert(MasterPackingItem(name: "Passport", category: nil))
     tripsLocal.insert(TripPackingItem(name: "Wallet", category: nil))

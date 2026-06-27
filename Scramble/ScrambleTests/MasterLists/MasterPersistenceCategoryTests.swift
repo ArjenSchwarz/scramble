@@ -36,7 +36,8 @@ struct MasterPersistenceCategoryTests {
 
   @Test("createPacking persists a normalized category (trim + internal collapse)")
   func createPersistsNormalizedCategory() throws {
-    let context = try Self.makeContainer().mainContext
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let owner = Person(name: "Owner", colorKey: "blue")
     context.insert(owner)
     try context.save()
@@ -51,7 +52,8 @@ struct MasterPersistenceCategoryTests {
 
   @Test("createPacking stores nil for an empty/whitespace category")
   func createStoresNilForBlankCategory() throws {
-    let context = try Self.makeContainer().mainContext
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let owner = Person(name: "Owner", colorKey: "blue")
     context.insert(owner)
     try context.save()
@@ -71,7 +73,8 @@ struct MasterPersistenceCategoryTests {
 
   @Test("createPacking preserves case and diacritics in the stored category")
   func createPreservesCaseAndDiacritics() throws {
-    let context = try Self.makeContainer().mainContext
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let owner = Person(name: "Owner", colorKey: "blue")
     context.insert(owner)
     try context.save()
@@ -88,7 +91,8 @@ struct MasterPersistenceCategoryTests {
 
   @Test("applyPacking writes a normalized category onto an existing item")
   func applyWritesNormalizedCategory() throws {
-    let context = try Self.makeContainer().mainContext
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let owner = Person(name: "Owner", colorKey: "blue")
     context.insert(owner)
     let item = MasterPackingItem(name: "Rain jacket", person: owner, category: "Old")
@@ -106,7 +110,8 @@ struct MasterPersistenceCategoryTests {
 
   @Test("applyPacking clears the category when the draft is empty/whitespace")
   func applyClearsCategoryOnBlank() throws {
-    let context = try Self.makeContainer().mainContext
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let owner = Person(name: "Owner", colorKey: "blue")
     context.insert(owner)
     let item = MasterPackingItem(name: "Rain jacket", person: owner, category: "Clothes")
@@ -126,7 +131,8 @@ struct MasterPersistenceCategoryTests {
 
   @Test("copyPacking carries the source's normalized category onto each copy")
   func copyCarriesNormalizedCategory() throws {
-    let context = try Self.makeContainer().mainContext
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let owner = Person(name: "Owner", colorKey: "blue")
     let alice = Person(name: "Alice", colorKey: "cyan")
     let bob = Person(name: "Bob", colorKey: "orange")
@@ -155,7 +161,8 @@ struct MasterPersistenceCategoryTests {
 
   @Test("copyPacking carries a nil category as nil")
   func copyCarriesNilCategory() throws {
-    let context = try Self.makeContainer().mainContext
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let owner = Person(name: "Owner", colorKey: "blue")
     let alice = Person(name: "Alice", colorKey: "cyan")
     context.insert(owner)
@@ -175,7 +182,8 @@ struct MasterPersistenceCategoryTests {
 
   @Test("copyPacking dedup stays name-only — a differing category does not bypass the skip")
   func copyDedupIsNameOnlyRegardlessOfCategory() throws {
-    let context = try Self.makeContainer().mainContext
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let owner = Person(name: "Owner", colorKey: "blue")
     let alice = Person(name: "Alice", colorKey: "cyan")
     context.insert(owner)
