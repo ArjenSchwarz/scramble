@@ -40,9 +40,7 @@ struct TaskRow: View {
           .font(.body)
           .strikethrough(task.isCompleted)
           .foregroundStyle(variant.textPrimary)
-          // minHeight matches the checkbox's 44pt box so a single-line name
-          // sits vertically centred with it (see PackingItemRow.nameColumn).
-          .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+          .frame(maxWidth: .infinity, alignment: .leading)
           .contentShape(Rectangle())
           .onLongPressGesture(minimumDuration: 0.4) {
             #if canImport(UIKit)
@@ -50,6 +48,11 @@ struct TaskRow: View {
             #endif
             onLongPress()
           }
+          // The row HStack is top-aligned; wrapping the name in a 44pt
+          // min-height frame centres a single-line name with the checkbox.
+          // Applied after contentShape so the long-press hit area stays tight
+          // to the glyphs rather than growing to the full 44pt.
+          .frame(minHeight: 44)
 
         if isDisclosureOpen, let reason = resolvedReason {
           WhyDisclosureView(reason: reason, style: .tasks(phaseColour: phaseColour))
