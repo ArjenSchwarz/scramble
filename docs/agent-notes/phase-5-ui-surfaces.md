@@ -3,8 +3,7 @@
 The Trip Detail share affordance, Participants section, Trip List
 migration banner + Syncing badge, and the participant-only "Rules last
 evaluated" subline. Tests live under `ScrambleUITests/Phase5*UITests`
-and `ScrambleTests/Sharing/RulesLastEvaluatedTrackerTests`,
-`ScrambleTests/Explainability/WhyResolverParticipantHideTests`.
+and `ScrambleTests/Sharing/RulesLastEvaluatedTrackerTests`.
 
 ## Files
 
@@ -57,13 +56,12 @@ and `ScrambleTests/Sharing/RulesLastEvaluatedTrackerTests`,
 - **Owner check is synchronous** —
   `sharingService.ownerIdentity(forTrip:)` reads `TripZoneState` only
   (Req 10.4). Safe to call per render.
-- **Participant-side WhyDisclosure** — the
-  `\.isParticipantViewingSharedTrip` environment flag is set by
-  `TripDetailView` and consumed by `TaskRow` /
-  `PackingItemRow` /
-  `WhyResolver.reason(...hideOnUnresolvedMaster:)`. When true and the
-  master record isn't in globals, the resolver returns `nil` and the
-  affordance is omitted from the layout entirely (Req 3.3).
+- **`isParticipantViewingSharedTrip` flag** — set by `TripDetailView`
+  and consumed by `PackingSheet` / `PackingItemForm` to gate
+  participant-side read-only category rule-edits, plus the
+  "Rules last evaluated" subline. (It formerly also drove the
+  participant-side "why is this here?" disclosure hide behaviour, removed
+  with the explainability subsystem in T-1617.)
 - **MigrationGate in tests** — `ScrambleApp` skips
   `enqueueAll() + runStageB() + syncEngine.start()` whenever
   `EnvironmentProbe.isUITestHost`, `isTest`, or `isPreview` is true.

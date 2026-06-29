@@ -91,6 +91,9 @@ struct PackingItemRowAccessibilityTests {
   // MARK: - Helpers
 
   struct Setup {
+    // Retain the container; a `ModelContext` does not keep its
+    // `ModelContainer` alive, so dropping it crashes the test host.
+    let container: ModelContainer
     let context: ModelContext
   }
 
@@ -100,7 +103,7 @@ struct PackingItemRowAccessibilityTests {
       schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none
     )
     let container = try ModelContainer(for: schema, configurations: [config])
-    return Setup(context: container.mainContext)
+    return Setup(container: container, context: container.mainContext)
   }
 
   static func makeItem(

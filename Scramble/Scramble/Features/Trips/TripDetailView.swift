@@ -25,7 +25,6 @@ import os
   @State private var showLeaveConfirmation = false
   @State private var toastMessage: String?
   @State private var expandedPhase: Phase?
-  @State private var openDisclosureTaskID: UUID?
   @State private var pendingForm: TaskFormPresentation?
   @State private var packingSheetState: PackingSheetState?
   @State private var lastOpenedPackingPerson: Person?
@@ -80,7 +79,6 @@ import os
             trip: trip,
             today: today,
             expandedPhase: $expandedPhase,
-            openDisclosureTaskID: $openDisclosureTaskID,
             onAddTaskInPhase: { phase in
               pendingForm = .add(phase: phase, trip: trip)
             },

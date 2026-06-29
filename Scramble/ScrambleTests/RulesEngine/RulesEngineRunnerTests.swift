@@ -318,6 +318,9 @@ struct RulesEngineRunnerTests {
   /// Bundle returned by `seedMatchedPackingItem` for the independence
   /// assertions (a struct rather than a 4-tuple per SwiftLint).
   private struct MatchedSeed {
+    // Retain the container; a `ModelContext` does not keep its
+    // `ModelContainer` alive, so dropping it crashes the test host.
+    let container: ModelContainer
     let context: ModelContext
     let trip: Trip
     let person: Person
@@ -355,7 +358,8 @@ struct RulesEngineRunnerTests {
     let runner = RulesEngineRunner(context: context)
     _ = try runner.runForTrip(trip)
     let item = try #require(try context.fetch(FetchDescriptor<TripPackingItem>()).first)
-    return MatchedSeed(context: context, trip: trip, person: person, item: item)
+    return MatchedSeed(
+      container: container, context: context, trip: trip, person: person, item: item)
   }
 
   @Test("Req 7.1/7.2: recompute leaves an existing item's note + subItems unchanged")

@@ -12,13 +12,11 @@ import SwiftUI
 ///
 /// Single-site mutation of `expandedPhase` per design: `PhaseRow.onToggle`
 /// calls back here, and this view emits the medium-impact haptic
-/// (Req 2.7), clears any open disclosure (Req 8.3), and performs the
-/// `proxy.scrollTo(...)`.
+/// (Req 2.7) and performs the `proxy.scrollTo(...)`.
 struct AccordionTimeline: View {
   let trip: Trip
   let today: Date
   @Binding var expandedPhase: Phase?
-  @Binding var openDisclosureTaskID: UUID?
   let onAddTaskInPhase: (Phase) -> Void
   let onEditTask: (TripTask) -> Void
   let onOpenPackingSheet: (Person, PackingMode) -> Void
@@ -89,7 +87,6 @@ struct AccordionTimeline: View {
             trip: trip,
             phase: phase,
             phaseColour: colour,
-            openDisclosureTaskID: $openDisclosureTaskID,
             onAdd: { onAddTaskInPhase(phase) },
             onEdit: onEditTask
           )
@@ -127,7 +124,6 @@ struct AccordionTimeline: View {
     // animates inside this same block).
     withAnimation(.scrambleStandard) {
       expandedPhase = (expandedPhase == phase) ? nil : phase
-      openDisclosureTaskID = nil
       if expandedPhase == phase {
         proxy.scrollTo(phase, anchor: .top)
       }

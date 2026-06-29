@@ -50,14 +50,13 @@
       /// Phase 4: trip currently on `.dayBefore` (today == start - 1, end ==
       /// today+6) with two participants and a mix of packing item states. Used
       /// by pack-mode UI tests covering the summary block, sheet groups,
-      /// checkbox toggle, Skip/Restore, manual add, dimmed-row counting, and
-      /// `WhyDisclosure` for rule-driven items.
+      /// checkbox toggle, Skip/Restore, manual add, and dimmed-row counting
+      /// (including rule-driven items).
       case phase4PackModeTrip = "phase4-pack-mode-trip"
       /// Phase 4: trip currently on `.dayBeforeReturn` (today == end-1, start
       /// == today-3) with two participants and a mix of packed/repacked/
       /// unpacked/excluded items. Used by repack-mode UI tests covering the
-      /// "Left behind" group, read-only checkboxes, and `WhyDisclosure` on
-      /// read-only rows.
+      /// "Left behind" group and read-only checkboxes.
       case phase4RepackModeTrip = "phase4-repack-mode-trip"
     }
 

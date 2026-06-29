@@ -16,7 +16,8 @@ struct TripPackingItemContentBridgeTests {
 
   @Test("subItems get/set round-trips through subItemsData")
   func subItemsRoundTrip() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Toys")
     context.insert(item)
 
@@ -29,7 +30,8 @@ struct TripPackingItemContentBridgeTests {
 
   @Test("setting subItems = [] clears subItemsData to nil")
   func emptyListClearsData() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Books")
     context.insert(item)
 
@@ -43,7 +45,8 @@ struct TripPackingItemContentBridgeTests {
 
   @Test("non-nil empty Data() reads back as []")
   func nonNilEmptyDataReadsAsEmpty() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Snacks")
     context.insert(item)
 
@@ -55,7 +58,8 @@ struct TripPackingItemContentBridgeTests {
 
   @Test("garbage Data decodes to []")
   func garbageDataDecodesToEmpty() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Gear")
     context.insert(item)
 
@@ -65,7 +69,8 @@ struct TripPackingItemContentBridgeTests {
 
   @Test("note set then cleared")
   func noteSetThenCleared() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Camera")
     context.insert(item)
 
@@ -80,7 +85,8 @@ struct TripPackingItemContentBridgeTests {
 
   @Test("note via init")
   func noteViaInit() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Charger", note: "USB-C only")
     context.insert(item)
     try context.save()
@@ -89,7 +95,8 @@ struct TripPackingItemContentBridgeTests {
 
   @Test("skip -> restore leaves note and subItems unchanged")
   func skipRestorePreservesContent() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Toys", note: "soft ones only")
     context.insert(item)
     item.subItems = ["bear", "blocks"]
@@ -106,11 +113,15 @@ struct TripPackingItemContentBridgeTests {
     #expect(item.subItems == ["bear", "blocks"])
   }
 
-  private static func makeContext() throws -> ModelContext {
+  /// Returns the container (not just its `mainContext`): a `ModelContext`
+  /// does not keep its `ModelContainer` alive, so handing back only the
+  /// context lets the container deallocate and crashes the test host. Each
+  /// caller binds the container to a local and derives the context from it.
+  private static func makeContainer() throws -> ModelContainer {
     let schema = Schema(versionedSchema: SchemaV3.self)
     let config = ModelConfiguration(
       schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none
     )
-    return try ModelContainer(for: schema, configurations: [config]).mainContext
+    return try ModelContainer(for: schema, configurations: [config])
   }
 }

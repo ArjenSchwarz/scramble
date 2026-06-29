@@ -17,7 +17,8 @@ struct TripPackingItemBridgeTests {
 
   @Test("Fast path: resolves via trip.participantSnapshots")
   func resolvesViaParticipantSnapshots() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let trip = Trip(name: "T", startDate: .now, endDate: .now)
     context.insert(trip)
     let snapshot = TripPersonSnapshot(personID: UUID(), name: "Alice", trip: trip)
@@ -33,7 +34,8 @@ struct TripPackingItemBridgeTests {
 
   @Test("Fallback path: resolves via modelContext fetch when the trip side isn't wired")
   func resolvesViaContextFetchWhenTripNil() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let snapshot = TripPersonSnapshot(personID: UUID(), name: "Bob")
     context.insert(snapshot)
     // No trip relationship and no participantSnapshots, so the in-memory
@@ -49,7 +51,8 @@ struct TripPackingItemBridgeTests {
 
   @Test("Nil personSnapshotID resolves to nil")
   func nilIDResolvesNil() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Towel")
     context.insert(item)
     try context.save()
@@ -60,7 +63,8 @@ struct TripPackingItemBridgeTests {
 
   @Test("Dangling personSnapshotID (no matching snapshot) resolves to nil")
   func danglingIDResolvesNil() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let item = TripPackingItem(name: "Boots")
     item.personSnapshotID = UUID()  // points at nothing
     context.insert(item)
@@ -71,7 +75,8 @@ struct TripPackingItemBridgeTests {
 
   @Test("Setter stores the snapshot's id and clears on nil")
   func setterStoresID() throws {
-    let context = try Self.makeContext()
+    let container = try Self.makeContainer()
+    let context = container.mainContext
     let snapshot = TripPersonSnapshot(personID: UUID(), name: "Cara")
     context.insert(snapshot)
     let item = TripPackingItem(name: "Map")
@@ -83,11 +88,15 @@ struct TripPackingItemBridgeTests {
     #expect(item.personSnapshotID == nil)
   }
 
-  private static func makeContext() throws -> ModelContext {
+  /// Returns the container (not just its `mainContext`): a `ModelContext`
+  /// does not keep its `ModelContainer` alive, so handing back only the
+  /// context lets the container deallocate and crashes the test host. Each
+  /// caller binds the container to a local and derives the context from it.
+  private static func makeContainer() throws -> ModelContainer {
     let schema = Schema(versionedSchema: SchemaV3.self)
     let config = ModelConfiguration(
       schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none
     )
-    return try ModelContainer(for: schema, configurations: [config]).mainContext
+    return try ModelContainer(for: schema, configurations: [config])
   }
 }

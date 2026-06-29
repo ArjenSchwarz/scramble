@@ -177,6 +177,9 @@ struct NotificationsServiceTests {
   // MARK: - Helpers
 
   struct Setup {
+    // Retain the container; a `ModelContext` does not keep its
+    // `ModelContainer` alive, so dropping it crashes the test host.
+    let container: ModelContainer
     let stub: StubNotificationCenter
     let service: NotificationsService
     let context: ModelContext
@@ -222,7 +225,7 @@ struct NotificationsServiceTests {
       coalesceWindow: .milliseconds(100)
     )
     return Setup(
-      stub: stub, service: service, context: context, calendar: cal
+      container: container, stub: stub, service: service, context: context, calendar: cal
     )
   }
 }
