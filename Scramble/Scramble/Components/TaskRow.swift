@@ -40,7 +40,9 @@ struct TaskRow: View {
           .font(.body)
           .strikethrough(task.isCompleted)
           .foregroundStyle(variant.textPrimary)
-          .frame(maxWidth: .infinity, alignment: .leading)
+          // minHeight matches the checkbox's 44pt box so a single-line name
+          // sits vertically centred with it (see PackingItemRow.nameColumn).
+          .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
           .contentShape(Rectangle())
           .onLongPressGesture(minimumDuration: 0.4) {
             #if canImport(UIKit)
