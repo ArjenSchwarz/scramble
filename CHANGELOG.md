@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `remove-task-why-disclosure` (T-1617) — Spec only (no code yet): created `specs/remove-task-why-disclosure/` (`smolspec.md`, `decision_log.md`, `tasks.md`) planning the removal of the task-row `WhyDisclosure` explainability surface and the now-orphaned `Explainability/` subsystem (`WhyResolver` / `WhyDisclosureView` / `ConditionsFormatter`) — the task row was its last production consumer after packing was stripped in phase-4 Decision 10. The decision log records the choice to delete the subsystem entirely (rather than leave it test-only) as the authoritative override of the design docs' explainability sections. Four dependency-linked implementation tasks tracked in rune.
+
 - `packing-item-categories` (T-1605) — Release prep (CloudKit schema-promotion checklist):
   - `docs/release-prep.md` — added a promote-to-Production checklist item for the two new category fields: `MasterPackingItem.category` (auto-mirrored into the private CloudKit DB by the SwiftData mirror — flagged easy-to-miss since no hand-written code generates it) and `TripPackingItem.category` (shared-zone record type), linked to Req 7.1/7.2. The manual Dashboard promotion remains a release prerequisite (`prerequisites.md`), not a code step.
 
