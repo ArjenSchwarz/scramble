@@ -48,11 +48,10 @@ struct TaskRow: View {
             #endif
             onLongPress()
           }
-          // The row HStack is top-aligned; wrapping the name in a 44pt
-          // min-height frame centres a single-line name with the checkbox.
-          // Applied after contentShape so the long-press hit area stays tight
-          // to the glyphs rather than growing to the full 44pt.
-          .frame(minHeight: 44)
+          // 44pt min-height centres the name with the checkbox; gated on the
+          // disclosure so opening it doesn't push it down, and after
+          // contentShape so the long-press area stays tight to the glyphs.
+          .frame(minHeight: isDisclosureOpen ? 0 : 44)
 
         if isDisclosureOpen, let reason = resolvedReason {
           WhyDisclosureView(reason: reason, style: .tasks(phaseColour: phaseColour))

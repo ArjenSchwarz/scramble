@@ -39,23 +39,36 @@ row simply hadn't had it applied yet.
 ## Expert
 
 The alignment is purely a function of box geometry under `HStack(alignment:
-.top)`: equalising the intrinsic-or-minimum heights of two top-aligned siblings
-co-locates their centres. No alignment guide, custom `Layout`, or
-`alignmentGuide(_:)` is needed — `minHeight` is the minimal lever.
+.top)`: equalising the heights of two top-aligned siblings co-locates their
+centres. No alignment guide, custom `Layout`, or `alignmentGuide(_:)` is needed
+— a `minHeight` frame is the minimal lever.
 
-The `minHeight` is applied to the inner `Text(task.name)` rather than the
-enclosing `VStack` that also holds the conditional `WhyDisclosureView`. This is
-deliberate: sizing the `Text`'s own box leaves the disclosure (a separate
-`VStack` child laid out beneath) unaffected, so opening the disclosure does not
-shift the name. Placing `minHeight` on the `VStack` would have stretched the
-whole column and changed disclosure spacing.
+Two modifier-ordering details matter, both surfaced in PR #15 review:
+
+1. **The `minHeight` frame is applied *after* `contentShape(Rectangle())` and
+   `onLongPressGesture`.** `contentShape` fixes hit-testing to the view's frame,
+   so if the 44pt frame came first the long-press zone (which toggles the
+   `WhyDisclosureView`) would inflate from the intrinsic ~20pt to 44pt. Applying
+   it last keeps `contentShape`/the gesture on the intrinsic-height text; the
+   outer frame is a gesture-free layout container, so the long-press area stays
+   tight to the glyphs.
+
+2. **The min-height is gated on `isDisclosureOpen`:**
+   `.frame(minHeight: isDisclosureOpen ? 0 : 44)`. `Text(task.name)` is a direct
+   child of the `VStack(spacing: 6)` that also holds the conditional
+   `WhyDisclosureView`, so a permanent 44pt name slot would push an open
+   disclosure ~24pt lower — violating Req 3. Gating the centring to the
+   closed state (the persistent, common case) leaves the name at intrinsic
+   height when the disclosure is open, so the disclosure sits exactly where it
+   did pre-change. The trade-off is a ~12pt upward shift of the name when the
+   disclosure opens, accepted as a minor transient on a rare long-press.
 
 Edge cases:
-- **Multi-line / large Dynamic Type:** `minHeight` is dominated by intrinsic
-  height; layout reverts to top-alignment. Matches `PackingItemRow`, so the two
+- **Multi-line / large Dynamic Type:** intrinsic height dominates the 44pt
+  minimum; layout reverts to top-alignment. Matches `PackingItemRow`, so the two
   surfaces stay visually consistent at every type size.
 - **Tap target:** unchanged — the row already has its own `.frame(minHeight:
-  44)` (the name's `minHeight` is about visual centring, not hit area).
+  44)` (the name's frame is about visual centring, not hit area).
 - **Strikethrough/opacity for completed/ghosted rows:** untouched; this only
   affects the name box's height.
 
