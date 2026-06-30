@@ -19,6 +19,14 @@ else
 PIPE_PRETTY =
 endif
 
+# The .SHELLFLAGS pipefail above is ignored by GNU make 3.81 (the macOS system
+# default; .SHELLFLAGS landed in 3.82). Without pipefail, `xcodebuild | xcbeautify`
+# returns xcbeautify's exit code (0) and SILENTLY MASKS test/build failures —
+# `make test` would report success on a red suite. Prefix every piped recipe
+# with this so pipefail is set in the recipe's own shell regardless of make
+# version (harmless when xcbeautify is absent and there is no pipe).
+PIPEFAIL := set -o pipefail;
+
 SWIFTLINT := $(shell command -v swiftlint 2>/dev/null)
 SWIFT_FORMAT := $(shell command -v swift-format 2>/dev/null)
 
@@ -59,7 +67,7 @@ help:
 
 .PHONY: build
 build:
-	xcodebuild build \
+	$(PIPEFAIL) xcodebuild build \
 		-project $(PROJECT) \
 		-scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
@@ -79,7 +87,7 @@ clean:
 # extra XCTest UI runner and is the dominant cost of a full `test` run).
 .PHONY: test-quick
 test-quick:
-	xcodebuild test \
+	$(PIPEFAIL) xcodebuild test \
 		-project $(PROJECT) \
 		-scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
@@ -94,7 +102,7 @@ test-quick:
 # simulator clones race on launch / status-bar overrides and produce flakes.
 .PHONY: test
 test:
-	xcodebuild test \
+	$(PIPEFAIL) xcodebuild test \
 		-project $(PROJECT) \
 		-scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
@@ -106,7 +114,7 @@ test:
 
 .PHONY: test-ui
 test-ui:
-	xcodebuild test \
+	$(PIPEFAIL) xcodebuild test \
 		-project $(PROJECT) \
 		-scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
@@ -134,7 +142,7 @@ install:
 		echo "Error: No '$(DEVICE_MODEL)' device found. Connect one or override DEVICE_MODEL=..."; \
 		exit 1; \
 	fi
-	xcodebuild build \
+	$(PIPEFAIL) xcodebuild build \
 		-project $(PROJECT) -scheme $(SCHEME) \
 		-destination 'id=$(DEVICE_ID)' -configuration $(CONFIG) \
 		-derivedDataPath $(DERIVED_DATA) $(PIPE_PRETTY)

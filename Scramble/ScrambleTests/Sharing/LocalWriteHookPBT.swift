@@ -77,9 +77,18 @@ struct LocalWriteHookPBT {
     let notifier = RecordingNotifier()
     let hook = LocalWriteHook(notifier: notifier)
 
-    // Seed surviving zones: trip + TripZoneState per zone.
+    // Seed surviving zones: trip + TripZoneState per zone, plus the items
+    // each surviving zone will later delete. Those to-be-deleted items are
+    // created and committed HERE, during seeding, so they exist as committed
+    // records before any deletion is staged. Creating them mid-staging (with
+    // the intermediate `hook.commit` they would then require) prematurely
+    // flushes the vanishing-zone deletions staged below, so the final
+    // `commitDeletion` would no longer see them — which is not how the real
+    // `TripDeletion.delete` cascade behaves (it stages everything, then
+    // commits once).
     var survivingZoneIDs: [CKRecordZone.ID] = []
     var survivingTrips: [Trip] = []
+    var survivingDeletedItems: [[TripPackingItem]] = []
     for index in 0..<scenario.survivingZoneCount {
       let trip = Trip(name: "Surviving\(index)", startDate: .now, endDate: .now)
       context.insert(trip)
@@ -93,8 +102,15 @@ struct LocalWriteHookPBT {
         zoneScope: "private"
       )
       context.insert(state)
+      var delItems: [TripPackingItem] = []
+      for delIndex in 0..<scenario.deletedPerSurviving {
+        let item = TripPackingItem(trip: trip, name: "s-del-\(delIndex)")
+        context.insert(item)
+        delItems.append(item)
+      }
       survivingZoneIDs.append(zoneID)
       survivingTrips.append(trip)
+      survivingDeletedItems.append(delItems)
     }
     try hook.commit(context)
     notifier.calls.removeAll()
@@ -161,14 +177,13 @@ struct LocalWriteHookPBT {
       context.delete(state)
     }
 
-    // Surviving-zone deletions: insert + commit some items then delete them.
+    // Surviving-zone deletions: delete the items committed during seeding,
+    // and stage fresh dirty items. No intermediate commit here — everything
+    // is committed once via `commitDeletion` below, mirroring the real
+    // reverse-cascade.
     for (index, trip) in survivingTrips.enumerated() {
       let zoneID = survivingZoneIDs[index]
-      for delIndex in 0..<scenario.deletedPerSurviving {
-        let item = TripPackingItem(trip: trip, name: "s-del-\(delIndex)")
-        context.insert(item)
-        try hook.commit(context)
-        notifier.calls.removeAll()
+      for item in survivingDeletedItems[index] {
         context.delete(item)
         expectedSurvivingDeleted[zoneID, default: []].insert(item.id.uuidString)
       }

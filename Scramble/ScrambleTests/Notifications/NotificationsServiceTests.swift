@@ -177,6 +177,11 @@ struct NotificationsServiceTests {
   // MARK: - Helpers
 
   struct Setup {
+    /// Retains the container for the setup's lifetime. A `ModelContext` does
+    /// not keep its `ModelContainer` alive, so without this the container
+    /// deallocates when the helper returns and any later model access traps
+    /// inside SwiftData (SIGTRAP).
+    let container: ModelContainer
     let stub: StubNotificationCenter
     let service: NotificationsService
     let context: ModelContext
@@ -222,7 +227,7 @@ struct NotificationsServiceTests {
       coalesceWindow: .milliseconds(100)
     )
     return Setup(
-      stub: stub, service: service, context: context, calendar: cal
+      container: container, stub: stub, service: service, context: context, calendar: cal
     )
   }
 }

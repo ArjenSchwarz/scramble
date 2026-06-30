@@ -104,6 +104,13 @@ final class TripSyncEventBus {
     let coordinator = coordinatorHandler
     iterationTask = Task { @MainActor [events] in
       for await event in events {
+        // Honour cancellation before dispatching. `stop()` cancels this
+        // task, but an event already buffered in the stream can still be
+        // delivered by `for await` on the next resume; without this guard
+        // whether that buffered event reaches handlers depends on the
+        // cancel-vs-deliver race. Checking here makes `stop()`'s contract
+        // ("subsequent yields don't reach handlers") deterministic.
+        if Task.isCancelled { break }
         Self.dispatch(event, to: orchestrator, label: "orchestrator")
         Self.dispatch(event, to: coordinator, label: "coordinator")
       }

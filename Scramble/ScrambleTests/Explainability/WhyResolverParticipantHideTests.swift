@@ -16,22 +16,26 @@ import Testing
 @MainActor
 struct WhyResolverParticipantHideTests {
 
-  private func makeContext() throws -> ModelContext {
+  // Returns the container (not the context) so the caller retains it. A
+  // `ModelContext` does not keep its `ModelContainer` alive; returning a bare
+  // context lets the container deallocate and the next model access traps
+  // inside SwiftData (SIGTRAP).
+  private func makeContainer() throws -> ModelContainer {
     let schema = Schema(versionedSchema: SchemaV3.self)
     let config = ModelConfiguration(
       schema: schema,
       isStoredInMemoryOnly: true,
       cloudKitDatabase: .none
     )
-    let container = try ModelContainer(for: schema, configurations: [config])
-    return ModelContext(container)
+    return try ModelContainer(for: schema, configurations: [config])
   }
 
   // MARK: - TripTask
 
   @Test("Participant: rule-driven task with missing master returns nil")
   func participantTaskWithUnresolvedMasterIsHidden() throws {
-    let context = try makeContext()
+    let container = try makeContainer()
+    let context = ModelContext(container)
     let trip = Trip(name: "Trip", startDate: .now, endDate: .now)
     context.insert(trip)
     let task = TripTask(
@@ -53,7 +57,8 @@ struct WhyResolverParticipantHideTests {
 
   @Test("Owner: rule-driven task with missing master returns .ruleMasterDeleted")
   func ownerTaskWithUnresolvedMasterFallsBack() throws {
-    let context = try makeContext()
+    let container = try makeContainer()
+    let context = ModelContext(container)
     let trip = Trip(name: "Trip", startDate: .now, endDate: .now)
     context.insert(trip)
     let task = TripTask(
@@ -71,7 +76,8 @@ struct WhyResolverParticipantHideTests {
 
   @Test("Participant: manual tasks still resolve to .manual (no hide)")
   func participantManualTaskStillRenders() throws {
-    let context = try makeContext()
+    let container = try makeContainer()
+    let context = ModelContext(container)
     let trip = Trip(name: "Trip", startDate: .now, endDate: .now)
     context.insert(trip)
     let task = TripTask(
@@ -95,7 +101,8 @@ struct WhyResolverParticipantHideTests {
 
   @Test("Participant: rule-driven packing item with missing master returns nil")
   func participantPackingItemWithUnresolvedMasterIsHidden() throws {
-    let context = try makeContext()
+    let container = try makeContainer()
+    let context = ModelContext(container)
     let trip = Trip(name: "Trip", startDate: .now, endDate: .now)
     context.insert(trip)
     let item = TripPackingItem(
@@ -118,7 +125,8 @@ struct WhyResolverParticipantHideTests {
 
   @Test("Owner: rule-driven packing item with missing master falls back to .ruleMasterDeleted")
   func ownerPackingItemWithUnresolvedMasterFallsBack() throws {
-    let context = try makeContext()
+    let container = try makeContainer()
+    let context = ModelContext(container)
     let trip = Trip(name: "Trip", startDate: .now, endDate: .now)
     context.insert(trip)
     let item = TripPackingItem(
