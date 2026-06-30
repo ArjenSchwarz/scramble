@@ -48,10 +48,8 @@ struct TaskRow: View {
             #endif
             onLongPress()
           }
-          // 44pt min-height centres the name with the checkbox; gated on the
-          // disclosure so opening it doesn't push it down, and after
-          // contentShape so the long-press area stays tight to the glyphs.
-          .frame(minHeight: isDisclosureOpen ? 0 : 44)
+          // after contentShape so the long-press target stays tight to the glyphs
+          .frame(minHeight: isDisclosureOpen ? nil : 44)
 
         if isDisclosureOpen, let reason = resolvedReason {
           WhyDisclosureView(reason: reason, style: .tasks(phaseColour: phaseColour))
@@ -70,7 +68,7 @@ struct TaskRow: View {
     .contentShape(Rectangle())
     .opacity(rowOpacity)
     .animation(.scrambleStandard, value: task.isCompleted)
-    // Smooth the name's height change when the disclosure toggles its centring.
+    // isDisclosureOpen isn't covered by the task.isCompleted monitor above
     .animation(.scrambleStandard, value: isDisclosureOpen)
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       Button(role: .destructive) {
