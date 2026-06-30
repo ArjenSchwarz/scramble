@@ -70,6 +70,8 @@ struct TaskRow: View {
     .contentShape(Rectangle())
     .opacity(rowOpacity)
     .animation(.scrambleStandard, value: task.isCompleted)
+    // Smooth the name's height change when the disclosure toggles its centring.
+    .animation(.scrambleStandard, value: isDisclosureOpen)
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       Button(role: .destructive) {
         onDelete()
