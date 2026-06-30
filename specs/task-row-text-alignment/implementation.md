@@ -54,7 +54,7 @@ Two modifier-ordering details matter, both surfaced in PR #15 review:
    tight to the glyphs.
 
 2. **The min-height is gated on `isDisclosureOpen`:**
-   `.frame(minHeight: isDisclosureOpen ? 0 : 44)`. `Text(task.name)` is a direct
+   `.frame(minHeight: isDisclosureOpen ? nil : 44)`. `Text(task.name)` is a direct
    child of the `VStack(spacing: 6)` that also holds the conditional
    `WhyDisclosureView`, so a permanent 44pt name slot would push an open
    disclosure ~24pt lower — violating Req 3. Gating the centring to the

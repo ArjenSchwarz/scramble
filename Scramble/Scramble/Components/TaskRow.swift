@@ -48,7 +48,7 @@ struct TaskRow: View {
             #endif
             onLongPress()
           }
-          // after contentShape so the long-press target stays tight to the glyphs
+          // keep separate from the frame above: merging would grow the long-press hit area to 44pt
           .frame(minHeight: isDisclosureOpen ? nil : 44)
 
         if isDisclosureOpen, let reason = resolvedReason {
