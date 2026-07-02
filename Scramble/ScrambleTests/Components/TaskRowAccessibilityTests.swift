@@ -134,6 +134,11 @@ struct TaskRowAccessibilityTests {
   // MARK: - Helpers
 
   struct Setup {
+    /// Retains the container for the setup's lifetime. A `ModelContext` does
+    /// not keep its `ModelContainer` alive, so without this the container
+    /// deallocates when the helper returns and any later model access traps
+    /// inside SwiftData (SIGTRAP).
+    let container: ModelContainer
     let context: ModelContext
   }
 
@@ -143,6 +148,6 @@ struct TaskRowAccessibilityTests {
       schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none
     )
     let container = try ModelContainer(for: schema, configurations: [config])
-    return Setup(context: container.mainContext)
+    return Setup(container: container, context: container.mainContext)
   }
 }

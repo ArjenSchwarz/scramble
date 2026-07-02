@@ -1,66 +1,110 @@
 # Testing notes
 
-## Xcode 26.5 — SwiftData multi-container crash in the test suite
+## The unit suite's "flaky crash" was non-retained `ModelContainer`s (NOT a toolchain bug)
 
-**Symptom.** Running `make test-quick` (or `make test`, or any `xcodebuild test`
-covering more than a handful of SwiftData suites) crashes mid-run with a cascade
-of `0.000s` failures attributed to "Test crashed with signal trap" /
-`Crash: Scramble at <SomeSwiftDataTest>`. ~80–100 tests pass first, then the
-host process dies and every remaining test in that process reports as crashed;
-xcodebuild retries on a fresh simulator clone and crashes again. The crash is an
-`EXC_BREAKPOINT` (`SIGTRAP`) raised **inside SwiftData**, not an assertion
-failure.
+**Symptom.** Running `make test-quick` (or `make test`) intermittently crashed
+mid-run: ~80–100 tests passed, then the test host died with an
+`EXC_BREAKPOINT` (`SIGTRAP`) raised inside SwiftData, every remaining test in
+that process reported as a `0.000s` "crash," and xcodebuild relaunched on a
+fresh simulator clone and often crashed again. Which test "crashed" differed
+run to run, so it read as flaky.
 
-**Root cause.** Every SwiftData test suite builds its own in-memory container
-with a freshly-derived schema:
+**Root cause (confirmed June 2026 via crash reports).** Several test helpers
+built a SwiftData `ModelContainer` as a local, derived a `ModelContext` (and
+sometimes `@Model` objects) from it, and returned only the context — not the
+container:
 
 ```swift
-let schema = Schema(versionedSchema: SchemaV3.self)   // re-derived per container
-let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-return try ModelContainer(for: schema, configurations: [config])
+// BUG: container is a temporary; nothing the caller holds retains it.
+private static func makeContext() throws -> ModelContext {
+  let schema = Schema(versionedSchema: SchemaV3.self)
+  let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+  return try ModelContainer(for: schema, configurations: [config]).mainContext
+}
 ```
 
-Under the Xcode 26.5 toolchain, creating a **2nd+ `ModelContainer` for the same
-`SchemaV3`** within a single test process traps. It is **not** caused by any
-feature code — proven by:
-- a pre-existing, untouched suite (`TripPackingItemBridgeTests`) crashing 0/N
-  when run alone, and
-- the same crash reproducing at the pre-feature baseline commit.
+A `ModelContext` does **not** keep its `ModelContainer` alive. The container
+deallocates when the helper returns; the next model access/mutation through the
+orphaned context traps inside SwiftData (`_assertionFailure` → `SIGTRAP`). It
+manifests as "flaky" because ARC dealloc timing is non-deterministic — under
+simulator load it sometimes collects the container mid-test, sometimes not, and
+a different orphaned suite loses the race each run.
 
-It surfaced with the Xcode 26.5 upgrade (June 2026); earlier toolchains
-tolerated the repeated-container pattern.
+The earlier theory in this note — "Xcode 26.5 multi-container toolchain bug" —
+was **wrong**. The crash reports
+(`~/Library/Logs/DiagnosticReports/Scramble-*.ips`) show a use-after-dealloc
+from a model setter called directly from the test, e.g.:
 
-**What still works.**
-- `make build` — fine.
-- `xcodebuild build-for-testing` — fine (both unit + UI targets compile).
-- `make lint` / `make format` — fine.
-- A **single** test in its own process (`-only-testing:Suite/func`) sometimes
-  runs and reports; often the runner instead reports `0 tests` with scrambled
-  output (`"Testing started"` printed after `** TEST SUCCEEDED **`). Either way
-  it does not crash — but you cannot rely on it for a clean red/green signal.
-- Reusing one shared `Schema` instance across containers avoided the crash in a
-  minimal 8-container diagnostic, but **did not** fix a real multi-test suite —
-  so schema-sharing is a clue, not the whole fix.
+```
+libswiftCore  _assertionFailure
+SwiftData     …
+Scramble      TripPackingItem.note.setter        ← mutate through orphaned context
+ScrambleTests RulesEngineRunnerTests.deletingItemRemovesNoteAndSubItems()
+```
 
-**Recovery that does NOT help:** `simctl shutdown all`, deleting
-`~/Library/Developer/XCTestDevices` clones, restarting
-`com.apple.CoreSimulator.CoreSimulatorService`, `simctl erase all`, device
-reboot. A separate, worse "wedge" (stuck `launchd_sim` surviving `kill -9`) is
-cleared by a **machine reboot**, but the reboot does **not** fix the
-multi-container `SIGTRAP` above — that is a toolchain regression, not a wedged
-service.
+The note's own "evidence" for a toolchain bug (e.g. `TripPackingItemBridgeTests`
+crashing 0/N when run alone) was just that suite's own non-retained helper.
+Repeated multi-container creation is **not** the problem — creating many
+in-memory containers is fine; only dropping one while its context is still in
+use is fatal.
 
-**Until it's fixed (proper fix is out of scope of any one feature — it's a
-project-wide test-harness change):** verify SwiftData-touching work with
-`make build` + `build-for-testing` + `make lint`, and treat a full-suite/whole-
-suite crash as the toolchain, not a code failure. Do **not** burn time fighting
-the simulator. A real fix likely means a shared test-support container/schema
-factory used by every suite (and confirming it survives multi-suite runs).
+**How to diagnose.** Run the suite, then read the newest
+`~/Library/Logs/DiagnosticReports/Scramble-*.ips`. Parse the faulting thread:
+`SIGTRAP` + `SwiftData` + `_assertionFailure` + a frame in the test that mutates
+a model = a non-retained container. Different `.ips` files naming different
+tests across one run confirms the non-determinism.
 
-**Operational caution:** do not run two `xcodebuild test` invocations against the
-same simulator concurrently (parallel worktrees) — they race and can wedge
-CoreSimulator. Also scope any `pkill` to Scramble (`pkill -f "xcodebuild.*Scramble"`),
-not a blanket `pkill -f xcodebuild`, which will kill unrelated projects' test runs
-on a shared machine.
+**The fix / the rule.** Every helper that vends a `ModelContext` or `@Model`
+must keep the container alive for as long as the caller uses it:
+
+- Helper returns a struct → add a `container: ModelContainer` field (it never
+  needs to be read; it exists to retain).
+- Helper returns a bare context → return the `ModelContainer` instead and let
+  the caller derive `container.mainContext` / `ModelContext(container)`.
+- Helper used inside one test body → bind `let container = …; let context =
+  container.mainContext` (already-scoped is fine).
+
+This is the same rule as `rules/language-rules/swift.md` → "Retain the
+ModelContainer in tests — never use a temporary." Fixed across all seven
+affected suites (`NotificationsServiceTests`, `RulesEngineRunnerTests`,
+`PackingItemContentBridgeTests`, `TripPackingItemBridgeTests`,
+`PackingItemRowAccessibilityTests`, `TaskRowAccessibilityTests`,
+`WhyResolverParticipantHideTests`); the earlier T-1605 commit (`d663be1`) had
+fixed the same pattern in two category suites but missed the rest. Verified by a
+full clean run (single host PID, zero `0.000s` crashes) plus repeated runs of
+the SwiftData-heavy suites.
+
+## A second, independent flake: async-cancellation race in `TripSyncEventBus`
+
+Once the crash was fixed and the suite ran to completion,
+`TripSyncEventBusTests.stopCancelsIteration()` showed up as genuinely flaky
+(passed one run, failed the next). `start()` spawns a `@MainActor` iteration
+task; the test calls `start()` then `stop()` (which cancels it) with no
+suspension between, so the task only runs when the test next awaits — by which
+point an event has already been yielded into the `AsyncStream` buffer. Whether a
+cancelled `for await` delivers that buffered element before observing
+cancellation is timing-dependent. Fix was in production
+(`TripSyncEventBus.start`): check `Task.isCancelled` at the top of the loop
+before dispatching, so a stopped bus deterministically never dispatches —
+honouring `stop()`'s documented contract.
+
+Lesson: tests that assert the **absence** of an effect after a fixed
+`Task.sleep` are inherently racy (you can't poll for "nothing happened"). The
+other `TripSyncEventBus` tests use a `waitFor`-style condition poll, which is the
+robust pattern for asserting presence.
+
+## Operational cautions (still valid)
+
+- Simulator tests run **serially** (`-parallel-testing-worker-count 1`);
+  parallel simulator clones race on launch and produce different flakes. Don't
+  change this.
+- Do not run two `xcodebuild test` invocations against the same simulator
+  concurrently (e.g. parallel worktrees) — they race and can wedge
+  CoreSimulator.
+- Scope any `pkill` to Scramble (`pkill -f "xcodebuild.*Scramble"`), never a
+  blanket `pkill -f xcodebuild`, which kills unrelated projects' runs.
+- There are two simulators named "iPhone 17 Pro"; `name=`-based destinations are
+  ambiguous but resolve deterministically in practice — prefer a UDID if a run
+  ever picks the wrong one.
 
 See `persistence.md` for the SchemaV3 / no-SchemaV4 model rules.
