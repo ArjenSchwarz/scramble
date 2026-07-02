@@ -48,6 +48,8 @@ struct TaskRow: View {
             #endif
             onLongPress()
           }
+          // keep separate from the frame above: merging would grow the long-press hit area to 44pt
+          .frame(minHeight: isDisclosureOpen ? nil : 44)
 
         if isDisclosureOpen, let reason = resolvedReason {
           WhyDisclosureView(reason: reason, style: .tasks(phaseColour: phaseColour))
@@ -66,6 +68,8 @@ struct TaskRow: View {
     .contentShape(Rectangle())
     .opacity(rowOpacity)
     .animation(.scrambleStandard, value: task.isCompleted)
+    // isDisclosureOpen isn't covered by the task.isCompleted monitor above
+    .animation(.scrambleStandard, value: isDisclosureOpen)
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       Button(role: .destructive) {
         onDelete()
