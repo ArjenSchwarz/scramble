@@ -27,7 +27,11 @@ struct TaskRow: View {
         .font(.body)
         .strikethrough(task.isCompleted)
         .foregroundStyle(variant.textPrimary)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // minHeight: 44 centres a single-line name with the checkbox's 44pt box
+        // (both top-align in the HStack); taller names grow past it and wrap.
+        // Mirrors PackingItemRow's name column (T-1619); unconditional here since
+        // the WhyDisclosure that once gated it is gone.
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
 
       if let snapshot = Self.assigneeSnapshot(for: task) {
         PersonAvatar(name: snapshot.name, colorKey: snapshot.colourID, size: .compact)
