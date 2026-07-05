@@ -250,8 +250,9 @@ struct ScrambleApp: App {
     // Capture fresh-state before `start()` so a reinstalled device (empty
     // local trips store, no persisted engine state) explicitly pulls its
     // trip zones back down rather than waiting on an unprompted automatic
-    // sync (T-1670). Detached so the migration gate releases promptly;
-    // restored rows land reactively as the fetch applies them.
+    // sync (T-1670). Fire-and-forget (unstructured `Task`, not awaited) so
+    // the migration gate releases promptly; restored rows land reactively
+    // as the fetch applies them.
     let needsInitialFetch = syncEngine.needsInitialFetch()
     syncEngine.start()
     if needsInitialFetch {
