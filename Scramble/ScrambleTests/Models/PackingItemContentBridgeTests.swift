@@ -113,10 +113,10 @@ struct TripPackingItemContentBridgeTests {
     #expect(item.subItems == ["bear", "blocks"])
   }
 
-  /// Returns the container (not just its `mainContext`): a `ModelContext`
-  /// does not keep its `ModelContainer` alive, so handing back only the
-  /// context lets the container deallocate and crashes the test host. Each
-  /// caller binds the container to a local and derives the context from it.
+  // Returns the container (not the context) so the caller retains it. A
+  // `ModelContext` does not keep its `ModelContainer` alive; returning a bare
+  // context lets the container deallocate and the next model access traps
+  // inside SwiftData (SIGTRAP).
   private static func makeContainer() throws -> ModelContainer {
     let schema = Schema(versionedSchema: SchemaV3.self)
     let config = ModelConfiguration(

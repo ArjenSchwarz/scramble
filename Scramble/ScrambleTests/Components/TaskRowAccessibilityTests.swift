@@ -66,9 +66,10 @@ struct TaskRowAccessibilityTests {
   // MARK: - Helpers
 
   struct Setup {
-    // Retain the container for the test's lifetime; a `ModelContext` does not
-    // keep its `ModelContainer` alive, so returning only the context lets the
-    // container deallocate out from under it and crashes the test host.
+    /// Retains the container for the setup's lifetime. A `ModelContext` does
+    /// not keep its `ModelContainer` alive, so without this the container
+    /// deallocates when the helper returns and any later model access traps
+    /// inside SwiftData (SIGTRAP).
     let container: ModelContainer
     let context: ModelContext
   }

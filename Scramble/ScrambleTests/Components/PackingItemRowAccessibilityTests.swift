@@ -91,8 +91,10 @@ struct PackingItemRowAccessibilityTests {
   // MARK: - Helpers
 
   struct Setup {
-    // Retain the container; a `ModelContext` does not keep its
-    // `ModelContainer` alive, so dropping it crashes the test host.
+    /// Retains the container for the setup's lifetime. A `ModelContext` does
+    /// not keep its `ModelContainer` alive, so without this the container
+    /// deallocates when the helper returns and any later model access traps
+    /// inside SwiftData (SIGTRAP).
     let container: ModelContainer
     let context: ModelContext
   }
