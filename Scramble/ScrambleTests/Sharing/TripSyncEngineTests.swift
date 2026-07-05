@@ -183,6 +183,62 @@ struct TripSyncEngineTests {
     #expect(result.unrecoverable == [record])
   }
 
+  @Test("planZoneRecovery on the private DB creates the zone and re-queues its records")
+  func planZoneRecoveryPrivateFresh() {
+    let zone = CKRecordZone.ID(zoneName: "trip-a", ownerName: CKCurrentUserDefaultName)
+    let r1 = CKRecord.ID(recordName: "r1", zoneID: zone)
+    let r2 = CKRecord.ID(recordName: "r2", zoneID: zone)
+    let plan = TripSyncEngine.planZoneRecovery(
+      failures: [(r1, .zoneNotFound), (r2, .zoneNotFound)],
+      scope: .private, attempts: [:], maxAttempts: 3
+    )
+    #expect(plan.zonesToCreate == [zone])
+    #expect(Set(plan.recordsToRetry) == [r1, r2])
+    #expect(plan.attemptedZones == [zone])
+    #expect(plan.failedRecordIDs.isEmpty)
+  }
+
+  @Test("planZoneRecovery stops recovering a zone that has hit the attempt limit")
+  func planZoneRecoveryExhausted() {
+    let zone = CKRecordZone.ID(zoneName: "trip-a", ownerName: CKCurrentUserDefaultName)
+    let r1 = CKRecord.ID(recordName: "r1", zoneID: zone)
+    let plan = TripSyncEngine.planZoneRecovery(
+      failures: [(r1, .zoneNotFound)],
+      scope: .private, attempts: [zone: 3], maxAttempts: 3
+    )
+    #expect(plan.zonesToCreate.isEmpty)
+    #expect(plan.recordsToRetry.isEmpty)
+    #expect(plan.attemptedZones.isEmpty)
+    #expect(plan.failedRecordIDs == [r1])
+  }
+
+  @Test("planZoneRecovery never creates a zone on the shared DB — zoneNotFound is terminal there")
+  func planZoneRecoverySharedTerminal() {
+    let zone = CKRecordZone.ID(zoneName: "trip-a", ownerName: "remoteOwner")
+    let r1 = CKRecord.ID(recordName: "r1", zoneID: zone)
+    let plan = TripSyncEngine.planZoneRecovery(
+      failures: [(r1, .zoneNotFound)],
+      scope: .shared, attempts: [:], maxAttempts: 3
+    )
+    #expect(plan.zonesToCreate.isEmpty)
+    #expect(plan.attemptedZones.isEmpty)
+    #expect(plan.failedRecordIDs == [r1])
+  }
+
+  @Test("planZoneRecovery recovers zoneNotFound and fails other errors in the same batch")
+  func planZoneRecoveryMixed() {
+    let zone = CKRecordZone.ID(zoneName: "trip-a", ownerName: CKCurrentUserDefaultName)
+    let missing = CKRecord.ID(recordName: "r1", zoneID: zone)
+    let conflict = CKRecord.ID(recordName: "r2", zoneID: zone)
+    let plan = TripSyncEngine.planZoneRecovery(
+      failures: [(missing, .zoneNotFound), (conflict, .serverRecordChanged)],
+      scope: .private, attempts: [:], maxAttempts: 3
+    )
+    #expect(plan.zonesToCreate == [zone])
+    #expect(plan.recordsToRetry == [missing])
+    #expect(plan.failedRecordIDs == [conflict])
+  }
+
   // MARK: - Initial fetch decision (T-1670)
 
   @Test("needsInitialFetch is true when the private scope has no persisted state")

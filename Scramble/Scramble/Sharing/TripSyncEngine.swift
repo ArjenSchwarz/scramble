@@ -43,6 +43,15 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
   /// `enqueueShareSave(_:)` until `handleSentChanges` confirms upload.
   private var pendingShares: [CKRecord.ID: CKShare] = [:]
 
+  /// Consecutive zone-not-found recovery attempts per zone, to bound the
+  /// create-zone-and-retry self-heal loop. A healthy new trip needs exactly
+  /// one attempt; the count resets when the zone actually saves
+  /// (`handleSentDatabaseChanges`). A zone whose save keeps failing stops
+  /// after `maxZoneRecoveryAttempts` and surfaces `.recordsFailed` rather
+  /// than retrying forever with no signal (T-1670).
+  private var zoneRecoveryAttempts: [CKRecordZone.ID: Int] = [:]
+  private static let maxZoneRecoveryAttempts = 3
+
   let events: AsyncStream<TripSyncEvent>
   private let eventContinuation: AsyncStream<TripSyncEvent>.Continuation
 
@@ -314,39 +323,6 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
     try context.save()
   }
 
-  // MARK: - Zone-not-found recovery (pure)
-
-  /// Partition failed record saves. `.zoneNotFound` failures are
-  /// recoverable — CKSyncEngine does **not** auto-create record zones, so
-  /// a freshly-created trip's records are rejected until the zone exists;
-  /// the fix is to create the zone and re-queue the records (Apple's
-  /// sample handles this in the sent-changes callback). Every other error
-  /// is a genuine failure that should surface via `.recordsFailed`. Pure
-  /// so the recovery decision is unit-tested without a live CKSyncEngine
-  /// (T-1670).
-  static func classifyFailedSaves(
-    _ failures: [(recordID: CKRecord.ID, code: CKError.Code)]
-  ) -> FailedSaveClassification {
-    var result = FailedSaveClassification()
-    for failure in failures {
-      if failure.code == .zoneNotFound {
-        result.zonesToCreate.insert(failure.recordID.zoneID)
-        result.recordsToRetry.append(failure.recordID)
-      } else {
-        result.unrecoverable.append(failure.recordID)
-      }
-    }
-    return result
-  }
-
-  /// Result of `classifyFailedSaves`: the zones to (re)create, the records
-  /// to re-queue once they exist, and the genuinely-failed records.
-  struct FailedSaveClassification: Equatable {
-    var zonesToCreate: Set<CKRecordZone.ID> = []
-    var recordsToRetry: [CKRecord.ID] = []
-    var unrecoverable: [CKRecord.ID] = []
-  }
-
   // MARK: - Share record outbound
 
   /// Queue a `CKShare` for upload on the private engine. The share is
@@ -604,45 +580,61 @@ extension TripSyncEngine: CKSyncEngineDelegate {
       emit(.recordsSaved(savedIDs))
     }
 
-    // Zone-not-found recovery. A freshly-created trip's records are queued
-    // for upload before its custom zone exists server-side (CKSyncEngine
-    // does not auto-create zones), so the first send fails with
-    // `.zoneNotFound`. Create the zone and re-queue the records so the
-    // retry lands them; without this the trip never reaches CloudKit and
-    // is lost on reinstall (T-1670). We rely on CKSyncEngine's own send
-    // scheduling/backoff rather than a manual loop guard — a valid
-    // private-DB zone save effectively always succeeds, matching Apple's
-    // sample. Only genuinely-unrecoverable failures emit `.recordsFailed`.
+    // Zone-not-found recovery + genuine-failure reporting (T-1670).
+    recoverFailedSaves(event, scope: scope)
+  }
+
+  /// Zone-not-found recovery for a sent-changes batch: create the missing
+  /// private-DB zone(s), re-queue their records, and surface everything
+  /// else as `.recordsFailed`. A freshly-created trip's records are queued
+  /// for upload before its custom zone exists server-side (CKSyncEngine
+  /// does not auto-create zones), so the first send fails with
+  /// `.zoneNotFound`; recovering here is the only path that ever creates
+  /// that zone. `planZoneRecovery` owns the scope gate and the per-zone
+  /// attempt bound; this method applies the resulting plan.
+  private func recoverFailedSaves(
+    _ event: CKSyncEngine.Event.SentRecordZoneChanges,
+    scope: CKDatabase.Scope
+  ) {
+    guard !event.failedRecordSaves.isEmpty else { return }
     let failures: [(recordID: CKRecord.ID, code: CKError.Code)] =
       event.failedRecordSaves.map { failure in
         let code = (failure.error as? CKError)?.code ?? .internalError
         return (recordID: failure.record.recordID, code: code)
       }
-    let recovery = Self.classifyFailedSaves(failures)
-    if !recovery.zonesToCreate.isEmpty {
+    let plan = Self.planZoneRecovery(
+      failures: failures,
+      scope: scope,
+      attempts: zoneRecoveryAttempts,
+      maxAttempts: Self.maxZoneRecoveryAttempts
+    )
+    for zone in plan.attemptedZones {
+      zoneRecoveryAttempts[zone, default: 0] += 1
+    }
+    if !plan.zonesToCreate.isEmpty {
       let recoveryEngine = engine(for: scope)
       recoveryEngine?.state.add(
-        pendingDatabaseChanges: recovery.zonesToCreate.map {
+        pendingDatabaseChanges: plan.zonesToCreate.map {
           .saveZone(CKRecordZone(zoneID: $0))
         }
       )
       recoveryEngine?.state.add(
-        pendingRecordZoneChanges: recovery.recordsToRetry.map { .saveRecord($0) }
+        pendingRecordZoneChanges: plan.recordsToRetry.map { .saveRecord($0) }
       )
-      markSelfOriginated(recovery.recordsToRetry)
-      let zoneCount = recovery.zonesToCreate.count
-      let recordCount = recovery.recordsToRetry.count
+      markSelfOriginated(plan.recordsToRetry)
+      let zoneCount = plan.zonesToCreate.count
+      let recordCount = plan.recordsToRetry.count
       modelLogger.info(
         "[TripSyncEngine] zoneNotFound recovery: \(zoneCount, privacy: .public) zone(s), \(recordCount, privacy: .public) record(s)"
       )
     }
-    if !recovery.unrecoverable.isEmpty {
-      let unrecoverableIDs = Set(recovery.unrecoverable)
+    if !plan.failedRecordIDs.isEmpty {
+      let failedIDs = Set(plan.failedRecordIDs)
       let message =
         event.failedRecordSaves
-        .first { unrecoverableIDs.contains($0.record.recordID) }?
+        .first { failedIDs.contains($0.record.recordID) }?
         .error.localizedDescription ?? "unknown error"
-      emit(.recordsFailed(recovery.unrecoverable, error: message))
+      emit(.recordsFailed(plan.failedRecordIDs, error: message))
     }
   }
 
@@ -652,8 +644,11 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     // Phase 5.1 — emit one `.zoneSaved` per successfully saved zone so
     // the migration coordinator can advance the journal entry's
     // `zoneSaved` flag. `savedZones` is the CKSyncEngine confirmation
-    // that the zone now exists server-side.
+    // that the zone now exists server-side — which also clears any
+    // zone-not-found recovery counter so the bound tracks *consecutive*
+    // failures, not lifetime ones (T-1670).
     for zone in event.savedZones {
+      zoneRecoveryAttempts[zone.zoneID] = nil
       emit(.zoneSaved(zone.zoneID))
     }
   }

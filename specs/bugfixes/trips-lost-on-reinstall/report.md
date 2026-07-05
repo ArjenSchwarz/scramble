@@ -66,12 +66,20 @@ reconciliation.
 `Scramble/Sharing/TripSyncEngine.swift`
 - **Zone-not-found recovery** in `handleSentChanges`: `.zoneNotFound` record failures now
   create the missing zone (`.saveZone`) and re-queue the records (`.saveRecord`), marking
-  them self-originated. This is Apple's documented pattern. Only genuinely-unrecoverable
-  failures still emit `.recordsFailed`. Recovery relies on CKSyncEngine's own send
-  scheduling/backoff rather than a manual loop guard (a valid private-DB zone save
-  effectively always succeeds).
-- Extracted the pure `classifyFailedSaves(_:)` helper (returns `FailedSaveClassification`)
-  so the recovery decision is unit-tested without a live engine.
+  them self-originated. This is Apple's documented pattern. Two safety gates (added during
+  pre-push review) keep it correct:
+  - **Scope:** recovery only creates a zone on the **private** DB. A `.zoneNotFound` on the
+    shared DB (a participant cannot create a zone it doesn't own — e.g. the owner removed
+    it) is terminal and surfaces via `.recordsFailed`.
+  - **Bounded:** a per-zone attempt counter (`maxZoneRecoveryAttempts = 3`) stops the
+    optimistic re-queue after repeated failures so a persistent zone-save error can't
+    self-heal forever; the counter resets when the zone actually saves
+    (`handleSentDatabaseChanges`). Exhausted zones' records emit `.recordsFailed`, which
+    re-arms the Stage-B migration journal's `.failed` / `retry(tripID:)` path.
+- Extracted two pure helpers so the recovery decision (including the scope gate and the
+  bound — the actual bug surface) is unit-tested without a live engine:
+  `classifyFailedSaves(_:)` → `FailedSaveClassification` (zoneNotFound partition) and
+  `planZoneRecovery(failures:scope:attempts:maxAttempts:)` → `ZoneRecoveryPlan`.
 - `needsInitialFetch()` + `fetchChangesOnLaunch()`: replaced the no-op `add(pendingDatabaseChanges: [])`
   with an explicit cold-launch fetch of both databases, keyed on the private scope having
   no persisted state (fresh install / reinstall / corrupt-and-cleared blob).
@@ -84,9 +92,11 @@ reconciliation.
 ## Tests
 
 `ScrambleTests/Sharing/TripSyncEngineTests.swift` (Swift Testing):
-- `classifyFailedSavesPartitions` — `.zoneNotFound` failures route to zone-create + retry;
-  other errors route to unrecoverable.
-- `classifyFailedSavesNoRecovery` — no `.zoneNotFound` ⇒ nothing recovered.
+- `classifyFailedSavesPartitions` / `classifyFailedSavesNoRecovery` — zoneNotFound partition.
+- `planZoneRecoveryPrivateFresh` — private DB creates the zone + re-queues its records.
+- `planZoneRecoveryExhausted` — a zone at the attempt limit stops recovering; records fail.
+- `planZoneRecoverySharedTerminal` — shared-DB zoneNotFound never creates a zone.
+- `planZoneRecoveryMixed` — recovers zoneNotFound and fails other errors in one batch.
 - `needsInitialFetchFreshStore` / `needsInitialFetchCorruptStore` — fresh and corrupt
   private-scope state both request the launch fetch.
 
