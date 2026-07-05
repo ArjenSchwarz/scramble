@@ -119,5 +119,6 @@ Optional free-text category on packing items, grouping the Packing Sheet and Mas
 Remove the task-row WhyDisclosure explainability surface and delete the now-orphaned `Explainability/` subsystem (`WhyResolver` / `WhyDisclosureView` / `ConditionsFormatter`); the task row was its last production consumer after packing was stripped in phase-4 Decision 10.
 
 - [decision_log.md](remove-task-why-disclosure/decision_log.md)
+- [implementation.md](remove-task-why-disclosure/implementation.md)
 - [smolspec.md](remove-task-why-disclosure/smolspec.md)
 - [tasks.md](remove-task-why-disclosure/tasks.md)
