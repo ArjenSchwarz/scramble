@@ -85,13 +85,48 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
     )
     configuration.automaticallySync = true
     let engine = CKSyncEngine(configuration)
-    if stateBlob == nil {
-      // Either there was no prior state, or it was corrupt and discarded.
-      // Either way, queue a full reconciliation so we don't miss changes
-      // the engine would otherwise have learned about via stored tokens.
-      engine.state.add(pendingDatabaseChanges: [])
-    }
+    // No prior (or corrupt-and-discarded) state means fresh install /
+    // reinstall. `MigrationGate`'s launch path calls
+    // `fetchChangesOnLaunch()` when `needsInitialFetch()` is true so the
+    // trip zones are pulled back down deterministically. The previous
+    // `add(pendingDatabaseChanges: [])` here was an empty array — a no-op
+    // that triggered no reconciliation (T-1670).
     return engine
+  }
+
+  /// True when the private database has no usable persisted CKSyncEngine
+  /// state — the fresh-install / reinstall case. A fresh engine otherwise
+  /// relies solely on `automaticallySync` to discover the existing trip
+  /// zones; an explicit launch fetch makes restore deterministic. Keyed on
+  /// the private scope because owned trips live there and both scopes'
+  /// state files are wiped together on reinstall. Reads through
+  /// `loadStateBlob` so a corrupt (then cleared) blob also counts as fresh.
+  func needsInitialFetch() -> Bool {
+    loadStateBlob(for: .private) == nil
+  }
+
+  /// Force an initial fetch on cold launch so a reinstalled device (empty
+  /// local store, no persisted engine state) pulls existing trip zones back
+  /// down from CloudKit rather than waiting on an unprompted automatic
+  /// sync. Fetches both databases so accepted shares restore alongside
+  /// owned trips. Errors are logged, not thrown — a failed launch fetch
+  /// must not block app startup; `automaticallySync` remains as a backstop.
+  func fetchChangesOnLaunch() async {
+    await fetchChanges(privateEngine, scope: .private)
+    await fetchChanges(sharedEngine, scope: .shared)
+  }
+
+  private func fetchChanges(_ engine: CKSyncEngine?, scope: CKDatabase.Scope) async {
+    guard let engine else { return }
+    do {
+      try await engine.fetchChanges()
+    } catch {
+      let scopeLabel = String(describing: scope)
+      let message = error.localizedDescription
+      modelLogger.error(
+        "[TripSyncEngine] launch fetch failed for \(scopeLabel, privacy: .public): \(message, privacy: .public)"
+      )
+    }
   }
 
   /// Best-effort load of the persisted state blob, with corruption
@@ -277,6 +312,39 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
     }
 
     try context.save()
+  }
+
+  // MARK: - Zone-not-found recovery (pure)
+
+  /// Partition failed record saves. `.zoneNotFound` failures are
+  /// recoverable — CKSyncEngine does **not** auto-create record zones, so
+  /// a freshly-created trip's records are rejected until the zone exists;
+  /// the fix is to create the zone and re-queue the records (Apple's
+  /// sample handles this in the sent-changes callback). Every other error
+  /// is a genuine failure that should surface via `.recordsFailed`. Pure
+  /// so the recovery decision is unit-tested without a live CKSyncEngine
+  /// (T-1670).
+  static func classifyFailedSaves(
+    _ failures: [(recordID: CKRecord.ID, code: CKError.Code)]
+  ) -> FailedSaveClassification {
+    var result = FailedSaveClassification()
+    for failure in failures {
+      if failure.code == .zoneNotFound {
+        result.zonesToCreate.insert(failure.recordID.zoneID)
+        result.recordsToRetry.append(failure.recordID)
+      } else {
+        result.unrecoverable.append(failure.recordID)
+      }
+    }
+    return result
+  }
+
+  /// Result of `classifyFailedSaves`: the zones to (re)create, the records
+  /// to re-queue once they exist, and the genuinely-failed records.
+  struct FailedSaveClassification: Equatable {
+    var zonesToCreate: Set<CKRecordZone.ID> = []
+    var recordsToRetry: [CKRecord.ID] = []
+    var unrecoverable: [CKRecord.ID] = []
   }
 
   // MARK: - Share record outbound
@@ -535,10 +603,46 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     if !savedIDs.isEmpty {
       emit(.recordsSaved(savedIDs))
     }
-    let failedIDs = event.failedRecordSaves.map { $0.record.recordID }
-    if !failedIDs.isEmpty {
-      let message = event.failedRecordSaves.first?.error.localizedDescription ?? "unknown error"
-      emit(.recordsFailed(failedIDs, error: message))
+
+    // Zone-not-found recovery. A freshly-created trip's records are queued
+    // for upload before its custom zone exists server-side (CKSyncEngine
+    // does not auto-create zones), so the first send fails with
+    // `.zoneNotFound`. Create the zone and re-queue the records so the
+    // retry lands them; without this the trip never reaches CloudKit and
+    // is lost on reinstall (T-1670). We rely on CKSyncEngine's own send
+    // scheduling/backoff rather than a manual loop guard — a valid
+    // private-DB zone save effectively always succeeds, matching Apple's
+    // sample. Only genuinely-unrecoverable failures emit `.recordsFailed`.
+    let failures: [(recordID: CKRecord.ID, code: CKError.Code)] =
+      event.failedRecordSaves.map { failure in
+        let code = (failure.error as? CKError)?.code ?? .internalError
+        return (recordID: failure.record.recordID, code: code)
+      }
+    let recovery = Self.classifyFailedSaves(failures)
+    if !recovery.zonesToCreate.isEmpty {
+      let recoveryEngine = engine(for: scope)
+      recoveryEngine?.state.add(
+        pendingDatabaseChanges: recovery.zonesToCreate.map {
+          .saveZone(CKRecordZone(zoneID: $0))
+        }
+      )
+      recoveryEngine?.state.add(
+        pendingRecordZoneChanges: recovery.recordsToRetry.map { .saveRecord($0) }
+      )
+      markSelfOriginated(recovery.recordsToRetry)
+      let zoneCount = recovery.zonesToCreate.count
+      let recordCount = recovery.recordsToRetry.count
+      modelLogger.info(
+        "[TripSyncEngine] zoneNotFound recovery: \(zoneCount, privacy: .public) zone(s), \(recordCount, privacy: .public) record(s)"
+      )
+    }
+    if !recovery.unrecoverable.isEmpty {
+      let unrecoverableIDs = Set(recovery.unrecoverable)
+      let message =
+        event.failedRecordSaves
+        .first { unrecoverableIDs.contains($0.record.recordID) }?
+        .error.localizedDescription ?? "unknown error"
+      emit(.recordsFailed(recovery.unrecoverable, error: message))
     }
   }
 

@@ -150,6 +150,65 @@ struct TripSyncEngineTests {
     #expect(engine.wasSelfOriginated(recordID))
   }
 
+  // MARK: - Zone-not-found recovery (T-1670)
+
+  @Test("classifyFailedSaves routes zoneNotFound to zone-create + retry, other errors to unrecoverable")
+  func classifyFailedSavesPartitions() {
+    let zoneA = CKRecordZone.ID(zoneName: "trip-a", ownerName: CKCurrentUserDefaultName)
+    let zoneB = CKRecordZone.ID(zoneName: "trip-b", ownerName: CKCurrentUserDefaultName)
+    let missing1 = CKRecord.ID(recordName: "r1", zoneID: zoneA)
+    let missing2 = CKRecord.ID(recordName: "r2", zoneID: zoneA)
+    let missing3 = CKRecord.ID(recordName: "r3", zoneID: zoneB)
+    let conflict = CKRecord.ID(recordName: "r4", zoneID: zoneB)
+
+    let result = TripSyncEngine.classifyFailedSaves([
+      (missing1, .zoneNotFound),
+      (missing2, .zoneNotFound),
+      (missing3, .zoneNotFound),
+      (conflict, .serverRecordChanged),
+    ])
+
+    #expect(result.zonesToCreate == [zoneA, zoneB])
+    #expect(Set(result.recordsToRetry) == [missing1, missing2, missing3])
+    #expect(result.unrecoverable == [conflict])
+  }
+
+  @Test("classifyFailedSaves with no zoneNotFound leaves everything unrecoverable")
+  func classifyFailedSavesNoRecovery() {
+    let zone = CKRecordZone.ID(zoneName: "trip-a", ownerName: CKCurrentUserDefaultName)
+    let record = CKRecord.ID(recordName: "r1", zoneID: zone)
+    let result = TripSyncEngine.classifyFailedSaves([(record, .networkUnavailable)])
+    #expect(result.zonesToCreate.isEmpty)
+    #expect(result.recordsToRetry.isEmpty)
+    #expect(result.unrecoverable == [record])
+  }
+
+  // MARK: - Initial fetch decision (T-1670)
+
+  @Test("needsInitialFetch is true when the private scope has no persisted state")
+  func needsInitialFetchFreshStore() throws {
+    let container = try Self.makeContainer()
+    let engine = TripSyncEngine(
+      context: container.mainContext,
+      container: CKContainer(identifier: "iCloud.test"),
+      stateStore: InMemoryTripSyncStateStore()
+    )
+    #expect(engine.needsInitialFetch())
+  }
+
+  @Test("needsInitialFetch is true when the private scope's state is corrupt")
+  func needsInitialFetchCorruptStore() throws {
+    let container = try Self.makeContainer()
+    let store = InMemoryTripSyncStateStore()
+    store.returnCorruptDataForScopes = [.private]
+    let engine = TripSyncEngine(
+      context: container.mainContext,
+      container: CKContainer(identifier: "iCloud.test"),
+      stateStore: store
+    )
+    #expect(engine.needsInitialFetch())
+  }
+
   // MARK: - Helpers
 
   private static func makeContainer() throws -> ModelContainer {
