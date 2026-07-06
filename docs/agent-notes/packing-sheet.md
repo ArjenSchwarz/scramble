@@ -44,34 +44,17 @@ Focus restoration on auto-dismiss runs from `TripDetailView.handlePackingSheetDi
 
 `PackingSheet.body.task` runs `try? await Task.sleep(for: .milliseconds(500))` before setting `headerFocused = true`. Setting the focus inside `.onAppear` is too early on real devices — the a11y frame for the sheet has not been built yet and the focus binding silently fails. 500ms matches Apple's WWDC guidance for cross-context VoiceOver focus handoff.
 
-## Packing WhyDisclosure removed (long-press)
+## Explainability surface removed entirely (T-1617)
 
-Packing rows **no longer** surface the "why is this here?" explainability panel. The long-press gesture, the inline `WhyDisclosureView`, the `openDisclosureItemID` sheet state + background dismiss-tap target, and the VoiceOver "Why is this here?" custom action were all removed from `PackingItemRow` / `PackingSheet` — the owner found it unused and the long-press made the row interaction noisy. This is a deliberate divergence from phase-4 Req 6.5 / 7.10 and phase-6 Req 9.5 (which were packing-specific).
+Packing rows first lost the "why is this here?" explainability panel in phase-4 Decision 10 — the long-press gesture, the inline disclosure view, the `openDisclosureItemID` sheet state + background dismiss-tap target, and the VoiceOver "Why is this here?" action were all removed from `PackingItemRow` / `PackingSheet` (the owner found it unused and the long-press made the row interaction noisy; a deliberate divergence from phase-4 Req 6.5 / 7.10 and phase-6 Req 9.5).
 
-Consequences:
-- `WhyDisclosureView` and `WhyResolver` still exist — the **task** surface (`TaskRow` / `TaskListSection`) keeps long-press WhyDisclosure unchanged.
-- `WhyResolver.reason(for: TripPackingItem, …)` now has no production caller; it stays in place (and is still covered by `WhyResolverPackingTests` / `WhyResolverParticipantHideTests`) rather than being torn out, since it's a pure function and removing it would churn the shared resolver the task path depends on. The `WhyDisclosure.Style.packing(personColour:)` case is likewise now test-only.
+T-1617 then removed the same surface from task rows and, with no remaining production caller, **deleted the entire explainability subsystem (`Scramble/Scramble/Explainability/`) and its test suites**. There is no longer any "why is this here?" affordance anywhere in the app, and no resolver/formatter code. See `specs/remove-task-why-disclosure/decision_log.md` Decision 1.
 
-## Gotcha: `PackingItemRowAccessibilityTests` crashes when run in isolation
+## Gotcha: container-creating test suites must retain the `ModelContainer`
 
-`PackingItemRowAccessibilityTests` (and likely other `@MainActor .serialized` suites that build a fresh `ModelContainer(for: SchemaV3)` per test) **crashes the xctest process when run via a narrow `-only-testing` selection** — every test reports `failed (0.000 seconds)` and the suite re-runs (xcodebuild relaunches after a crash). This is **pre-existing and not a logic failure**: an individual test (`-only-testing:…/unownedLabel`) passes, and the full `make test-quick` (whole `ScrambleTests` target) passes too. The crash is the repeated CloudKit-schema `ModelContainer` creation issue (see `rules/language-rules/swift.md` → "Shared ModelContainer Initialization in Tests").
+`PackingItemRowAccessibilityTests` (and other `@MainActor .serialized` suites that build a fresh `ModelContainer(for: SchemaV3)` per test) used to **crash the xctest process** — every test reported `failed (0.000 seconds)` and the suite re-ran (xcodebuild relaunches after a crash). The cause was the non-retained-`ModelContainer` anti-pattern: helpers returned only `container.mainContext` (or a `Setup` struct holding just the context), so the container deallocated out from under the live context. The simulator used to mask this via ARC timing, but the current Xcode/sim runtime no longer does, so it surfaced as a whole-suite, host-level crash (no assertion recorded). See `rules/language-rules/swift.md` → "Retain the ModelContainer in tests — never use a temporary".
 
-Practical consequence: **verify these suites with the full `make test-quick`, not a hand-picked `-only-testing` subset.** A green/red from a small subset run is unreliable for the container-creating suites. (Confirmed by stashing all changes and reproducing the identical crash on unmodified `main`.)
-
-## WhyDisclosure `Style` migration
-
-`WhyDisclosureView` migrated from `init(reason:, phaseColour:)` to `init(reason:, style:)` where `style` is a `WhyDisclosure.Style` enum with `.tasks(phaseColour:)` and `.packing(personColour:)` cases. The case resolves internally to `(tint: Color, backgroundOpacity: Double, borderOpacity: Double?)`:
-
-| Case | tint | background | border |
-|---|---|---|---|
-| `.tasks` | phase colour | 0.08 | 0.20 |
-| `.packing` | person colour | 0.06 | nil (no border) |
-
-`TaskRow.swift` is the only Phase 3 call site that migrated. No deprecated overload — in-tree migration was small enough that a deprecation surface wasn't worth carrying.
-
-## WhyResolver overload — no protocol abstraction
-
-`WhyResolver.reason(for:context:)` has two `@MainActor` overloads — one for `TripTask`, one for `TripPackingItem`. They share ~30 lines of identical four-branch logic (manual → manual; rule with missing master → ruleMasterDeleted; rule with matching/non-matching conditions). The duplication is deliberate (`specs/phase-4-packing-sheet/design.md` §"Integration with WhyResolver"): abstracting into a `Whyable` protocol would re-touch Phase 3's shipped task overload + tests for an ~30-line saving. Revisit if a third overload or a fifth branch appears.
+T-1617 fixed the affected helpers — their `Setup`/seed structs now retain the container alongside the context, and the bridge-test helpers return the container instead of a bare context. **When adding a container-creating test helper, keep the container retained for the test's lifetime** or the host will crash on this runtime.
 
 ## Sheet-on-sheet manual-add
 

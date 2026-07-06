@@ -14,29 +14,21 @@ Conventions used by Phase 6 polish:
   expand/collapse state (`double tap to expand` / `double tap to
   collapse`).
 - `TaskRow` — combined label includes task name + completion state +
-  assigned person + phase. Default activation toggles completion.
-  Custom action `"Why is this here?"` exposes the disclosure content
-  without long-press; gated by `WhyResolver.reason(...)` (suppressed
-  when the item has no rule justification).
+  assigned person + phase. Default activation toggles completion. The
+  custom actions are Edit and Delete only; the "why is this here?" action
+  was removed in T-1617 along with the rest of the explainability surface.
 - `PackingItemRow` — combined label includes item name + current
   `PackingState` + owning person name. Excluded items labelled
   `"not bringing"`; repack-mode Left Behind items labelled
-  `"left behind"`. Packing rows do **not** expose a `"Why is this here?"`
-  action — the long-press explainability surface was removed from the
-  packing sheet (see "Packing WhyDisclosure removed" in `packing-sheet.md`
-  and phase-4 `decision_log.md` Decision 10). The action remains on `TaskRow`.
+  `"left behind"`. No row type exposes a "why is this here?" action — the
+  explainability surface was removed from packing in phase-4 Decision 10
+  and from tasks (with the whole subsystem) in T-1617.
 - Per-person packing progress bar in `PackingSummarySection` —
   `accessibilityValue` reads `"{name}'s packing, {packed} of {total}
   packed"`.
 - Country flag emoji on the Trip Detail header — `.accessibilityHidden(true)`
   because the destination is already part of the spoken trip name
   (Req 9.6).
-
-`Why is this here?` accessibility action (`TaskRow` only): presence is
-gated on the same `WhyResolver.reason(...)` check the long-press uses.
-Tasks with no rule justification (manual one-offs, items whose master was
-deleted under certain conditions) do not expose the action. Packing rows
-no longer expose this action (long-press explainability removed).
 
 ## Dynamic Type
 
@@ -69,7 +61,6 @@ Five interactions fire haptics (Reqs 8.1–8.5):
 | `PackingItemRow` skip / restore | `.light` | `Components/PackingItemRow.swift` |
 | `PhaseRow` tap (expand/collapse) | `.medium` | `Components/PhaseRow.swift` |
 | `PackingSheet` root `.onAppear` | `.soft` | `Features/Trips/PackingSheet.swift` |
-| `WhyDisclosure` becoming visible (long-press) | `.light` | `Components/TaskRow.swift` |
 
 All use `UIImpactFeedbackGenerator(style:)` per Req 8.6. iOS's native
 "reduce haptics" preference suppresses them automatically.

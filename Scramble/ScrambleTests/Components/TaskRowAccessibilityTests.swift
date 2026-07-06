@@ -4,8 +4,7 @@ import Testing
 
 @testable import Scramble
 
-/// Phase 6 Req 9.2 + 9.5 — TaskRow combined accessibility label and the
-/// "Why is this here?" custom action gate.
+/// Phase 6 Req 9.2 — TaskRow combined accessibility label.
 @Suite("TaskRow accessibility", .serialized)
 @MainActor
 struct TaskRowAccessibilityTests {
@@ -62,73 +61,6 @@ struct TaskRowAccessibilityTests {
 
     let label = TaskRow.accessibilityLabel(for: task)
     #expect(label.contains("assigned to Alice"))
-  }
-
-  // MARK: - Why action gate (Req 9.5)
-
-  @Test("Manual one-off task exposes the Why action (returns .manual reason)")
-  func manualTaskHasWhy() throws {
-    let setup = try Self.makeSetup()
-    let trip = Trip(name: "T", startDate: .now, endDate: .now)
-    setup.context.insert(trip)
-    let task = TripTask(
-      trip: trip,
-      name: "Manual",
-      phase: .departureDay,
-      isCompleted: false,
-      source: .manual
-    )
-    setup.context.insert(task)
-    try setup.context.save()
-
-    let hasWhy = TaskRow.hasWhyJustification(
-      task: task, context: setup.context, hideOnUnresolvedMaster: false
-    )
-    #expect(hasWhy)
-  }
-
-  @Test("Rule task with no master and hideOnUnresolvedMaster=true omits the Why action")
-  func participantUnresolvedMasterHidesWhy() throws {
-    let setup = try Self.makeSetup()
-    let trip = Trip(name: "T", startDate: .now, endDate: .now)
-    setup.context.insert(trip)
-    let task = TripTask(
-      trip: trip,
-      masterItemID: UUID(),  // master not present in this context
-      name: "Rule",
-      phase: .departureDay,
-      isCompleted: false,
-      source: .rule
-    )
-    setup.context.insert(task)
-    try setup.context.save()
-
-    let hasWhy = TaskRow.hasWhyJustification(
-      task: task, context: setup.context, hideOnUnresolvedMaster: true
-    )
-    #expect(!hasWhy)
-  }
-
-  @Test("Owner view of rule task with deleted master still exposes Why (.ruleMasterDeleted)")
-  func ownerUnresolvedMasterShowsWhy() throws {
-    let setup = try Self.makeSetup()
-    let trip = Trip(name: "T", startDate: .now, endDate: .now)
-    setup.context.insert(trip)
-    let task = TripTask(
-      trip: trip,
-      masterItemID: UUID(),
-      name: "Rule",
-      phase: .departureDay,
-      isCompleted: false,
-      source: .rule
-    )
-    setup.context.insert(task)
-    try setup.context.save()
-
-    let hasWhy = TaskRow.hasWhyJustification(
-      task: task, context: setup.context, hideOnUnresolvedMaster: false
-    )
-    #expect(hasWhy)
   }
 
   // MARK: - Helpers
