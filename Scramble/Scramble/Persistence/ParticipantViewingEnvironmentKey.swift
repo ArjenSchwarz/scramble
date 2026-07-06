@@ -1,15 +1,13 @@
 import SwiftUI
 
 /// Phase 5 — flags whether the current Trip Detail surface is being
-/// rendered for a participant on a shared trip. Drives the WhyDisclosure
-/// hide behaviour
-/// (Req [3.3](../../specs/phase-5-cloudkit-sharing/requirements.md#3.3))
-/// and the "Rules last evaluated" subline
+/// rendered for a participant on a shared trip. Drives the participant
+/// read-only rule-edit gating and the "Rules last evaluated" subline
 /// (Req [8.8](../../specs/phase-5-cloudkit-sharing/requirements.md#8.8)).
 ///
-/// Set by `TripDetailView`; consumed by `TaskRow`, `PackingItemRow`, and
-/// the WhyResolver. `false` for owner-viewed trips and for non-shared
-/// trips (default).
+/// Set by `TripDetailView`; consumed by `PackingSheet` and `PackingItemForm`
+/// (category rule-edit gate). `false` for owner-viewed trips and for
+/// non-shared trips (default).
 private struct IsParticipantViewingSharedTripKey: EnvironmentKey {
   static let defaultValue: Bool = false
 }

@@ -12,6 +12,7 @@
 | [Copy Master Packing Items](#copy-master-packing-items) | 2026-06-20 | Done | Copy a master packing item to other people from the Master Lists tab, creating independent copies the rules engine materialises onto trips. |
 | [Packing Item Sub-items](#packing-item-sub-items) | 2026-06-21 | Done | Per-trip free-form note plus an appendable sub-item list on packing items, shown inline on the packing sheet and synced across the shared trip. |
 | [Packing Item Categories](#packing-item-categories) | 2026-06-27 | Done | Optional free-text category on packing items, grouping the Packing Sheet and Master Lists by category with autocomplete suggestions; category re-stamps onto trip items via the rules engine. |
+| [Remove Task WhyDisclosure](#remove-task-whydisclosure) | 2026-06-29 | Done | Remove the task-row WhyDisclosure explainability surface and delete the now-orphaned `Explainability/` subsystem (`WhyResolver` / `WhyDisclosureView` / `ConditionsFormatter`); the task row was its last production consumer after packing was stripped in phase-4 Decision 10. |
 
 ---
 
@@ -112,3 +113,12 @@ Optional free-text category on packing items, grouping the Packing Sheet and Mas
 - [prerequisites.md](packing-item-categories/prerequisites.md)
 - [requirements.md](packing-item-categories/requirements.md)
 - [tasks.md](packing-item-categories/tasks.md)
+
+## Remove Task WhyDisclosure
+
+Remove the task-row WhyDisclosure explainability surface and delete the now-orphaned `Explainability/` subsystem (`WhyResolver` / `WhyDisclosureView` / `ConditionsFormatter`); the task row was its last production consumer after packing was stripped in phase-4 Decision 10.
+
+- [decision_log.md](remove-task-why-disclosure/decision_log.md)
+- [implementation.md](remove-task-why-disclosure/implementation.md)
+- [smolspec.md](remove-task-why-disclosure/smolspec.md)
+- [tasks.md](remove-task-why-disclosure/tasks.md)

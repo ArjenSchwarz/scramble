@@ -79,11 +79,17 @@ The project compiles under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. Value ty
 - CloudKit sync as a re-evaluation trigger — deferred to the CKShare phase (Decision 4). The scenePhase trigger bounds the cross-device staleness window meanwhile.
 - Background-thread execution — family-scale bounds keep all work on the main actor.
 
-## Explainability (Phase 3)
+## Explainability removed (T-1617)
 
-`WhyDisclosure` introspection landed in Phase 3 as a separate two-piece chain that does **not** live in the engine:
+The Phase 3 "why is this here?" introspection chain — the resolver and the
+conditions formatter that lived under `Scramble/Scramble/Explainability/` —
+has been **deleted**. It was always a separate two-piece chain that did not
+live in the engine, so its removal does not touch matching or diffing. The
+owner removed the surface (the long-press disclosure on task rows; packing
+had already lost it in Decision 10), and with no remaining production caller
+the whole subsystem and its tests were deleted. See
+`specs/remove-task-why-disclosure/decision_log.md` Decision 1, which also
+overrides the design docs' "computed on demand" explainability principle.
 
-- `Scramble/Scramble/Explainability/WhyResolver.swift` — `@MainActor static func reason(for task: TripTask, context: ModelContext) -> WhyDisclosure.Reason`. Fetches the `MasterTaskItem` by ID, evaluates `master.conditions.evaluate(against: trip.attributes)`, and maps to one of four `.manual / .ruleMasterDeleted / .ruleMatched(text) / .ruleNoLongerMatches` cases.
-- `Scramble/Scramble/Explainability/ConditionsFormatter.swift` — `nonisolated static func format(_ conditions: ItemConditions, against: TripAttributes) -> String`. Walks the conditions tree, intersects per-attribute master-allowed values with trip-selected values, renders via `attributeValueDisplay`, joins with `" or "` within an attribute type and `" + "` across types in `TripAttribute.allCases` order.
-
-Per Decision 8.9, the matched conditions are **computed on demand** by intersecting the master item's current conditions with the trip's current attributes — never snapshotted at task-creation time. The resolver runs on the main actor because `ModelContext.fetch` is `@MainActor`; the formatter is `nonisolated` because it operates on pure value types.
+The engine's matching, diffing, and `currentlyMatchesRules` dimming are
+unchanged — there is simply no longer any on-demand "why" computation.

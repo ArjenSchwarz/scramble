@@ -6,15 +6,10 @@ import os
 /// `trip.tasks` to the phase, drops soft-deleted rule rows
 /// (`userDeletedOnThisTrip == true`), sorts via `TaskListHelpers.sorted`, and
 /// appends a dashed "Add task" affordance.
-///
-/// The single source of disclosure state for the timeline is the parent's
-/// `openDisclosureTaskID` binding; this section forwards it to each
-/// `TaskRow` and clears it when a different row's long-press fires.
 struct TaskListSection: View {
   let trip: Trip
   let phase: Phase
   let phaseColour: Color
-  @Binding var openDisclosureTaskID: UUID?
   let onAdd: () -> Void
   let onEdit: (TripTask) -> Void
 
@@ -30,9 +25,7 @@ struct TaskListSection: View {
         TaskRow(
           task: task,
           phaseColour: phaseColour,
-          isDisclosureOpen: openDisclosureTaskID == task.id,
           onToggleComplete: { toggleComplete(task) },
-          onLongPress: { toggleDisclosure(task) },
           onEdit: { onEdit(task) },
           onDelete: { delete(task) }
         )
@@ -44,17 +37,6 @@ struct TaskListSection: View {
         #endif
     }
     .padding(.top, 8)
-    .background {
-      // Disclosure-dismiss tap target. Lives on a background layer (behind
-      // task rows and the add button) and is only mounted when there is an
-      // open disclosure, so it can't intercept taps destined for the
-      // checkbox or `DashedAddButton` when no disclosure is open.
-      if openDisclosureTaskID != nil {
-        Color.clear
-          .contentShape(Rectangle())
-          .onTapGesture { openDisclosureTaskID = nil }
-      }
-    }
     #if DEBUG
       .accessibilityIdentifier("tripDetail.taskListSection.\(phase.rawValue)")
     #endif
@@ -71,10 +53,6 @@ struct TaskListSection: View {
         "TaskListSection.toggleComplete save failed: \(error.localizedDescription, privacy: .public)"
       )
     }
-  }
-
-  private func toggleDisclosure(_ task: TripTask) {
-    openDisclosureTaskID = (openDisclosureTaskID == task.id) ? nil : task.id
   }
 
   private func delete(_ task: TripTask) {
