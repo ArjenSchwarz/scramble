@@ -597,10 +597,11 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     scope: CKDatabase.Scope
   ) {
     guard !event.failedRecordSaves.isEmpty else { return }
+    // `failedRecordSaves.error` is already typed `CKError`, so read `.code`
+    // directly — no cast or fallback needed.
     let failures: [(recordID: CKRecord.ID, code: CKError.Code)] =
       event.failedRecordSaves.map { failure in
-        let code = (failure.error as? CKError)?.code ?? .internalError
-        return (recordID: failure.record.recordID, code: code)
+        (recordID: failure.record.recordID, code: failure.error.code)
       }
     let plan = Self.planZoneRecovery(
       failures: failures,
