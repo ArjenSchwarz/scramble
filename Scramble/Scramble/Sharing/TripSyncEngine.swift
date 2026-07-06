@@ -43,6 +43,15 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
   /// `enqueueShareSave(_:)` until `handleSentChanges` confirms upload.
   private var pendingShares: [CKRecord.ID: CKShare] = [:]
 
+  /// Consecutive zone-not-found recovery attempts per zone, to bound the
+  /// create-zone-and-retry self-heal loop. A healthy new trip needs exactly
+  /// one attempt; the count resets when the zone actually saves
+  /// (`handleSentDatabaseChanges`). A zone whose save keeps failing stops
+  /// after `maxZoneRecoveryAttempts` and surfaces `.recordsFailed` rather
+  /// than retrying forever with no signal (T-1670).
+  private var zoneRecoveryAttempts: [CKRecordZone.ID: Int] = [:]
+  private static let maxZoneRecoveryAttempts = 3
+
   let events: AsyncStream<TripSyncEvent>
   private let eventContinuation: AsyncStream<TripSyncEvent>.Continuation
 
@@ -85,13 +94,48 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
     )
     configuration.automaticallySync = true
     let engine = CKSyncEngine(configuration)
-    if stateBlob == nil {
-      // Either there was no prior state, or it was corrupt and discarded.
-      // Either way, queue a full reconciliation so we don't miss changes
-      // the engine would otherwise have learned about via stored tokens.
-      engine.state.add(pendingDatabaseChanges: [])
-    }
+    // No prior (or corrupt-and-discarded) state means fresh install /
+    // reinstall. `MigrationGate`'s launch path calls
+    // `fetchChangesOnLaunch()` when `needsInitialFetch()` is true so the
+    // trip zones are pulled back down deterministically. The previous
+    // `add(pendingDatabaseChanges: [])` here was an empty array — a no-op
+    // that triggered no reconciliation (T-1670).
     return engine
+  }
+
+  /// True when the private database has no usable persisted CKSyncEngine
+  /// state — the fresh-install / reinstall case. A fresh engine otherwise
+  /// relies solely on `automaticallySync` to discover the existing trip
+  /// zones; an explicit launch fetch makes restore deterministic. Keyed on
+  /// the private scope because owned trips live there and both scopes'
+  /// state files are wiped together on reinstall. Reads through
+  /// `loadStateBlob` so a corrupt (then cleared) blob also counts as fresh.
+  func needsInitialFetch() -> Bool {
+    loadStateBlob(for: .private) == nil
+  }
+
+  /// Force an initial fetch on cold launch so a reinstalled device (empty
+  /// local store, no persisted engine state) pulls existing trip zones back
+  /// down from CloudKit rather than waiting on an unprompted automatic
+  /// sync. Fetches both databases so accepted shares restore alongside
+  /// owned trips. Errors are logged, not thrown — a failed launch fetch
+  /// must not block app startup; `automaticallySync` remains as a backstop.
+  func fetchChangesOnLaunch() async {
+    await fetchChanges(privateEngine, scope: .private)
+    await fetchChanges(sharedEngine, scope: .shared)
+  }
+
+  private func fetchChanges(_ engine: CKSyncEngine?, scope: CKDatabase.Scope) async {
+    guard let engine else { return }
+    do {
+      try await engine.fetchChanges()
+    } catch {
+      let scopeLabel = String(describing: scope)
+      let message = error.localizedDescription
+      modelLogger.error(
+        "[TripSyncEngine] launch fetch failed for \(scopeLabel, privacy: .public): \(message, privacy: .public)"
+      )
+    }
   }
 
   /// Best-effort load of the persisted state blob, with corruption
@@ -535,10 +579,63 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     if !savedIDs.isEmpty {
       emit(.recordsSaved(savedIDs))
     }
-    let failedIDs = event.failedRecordSaves.map { $0.record.recordID }
-    if !failedIDs.isEmpty {
-      let message = event.failedRecordSaves.first?.error.localizedDescription ?? "unknown error"
-      emit(.recordsFailed(failedIDs, error: message))
+
+    // Zone-not-found recovery + genuine-failure reporting (T-1670).
+    recoverFailedSaves(event, scope: scope)
+  }
+
+  /// Zone-not-found recovery for a sent-changes batch: create the missing
+  /// private-DB zone(s), re-queue their records, and surface everything
+  /// else as `.recordsFailed`. A freshly-created trip's records are queued
+  /// for upload before its custom zone exists server-side (CKSyncEngine
+  /// does not auto-create zones), so the first send fails with
+  /// `.zoneNotFound`; recovering here is the only path that ever creates
+  /// that zone. `planZoneRecovery` owns the scope gate and the per-zone
+  /// attempt bound; this method applies the resulting plan.
+  private func recoverFailedSaves(
+    _ event: CKSyncEngine.Event.SentRecordZoneChanges,
+    scope: CKDatabase.Scope
+  ) {
+    guard !event.failedRecordSaves.isEmpty else { return }
+    // `failedRecordSaves.error` is already typed `CKError`, so read `.code`
+    // directly — no cast or fallback needed.
+    let failures: [(recordID: CKRecord.ID, code: CKError.Code)] =
+      event.failedRecordSaves.map { failure in
+        (recordID: failure.record.recordID, code: failure.error.code)
+      }
+    let plan = Self.planZoneRecovery(
+      failures: failures,
+      scope: scope,
+      attempts: zoneRecoveryAttempts,
+      maxAttempts: Self.maxZoneRecoveryAttempts
+    )
+    for zone in plan.attemptedZones {
+      zoneRecoveryAttempts[zone, default: 0] += 1
+    }
+    if !plan.zonesToCreate.isEmpty {
+      let recoveryEngine = engine(for: scope)
+      recoveryEngine?.state.add(
+        pendingDatabaseChanges: plan.zonesToCreate.map {
+          .saveZone(CKRecordZone(zoneID: $0))
+        }
+      )
+      recoveryEngine?.state.add(
+        pendingRecordZoneChanges: plan.recordsToRetry.map { .saveRecord($0) }
+      )
+      markSelfOriginated(plan.recordsToRetry)
+      let zoneCount = plan.zonesToCreate.count
+      let recordCount = plan.recordsToRetry.count
+      modelLogger.info(
+        "[TripSyncEngine] zoneNotFound recovery: \(zoneCount, privacy: .public) zone(s), \(recordCount, privacy: .public) record(s)"
+      )
+    }
+    if !plan.failedRecordIDs.isEmpty {
+      let failedIDs = Set(plan.failedRecordIDs)
+      let message =
+        event.failedRecordSaves
+        .first { failedIDs.contains($0.record.recordID) }?
+        .error.localizedDescription ?? "unknown error"
+      emit(.recordsFailed(plan.failedRecordIDs, error: message))
     }
   }
 
@@ -548,8 +645,11 @@ extension TripSyncEngine: CKSyncEngineDelegate {
     // Phase 5.1 — emit one `.zoneSaved` per successfully saved zone so
     // the migration coordinator can advance the journal entry's
     // `zoneSaved` flag. `savedZones` is the CKSyncEngine confirmation
-    // that the zone now exists server-side.
+    // that the zone now exists server-side — which also clears any
+    // zone-not-found recovery counter so the bound tracks *consecutive*
+    // failures, not lifetime ones (T-1670).
     for zone in event.savedZones {
+      zoneRecoveryAttempts[zone.zoneID] = nil
       emit(.zoneSaved(zone.zoneID))
     }
   }
