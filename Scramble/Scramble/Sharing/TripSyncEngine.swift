@@ -280,49 +280,6 @@ final class TripSyncEngine: NSObject, PendingChangeNotifier {
     }
   }
 
-  /// Apply server-side deletions to the local store. Looks up the records
-  /// by `recordName` in one fetch per entity type and deletes the matches.
-  /// Skips entries whose record name doesn't parse as a UUID.
-  func apply(deletedRecordIDs: [CKRecord.ID]) throws {
-    let ids = Set(deletedRecordIDs.compactMap { UUID(uuidString: $0.recordName) })
-    guard !ids.isEmpty else { return }
-
-    let trips = try context.fetch(
-      FetchDescriptor<Trip>(predicate: #Predicate { ids.contains($0.id) })
-    )
-    let foundTripIDs = Set(trips.map(\.id))
-    // `Trip.participantSnapshots` uses `.nullify` (V3 cascade-traversal
-    // workaround for iOS 26.4), so deleting the trip alone leaves the
-    // snapshot rows behind. Walk each trip's snapshot collection and
-    // remove them explicitly before the trip is deleted.
-    for trip in trips {
-      for snapshot in trip.participantSnapshots ?? [] {
-        context.delete(snapshot)
-      }
-    }
-    for trip in trips { context.delete(trip) }
-
-    let remaining = ids.subtracting(foundTripIDs)
-    if !remaining.isEmpty {
-      let tasks = try context.fetch(
-        FetchDescriptor<TripTask>(predicate: #Predicate { remaining.contains($0.id) })
-      )
-      for task in tasks { context.delete(task) }
-
-      let items = try context.fetch(
-        FetchDescriptor<TripPackingItem>(predicate: #Predicate { remaining.contains($0.id) })
-      )
-      for item in items { context.delete(item) }
-
-      let snapshots = try context.fetch(
-        FetchDescriptor<TripPersonSnapshot>(predicate: #Predicate { remaining.contains($0.id) })
-      )
-      for snapshot in snapshots { context.delete(snapshot) }
-    }
-
-    try context.save()
-  }
-
   // MARK: - Share record outbound
 
   /// Queue a `CKShare` for upload on the private engine. The share is

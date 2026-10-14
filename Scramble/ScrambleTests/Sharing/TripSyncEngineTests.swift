@@ -268,8 +268,10 @@ struct TripSyncEngineTests {
 
   // MARK: - Helpers
 
-  @Test("A tombstone from another zone must not delete a trip during packing")
-  func foreignZoneDeletionPreservesPackingTrip() throws {
+  @Test(
+    "Foreign tombstones preserve the packing graph",
+    arguments: ["legacy", "otherTrip", "otherOwner"], ["trip", "item", "task", "snapshot"])
+  func foreignZoneDeletionPreservesPackingTrip(zoneKind: String, entityKind: String) throws {
     let container = try Self.makeContainer()
     let context = container.mainContext
     let engine = TripSyncEngine(
@@ -277,18 +279,105 @@ struct TripSyncEngineTests {
       stateStore: InMemoryTripSyncStateStore())
     let trip = Trip(name: "Synthetic packing", startDate: .now, endDate: .now)
     context.insert(trip)
-    let item = TripPackingItem(trip: trip, name: "Fixture item")
+    let snapshot = TripPersonSnapshot(name: "Fixture", trip: trip)
+    context.insert(snapshot)
+    let task = TripTask(trip: trip, name: "Fixture task")
+    context.insert(task)
+    let item = TripPackingItem(trip: trip, name: "Fixture item", personSnapshot: snapshot)
     context.insert(item)
     try context.save()
     let tripID = trip.id
-    let foreignZone = CKRecordZone.ID(zoneName: "legacy-zone", ownerName: CKCurrentUserDefaultName)
+    let zone: CKRecordZone.ID
+    switch zoneKind {
+    case "otherTrip": zone = ZoneMigrationCoordinator.ownerZoneID(for: UUID())
+    case "otherOwner":
+      zone = CKRecordZone.ID(zoneName: "trip-\(tripID.uuidString)", ownerName: "foreign-owner")
+    default: zone = CKRecordZone.ID(zoneName: "legacy-zone", ownerName: CKCurrentUserDefaultName)
+    }
+    let id = ["trip": tripID, "item": item.id, "task": task.id, "snapshot": snapshot.id][
+      entityKind]!
     item.state = .packed
     try LocalWriteHook(notifier: engine).commit(context)
-    try engine.apply(deletedRecordIDs: [
-      CKRecord.ID(recordName: tripID.uuidString, zoneID: foreignZone)
-    ])
+    try engine.apply(deletedRecordIDs: [CKRecord.ID(recordName: id.uuidString, zoneID: zone)])
     #expect(try context.fetch(FetchDescriptor<Trip>()).map(\.id) == [tripID])
     #expect(try context.fetchCount(FetchDescriptor<TripPackingItem>()) == 1)
+    #expect(try context.fetchCount(FetchDescriptor<TripTask>()) == 1)
+    #expect(try context.fetchCount(FetchDescriptor<TripPersonSnapshot>()) == 1)
+    #expect(item.state == .packed)
+  }
+
+  @Test(
+    "Genuine private and shared tombstones delete only their own trip graph",
+    arguments: ["private", "shared", "defaultOwner"])
+  func matchingZoneDeletionRemovesTripGraph(scope: String) throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let engine = TripSyncEngine(
+      context: context, container: CKContainer(identifier: "iCloud.test"),
+      stateStore: InMemoryTripSyncStateStore())
+    let trip = Trip(name: "Synthetic deleted trip")
+    let survivor = Trip(name: "Synthetic retained trip")
+    context.insert(trip)
+    context.insert(survivor)
+    let survivorID = survivor.id
+    let snapshot = TripPersonSnapshot(name: "Fixture", trip: trip)
+    context.insert(snapshot)
+    context.insert(TripPackingItem(trip: trip, name: "Fixture item", personSnapshot: snapshot))
+    context.insert(TripTask(trip: trip, name: "Fixture task"))
+    let shared = scope == "shared"
+    let owner = shared ? "fixture-owner" : CKCurrentUserDefaultName
+    let state = TripZoneState(
+      tripID: trip.id, zoneOwnerName: scope == "defaultOwner" ? "" : owner,
+      zoneScope: shared ? "shared" : "private")
+    context.insert(state)
+    try context.save()
+    let zone = CKRecordZone.ID(zoneName: "trip-\(trip.id.uuidString)", ownerName: owner)
+    try engine.apply(deletedRecordIDs: [CKRecord.ID(recordName: trip.id.uuidString, zoneID: zone)])
+    #expect(try context.fetch(FetchDescriptor<Trip>()).map(\.id) == [survivorID])
+    #expect(try context.fetchCount(FetchDescriptor<TripPackingItem>()) == 0)
+    #expect(try context.fetchCount(FetchDescriptor<TripTask>()) == 0)
+    #expect(try context.fetchCount(FetchDescriptor<TripPersonSnapshot>()) == 0)
+    #expect(try context.fetchCount(FetchDescriptor<TripZoneState>()) == 0)
+  }
+
+  @Test("A child tombstone uses its owning trip zone without deleting its parent")
+  func matchingZoneChildDeletionPreservesTrip() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let engine = TripSyncEngine(
+      context: context, container: CKContainer(identifier: "iCloud.test"),
+      stateStore: InMemoryTripSyncStateStore())
+    let trip = Trip(name: "Synthetic retained trip")
+    context.insert(trip)
+    let item = TripPackingItem(trip: trip, name: "Fixture item")
+    context.insert(item)
+    try context.save()
+    let zone = ZoneMigrationCoordinator.ownerZoneID(for: trip.id)
+    try engine.apply(deletedRecordIDs: [CKRecord.ID(recordName: item.id.uuidString, zoneID: zone)])
+    #expect(try context.fetchCount(FetchDescriptor<Trip>()) == 1)
+    #expect(try context.fetchCount(FetchDescriptor<TripPackingItem>()) == 0)
+  }
+
+  @Test("An orphaned child requires its cached full CloudKit identity for deletion")
+  func orphanDeletionRequiresCachedIdentity() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let engine = TripSyncEngine(
+      context: context, container: CKContainer(identifier: "iCloud.test"),
+      stateStore: InMemoryTripSyncStateStore())
+    let zone = ZoneMigrationCoordinator.ownerZoneID(for: UUID())
+    let item = TripPackingItem(name: "Synthetic orphan")
+    context.insert(item)
+    let record = try TripPackingItemRecordTranslator.toRecord(item, in: zone)
+    item.ckRecordSystemFields = encodeSystemFields(of: record)
+    try context.save()
+    let foreignZone = ZoneMigrationCoordinator.ownerZoneID(for: UUID())
+    try engine.apply(deletedRecordIDs: [
+      CKRecord.ID(recordName: item.id.uuidString, zoneID: foreignZone)
+    ])
+    #expect(try context.fetchCount(FetchDescriptor<TripPackingItem>()) == 1)
+    try engine.apply(deletedRecordIDs: [record.recordID])
+    #expect(try context.fetchCount(FetchDescriptor<TripPackingItem>()) == 0)
   }
 
   @Test("Repeated packing saves and sync echoes preserve trips across a disk reopen")
@@ -317,8 +406,9 @@ struct TripSyncEngineTests {
     let zone = ZoneMigrationCoordinator.ownerZoneID(for: tripID)
     let navigationHash = trip.hashValue
     let persistentID = trip.persistentModelID
-    for index in 0..<20 {
-      item.state = index.isMultiple(of: 2) ? .packed : .unpacked
+    for index in 0..<24 {
+      let cycle: [PackingState] = [.packed, .unpacked, .packed, .repacked, .packed, .unpacked]
+      item.state = cycle[index % cycle.count]
       try hook.commit(context)
       #expect(try context.fetchCount(FetchDescriptor<Trip>()) == 1)
       let record = try TripPackingItemRecordTranslator.toRecord(item, in: zone)

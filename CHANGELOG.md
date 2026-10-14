@@ -8,8 +8,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- T-2459: Synthetic packing persistence, navigation/lifecycle, and foreign-zone deletion regressions.
-
 - `packing-item-categories` (T-1605) — Release prep (CloudKit schema-promotion checklist):
   - `docs/release-prep.md` — added a promote-to-Production checklist item for the two new category fields: `MasterPackingItem.category` (auto-mirrored into the private CloudKit DB by the SwiftData mirror — flagged easy-to-miss since no hand-written code generates it) and `TripPackingItem.category` (shared-zone record type), linked to Req 7.1/7.2. The manual Dashboard promotion remains a release prerequisite (`prerequisites.md`), not a code step.
 
@@ -98,6 +96,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Packing-sheet `WhyDisclosure` long-press explainability (packing rows only; task-side explainability is unchanged). The long-press gesture, the inline "Why is this here?" panel, and the matching VoiceOver custom action are gone from `PackingItemRow` / `PackingSheet`, along with the per-row `WhyResolver` fetches that backed them (a net efficiency win on the packing sheet). The shared `WhyResolver.reason(for:TripPackingItem)` overload and `WhyDisclosure.Style.packing` are now test-only but retained. Also untangles #11's inline note/sub-item editors from the removed disclosure (the editor-visibility handler no longer closes it). Divergence from accepted Phase 4 (Req 6.5 / §7 / 9.2 / 9.9) and Phase 6 (Req 8.5 / 9.5) requirements is recorded as `specs/phase-4-packing-sheet/decision_log.md` Decision 10; `docs/agent-notes/packing-sheet.md` + `accessibility.md`, `CLAUDE.md`, and `docs/scramble-ui-design-doc.md` updated to match. Removed the now-obsolete `hasWhyJustification` unit tests and packing `WhyDisclosure` UI tests.
 
 ### Fixed
+
+- T-2459: Match complete CloudKit record and zone identities before applying inbound deletions, preventing foreign-zone tombstones from deleting local trips or packing items. Added synthetic packing, persistence, lifecycle and deletion regression coverage.
 
 - Unit-test flakiness — non-retained `ModelContainer` in test helpers (the dominant cause):
   - Seven suites built a SwiftData `ModelContainer` as a local, derived a `ModelContext`/`@Model` from it, and returned only the context (or a struct/context that didn't include the container). A `ModelContext` does not keep its `ModelContainer` alive, so ARC could deallocate it mid-test and the next model access trapped inside SwiftData (`EXC_BREAKPOINT`/`SIGTRAP`). Non-deterministic ARC timing made a different test "crash" each run, with the host restarting and the remaining tests reporting as `0.000s` crashes — i.e. flaky. Confirmed via `~/Library/Logs/DiagnosticReports/Scramble-*.ips` (use-after-dealloc from a model setter called by the test), not the "Xcode 26.5 multi-container toolchain bug" previously assumed.
