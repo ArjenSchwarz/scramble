@@ -6,6 +6,9 @@ PROJECT = Scramble/Scramble.xcodeproj
 BUNDLE_ID = me.nore.ig.Scramble
 CONFIG ?= Debug
 
+# Optional selectors for focused development runs, e.g. -only-testing:ScrambleUITests/PackingSheetUITests.
+TEST_ARGS ?=
+
 SIMULATOR ?= iPhone 17 Pro
 DEVICE_MODEL ?= iPhone 17 Pro
 
@@ -92,6 +95,7 @@ test-quick:
 		-scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
 		-configuration Debug \
+		$(TEST_ARGS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:ScrambleTests \
 		-parallel-testing-worker-count 1 \
@@ -107,6 +111,7 @@ test:
 		-scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
 		-configuration Debug \
+		$(TEST_ARGS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-parallel-testing-worker-count 1 \
 		-maximum-concurrent-test-simulator-destinations 1 \
@@ -119,6 +124,7 @@ test-ui:
 		-scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
 		-configuration Debug \
+		$(TEST_ARGS) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:ScrambleUITests \
 		-parallel-testing-worker-count 1 \

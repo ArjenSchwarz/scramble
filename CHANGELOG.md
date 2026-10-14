@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- T-2459: Synthetic packing persistence, navigation/lifecycle, and foreign-zone deletion regressions.
+
 - `packing-item-categories` (T-1605) — Release prep (CloudKit schema-promotion checklist):
   - `docs/release-prep.md` — added a promote-to-Production checklist item for the two new category fields: `MasterPackingItem.category` (auto-mirrored into the private CloudKit DB by the SwiftData mirror — flagged easy-to-miss since no hand-written code generates it) and `TripPackingItem.category` (shared-zone record type), linked to Req 7.1/7.2. The manual Dashboard promotion remains a release prerequisite (`prerequisites.md`), not a code step.
 

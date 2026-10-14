@@ -53,6 +53,8 @@
       /// checkbox toggle, Skip/Restore, manual add, and dimmed-row counting
       /// (including rule-driven items).
       case phase4PackModeTrip = "phase4-pack-mode-trip"
+      /// Synthetic two-store fixture exercising production packing writes.
+      case packingTripStability = "packing-trip-stability"
       /// Phase 4: trip currently on `.dayBeforeReturn` (today == end-1, start
       /// == today-3) with two participants and a mix of packed/repacked/
       /// unpacked/excluded items. Used by repack-mode UI tests covering the
@@ -84,6 +86,10 @@
       guard let fixture = parseFixture(from: arguments) else { return }
       UITestSharingService.reset()
       switch fixture {
+      case .packingTripStability:
+        seedPackingTripStability(
+          globals: globalsContainer.mainContext,
+          trips: tripsLocalContainer.mainContext, today: today, calendar: calendar)
       case .phase5SharedTripOwner,
         .phase5SharedTripParticipant,
         .phase5MigrationStates:
@@ -102,6 +108,24 @@
           calendar: calendar
         )
       }
+    }
+
+    private static func seedPackingTripStability(
+      globals: ModelContext, trips: ModelContext, today: Date, calendar: Calendar
+    ) {
+      let person = Person(name: "Fixture Person", colorKey: "Cyan")
+      globals.insert(person)
+      let day = calendar.startOfDay(for: today)
+      let draft = TripDraft(
+        name: "Synthetic Packing Trip",
+        startDate: calendar.date(byAdding: .day, value: 1, to: day)!,
+        endDate: calendar.date(byAdding: .day, value: 6, to: day)!,
+        attributes: TripAttributes(), participantIDs: [person.id])
+      let (trip, _) = TripPersistence.create(from: draft, in: trips, globals: globals)
+      let snapshot = (trip.participantSnapshots ?? []).first
+      trips.insert(TripPackingItem(trip: trip, name: "Fixture item", personSnapshot: snapshot))
+      try? globals.save()
+      try? trips.save()
     }
 
     static func parseFixture(from arguments: [String]) -> Fixture? {
@@ -169,7 +193,7 @@
       case .phase4PackModeTrip,
         .phase4RepackModeTrip:
         seedPhase4(fixture: fixture, in: context, day: day, calendar: calendar)
-      case .phase5SharedTripOwner,
+      case .packingTripStability, .phase5SharedTripOwner,
         .phase5SharedTripParticipant,
         .phase5MigrationStates:
         // Phase 5 fixtures require the dual-container entry point; the

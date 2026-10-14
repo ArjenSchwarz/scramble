@@ -152,7 +152,8 @@ struct TripSyncEngineTests {
 
   // MARK: - Zone-not-found recovery (T-1670)
 
-  @Test("classifyFailedSaves routes zoneNotFound to zone-create + retry, other errors to unrecoverable")
+  @Test(
+    "classifyFailedSaves routes zoneNotFound to zone-create + retry, other errors to unrecoverable")
   func classifyFailedSavesPartitions() {
     let zoneA = CKRecordZone.ID(zoneName: "trip-a", ownerName: CKCurrentUserDefaultName)
     let zoneB = CKRecordZone.ID(zoneName: "trip-b", ownerName: CKCurrentUserDefaultName)
@@ -266,6 +267,73 @@ struct TripSyncEngineTests {
   }
 
   // MARK: - Helpers
+
+  @Test("A tombstone from another zone must not delete a trip during packing")
+  func foreignZoneDeletionPreservesPackingTrip() throws {
+    let container = try Self.makeContainer()
+    let context = container.mainContext
+    let engine = TripSyncEngine(
+      context: context, container: CKContainer(identifier: "iCloud.test"),
+      stateStore: InMemoryTripSyncStateStore())
+    let trip = Trip(name: "Synthetic packing", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let item = TripPackingItem(trip: trip, name: "Fixture item")
+    context.insert(item)
+    try context.save()
+    let tripID = trip.id
+    let foreignZone = CKRecordZone.ID(zoneName: "legacy-zone", ownerName: CKCurrentUserDefaultName)
+    item.state = .packed
+    try LocalWriteHook(notifier: engine).commit(context)
+    try engine.apply(deletedRecordIDs: [
+      CKRecord.ID(recordName: tripID.uuidString, zoneID: foreignZone)
+    ])
+    #expect(try context.fetch(FetchDescriptor<Trip>()).map(\.id) == [tripID])
+    #expect(try context.fetchCount(FetchDescriptor<TripPackingItem>()) == 1)
+  }
+
+  @Test("Repeated packing saves and sync echoes preserve trips across a disk reopen")
+  func packingSavesPreserveTrips() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let schema = Schema(versionedSchema: SchemaV3.self)
+    let configuration = ModelConfiguration(
+      schema: schema, url: directory.appendingPathComponent("Synthetic.store"),
+      cloudKitDatabase: .none)
+    let container = try ModelContainer(for: schema, configurations: [configuration])
+    let context = container.mainContext
+    let engine = TripSyncEngine(
+      context: context, container: CKContainer(identifier: "iCloud.test"),
+      stateStore: InMemoryTripSyncStateStore())
+    let hook = LocalWriteHook(notifier: engine)
+    let trip = Trip(name: "Synthetic packing", startDate: .now, endDate: .now)
+    context.insert(trip)
+    let snapshot = TripPersonSnapshot(name: "Fixture", trip: trip)
+    context.insert(snapshot)
+    let item = TripPackingItem(trip: trip, name: "Fixture item", personSnapshot: snapshot)
+    context.insert(item)
+    try hook.commit(context)
+    let tripID = trip.id
+    let zone = ZoneMigrationCoordinator.ownerZoneID(for: tripID)
+    let navigationHash = trip.hashValue
+    let persistentID = trip.persistentModelID
+    for index in 0..<20 {
+      item.state = index.isMultiple(of: 2) ? .packed : .unpacked
+      try hook.commit(context)
+      #expect(try context.fetchCount(FetchDescriptor<Trip>()) == 1)
+      let record = try TripPackingItemRecordTranslator.toRecord(item, in: zone)
+      try engine.apply(fetchedRecords: [record])
+      #expect(item.trip?.id == tripID)
+      #expect(trip.hashValue == navigationHash)
+      #expect(trip.persistentModelID == persistentID)
+      #expect(trip.endDate >= trip.startDate)
+    }
+    let reopened = try ModelContainer(for: schema, configurations: [configuration])
+    let trips = try reopened.mainContext.fetch(FetchDescriptor<Trip>())
+    #expect(trips.map(\.id) == [tripID])
+    #expect(trips.first?.packingItems?.count == 1)
+    #expect(trips.first?.packingItems?.first?.state == .unpacked)
+  }
 
   private static func makeContainer() throws -> ModelContainer {
     let schema = Schema(versionedSchema: SchemaV3.self)

@@ -201,6 +201,39 @@ final class PackingSheetUITests: XCTestCase {
     )
   }
 
+  /// Packing progress must never remove the owning trip or dismiss its detail.
+  @MainActor
+  func testRepeatedPackingTogglesPreserveTripAcrossForeground() {
+    let app = launchedApp(fixture: "packing-trip-stability")
+    openTripDetail(app, tripName: "Synthetic Packing Trip")
+    openPackingSheetForFirstParticipant(app)
+
+    let header = app.descendants(matching: .any)
+      .matching(identifier: "packingSheet.header").firstMatch
+    XCTAssertTrue(header.waitForExistence(timeout: 5))
+    for _ in 0..<4 {
+      let row = app.descendants(matching: .any)
+        .matching(identifier: "packingSheet.itemRow.Fixture item").firstMatch
+      XCTAssertTrue(row.waitForExistence(timeout: 3))
+      row.buttons["Mark packed"].tap()
+      XCTAssertTrue(header.exists, "Checking must keep the packing sheet presented")
+      let checkedRow = app.descendants(matching: .any)
+        .matching(identifier: "packingSheet.itemRow.Fixture item").firstMatch
+      XCTAssertTrue(checkedRow.buttons["Mark not packed"].waitForExistence(timeout: 3))
+      checkedRow.buttons["Mark not packed"].tap()
+      XCTAssertTrue(header.exists, "Unchecking must keep the packing sheet presented")
+    }
+    XCUIDevice.shared.press(.home)
+    XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+    app.activate()
+    XCTAssertTrue(header.waitForExistence(timeout: 5))
+    app.buttons["Close"].tap()
+    XCTAssertTrue(app.staticTexts["Synthetic Packing Trip"].waitForExistence(timeout: 5))
+    app.navigationBars.buttons["Trips"].tap()
+    XCTAssertTrue(app.buttons["New Trip"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Synthetic Packing Trip"].exists, "Trip must remain in the list")
+  }
+
   // MARK: - 4. Repack mode
 
   @MainActor
