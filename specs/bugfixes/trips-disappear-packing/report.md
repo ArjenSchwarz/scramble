@@ -1,7 +1,7 @@
 # Bugfix Report: Trips disappear during packing (T-2459)
 
-**Date:** 2026-10-15
-**Status:** Synthetic deletion defect fixed; baseline UI verification in progress
+**Date:** 2026-10-14
+**Status:** Reproduced sync deletion defect fixed; historical incident unattributed
 
 ## Description of the Issue
 
@@ -119,9 +119,16 @@ fixture and a dedicated empty iOS 27.0 simulator.
   Native summary: **806 passed, 38 failed, 12 skipped, 856 total declarations**.
   All unit suites passed (`785 tests in 93 suites` in Swift Testing's log).
   UI results: 27 passed, 38 failed, nine skipped. The new packing regression passed.
-  A single targeted run of exactly those 38 UI methods is now running against
-  unchanged baseline app source at `0a37052`, with only Makefile test-selector
-  forwarding added. Baseline results pending. No full-suite rerun is planned.
+  A single targeted retry of exactly those 38 methods on unchanged baseline app/test
+  source at `0a37052721da3b5bd0c8a0a99e019ab82511dc8f` failed all 38 again.
+  These UI failures predate this fix. Native retry results completed (38 failures in
+  580.604 seconds); Xcode then stalled in result-bundle finalisation for over three
+  minutes, so only that runner was terminated. The complete native log is retained;
+  its incomplete xcresult is not treated as structured evidence. No full-suite
+  rerun was performed.
+
+See [verification.md](verification.md) for exact failed methods, commands, result
+bundles, and the full/baseline comparison.
 
 Default simulator lookup was ambiguous; an explicit dedicated simulator and
 `-parallel-testing-enabled NO` avoid unrelated cloned-device startup delays.
@@ -140,3 +147,38 @@ No historical trip store, device logs or live cloud data was inspected. The fix
 prevents the reproduced wrong-zone local deletion; it does not establish that any
 particular past trip was deleted, that a matching foreign tombstone occurred, or
 that anything was recovered. The earlier T-1670 reinstall fix is already in the base.
+
+## Prevention
+
+Keep complete CloudKit record IDs through the inbound deletion boundary; never
+substitute bare UUID equality for zone/owner identity. Keep synthetic UI fixture
+store topology aligned with production, and test both preservation and genuine
+deletion so a guard cannot silently disable sync removal.
+
+## Related
+
+- Transit **T-2459**, Scramble.
+- [Draft PR #19](https://github.com/ArjenSchwarz/scramble/pull/19).
+
+## PR Review Dispositions
+
+The automated `claude-review` check passed on the code commit. Its required
+baseline-attribution condition is resolved by the one retry: all 38 failed UI
+methods also failed on unchanged main-source baseline `0a37052`.
+
+The remaining suggestions were reviewed without changing the tested Swift source:
+
+- Missing owner evidence can leave a stale shared trip rather than accepting a
+  tombstone with unproven identity. This conservative preservation is intentional.
+- An orphan child without cached system fields is preserved; the implementation
+  explanation already records this limitation. No orphan repair is claimed.
+- Zone names remain `trip-{UUID}` under `ZoneMigrationCoordinator.zoneName(for:)`.
+  `TripZoneState` stores the trip UUID and owner, not an arbitrary alternate zone
+  name; Stage B relocates between local containers using this canonical name.
+  Accepting a foreign cached zone would undermine this bug's boundary guard.
+- Debug fixture save/date style matches the existing seed conventions. Missing
+  fixture data fails the UI assertions; strict formatting/lint are already clean.
+- Repeated cache decoding is immaterial at the bounded batch size, consistent with
+  the independent efficiency review. No speculative optimization was added.
+- A Makefile comment now makes clear that narrow selectors should use `make test`;
+  `test-ui` / `test-quick` keep their existing broad bundle selectors.

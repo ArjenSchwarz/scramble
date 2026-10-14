@@ -6,7 +6,8 @@ PROJECT = Scramble/Scramble.xcodeproj
 BUNDLE_ID = me.nore.ig.Scramble
 CONFIG ?= Debug
 
-# Optional selectors for focused development runs, e.g. -only-testing:ScrambleUITests/PackingSheetUITests.
+# Use make test with -only-testing for narrow selection. test-quick/test-ui
+# retain their broad bundle selectors; TEST_ARGS also accepts other test options.
 TEST_ARGS ?=
 
 SIMULATOR ?= iPhone 17 Pro
