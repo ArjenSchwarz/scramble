@@ -53,6 +53,8 @@
       /// checkbox toggle, Skip/Restore, manual add, and dimmed-row counting
       /// (including rule-driven items).
       case phase4PackModeTrip = "phase4-pack-mode-trip"
+      /// Synthetic two-store fixture exercising production packing writes.
+      case packingTripStability = "packing-trip-stability"
       /// Phase 4: trip currently on `.dayBeforeReturn` (today == end-1, start
       /// == today-3) with two participants and a mix of packed/repacked/
       /// unpacked/excluded items. Used by repack-mode UI tests covering the
@@ -84,6 +86,10 @@
       guard let fixture = parseFixture(from: arguments) else { return }
       UITestSharingService.reset()
       switch fixture {
+      case .packingTripStability:
+        seedPackingTripStability(
+          globals: globalsContainer.mainContext,
+          trips: tripsLocalContainer.mainContext, today: today, calendar: calendar)
       case .phase5SharedTripOwner,
         .phase5SharedTripParticipant,
         .phase5MigrationStates:
@@ -169,7 +175,7 @@
       case .phase4PackModeTrip,
         .phase4RepackModeTrip:
         seedPhase4(fixture: fixture, in: context, day: day, calendar: calendar)
-      case .phase5SharedTripOwner,
+      case .packingTripStability, .phase5SharedTripOwner,
         .phase5SharedTripParticipant,
         .phase5MigrationStates:
         // Phase 5 fixtures require the dual-container entry point; the
