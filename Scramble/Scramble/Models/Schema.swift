@@ -452,6 +452,6 @@ nonisolated enum AppMigrationPlan: SchemaMigrationPlan {
 // MARK: - Logger
 
 nonisolated let modelLogger = Logger(
-  subsystem: "me.nore.ig.Scramble",
+  subsystem: "me.nore.ig.apps.packing",
   category: "models"
 )

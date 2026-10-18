@@ -5,7 +5,7 @@ import os
 @MainActor
 enum ModelStore {
 
-  nonisolated static let cloudKitContainerIdentifier = "iCloud.me.nore.ig.scramble"
+  nonisolated static let cloudKitContainerIdentifier = "iCloud.me.nore.ig.apps.packing"
 
   /// Phase 5 split (Decision 13). `globals` retains SwiftData's CloudKit
   /// mirror for `Person` / master lists / migration journal; `tripsLocal`

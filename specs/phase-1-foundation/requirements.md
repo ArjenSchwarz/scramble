@@ -47,7 +47,7 @@ Phase 1 establishes the foundation that every later phase of Scramble depends on
 
 **Acceptance Criteria:**
 
-1. <a name="2.1"></a>The production `ModelContainer` SHALL be configured with `cloudKitDatabase: .private("iCloud.me.nore.ig.scramble")`. All Phase 1 entities use the default SwiftData CloudKit zone (per-trip custom zones are deferred to the `CKShare` phase — see `decision_log.md` Decision 9).  
+1. <a name="2.1"></a>The production `ModelContainer` SHALL be configured with `cloudKitDatabase: .private("iCloud.me.nore.ig.apps.packing")`. All Phase 1 entities use the default SwiftData CloudKit zone (per-trip custom zones are deferred to the `CKShare` phase — see `decision_log.md` Decision 9).
 2. <a name="2.2"></a>WHEN the app is running under unit tests, UI tests, or SwiftUI Previews, the system SHALL use an in-memory `ModelContainer` with `cloudKitDatabase: .none`. The mechanism for detecting these contexts is a design decision, but the contract is observable: no CloudKit mirroring is attempted in any of these contexts.  
 3. <a name="2.3"></a>WHEN production container construction fails (missing entitlements, sandbox blocking, or other I/O error), the system SHALL silently fall back to a local-only `ModelContainer` (no CloudKit) at the default location and log the failure. The app SHALL NOT terminate before the first frame and SHALL NOT block the UI on an error screen.  
 4. <a name="2.4"></a>The model container SHALL be exposed as a single shared instance accessible to the SwiftUI view tree via the standard `.modelContainer(_:)` modifier.

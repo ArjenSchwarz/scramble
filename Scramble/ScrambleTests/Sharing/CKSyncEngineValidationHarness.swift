@@ -28,7 +28,7 @@ import Testing
 /// against the development CloudKit container:
 ///
 /// 1. Sign the iOS Simulator (or your device) into an iCloud account that has access
-///    to the development container `iCloud.me.nore.ig.scramble`.
+///    to the development container `iCloud.me.nore.ig.apps.packing`.
 /// 2. ```bash
 ///    SCRAMBLE_CK_HARNESS=1 make test-quick
 ///    ```
@@ -47,7 +47,7 @@ struct CKSyncEngineValidationHarnessSuite {
     "Owner can create zone, upload record, and save zone-wide CKShare via CKSyncEngine"
   )
   func ownerSideLifecycle() async throws {
-    let container = CKContainer(identifier: "iCloud.me.nore.ig.scramble")
+    let container = CKContainer(identifier: ModelStore.cloudKitContainerIdentifier)
 
     let accountStatus = try await container.accountStatus()
     try #require(

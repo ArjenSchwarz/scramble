@@ -85,7 +85,7 @@ The probe is injectable; `ModelStore.configuration(probe:)` is `nonisolated` so 
 | UI test host | launch arguments contain `-uitest` followed by `"1"` |
 | SwiftUI Previews | `environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"` |
 
-The first three branches return `isStoredInMemoryOnly: true, cloudKitDatabase: .none`. The fallthrough returns `cloudKitDatabase: .private("iCloud.me.nore.ig.scramble")`.
+The first three branches return `isStoredInMemoryOnly: true, cloudKitDatabase: .none`. The fallthrough returns `cloudKitDatabase: .private("iCloud.me.nore.ig.apps.packing")`.
 
 `ModelStore.shared` tries CloudKit; on throw, logs via `os_log(.error)` with the `[ModelStore.fallback]` marker and constructs a local-only fallback. If the fallback also throws, `fatalError`. The container is `@MainActor static let` (one-time evaluation at first access).
 
