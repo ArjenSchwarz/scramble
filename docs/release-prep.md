@@ -4,10 +4,12 @@ Pre-release work that has to land before any TestFlight or App Store
 submission. Items here are not enforceable from CI — keep them honest
 by walking the list every time.
 
+For the developer-account namespace change, see [account-migration.md](account-migration.md).
+
 ## CloudKit
 
 - [ ] **Promote the CloudKit schema from Development to Production.**
-  Open the CloudKit Dashboard for container `iCloud.me.nore.ig.scramble`
+  Open the CloudKit Dashboard for container `iCloud.me.nore.ig.apps.packing`
   and promote every new record type and zone topology introduced by
   `SchemaV3` (Phase 5 — Req
   [13.1](../specs/phase-5-cloudkit-sharing/requirements.md#13.1) /

@@ -32,7 +32,7 @@ Two SwiftData containers, both `@MainActor`-mounted at app start:
 
 | Container | `cloudKitDatabase` | Holds |
 |---|---|---|
-| `globals` | `.private("iCloud.me.nore.ig.scramble")` | `Person`, `MasterTaskItem`, `MasterPackingItem`, `MigrationJournalEntry` |
+| `globals` | `.private("iCloud.me.nore.ig.apps.packing")` | `Person`, `MasterTaskItem`, `MasterPackingItem`, `MigrationJournalEntry` |
 | `tripsLocal` | `.none` | `Trip`, `TripTask`, `TripPackingItem`, `TripPersonSnapshot`, `TripZoneState` |
 
 `globals` continues to use SwiftData's CloudKit mirror — no sharing, just per-user private sync. `tripsLocal` is the local cache for everything sharable; cloud sync is driven by `TripSyncEngine` (below), not by SwiftData's mirror.

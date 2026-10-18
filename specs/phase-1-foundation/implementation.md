@@ -78,7 +78,7 @@ configuration to use:
   UI-test host (`-uitest 1` launch arg), or SwiftUI Previews
   (`XCODE_RUNNING_FOR_PREVIEWS=1`) → in-memory container with
   `cloudKitDatabase: .none`.
-- Production → CloudKit `.private("iCloud.me.nore.ig.scramble")`. If that
+- Production → CloudKit `.private("iCloud.me.nore.ig.apps.packing")`. If that
   throws, fall back to local-only at the default location and `os_log` the
   failure with a `[ModelStore.fallback]` marker.
 
@@ -275,7 +275,7 @@ Each requirement (1.1–10.3) mapped to its implementation. Status legend:
 
 | AC | Status | Notes |
 |---|---|---|
-| 2.1 | ✅ | `cloudKitDatabase: .private("iCloud.me.nore.ig.scramble")` in production. |
+| 2.1 | ✅ | `cloudKitDatabase: .private("iCloud.me.nore.ig.apps.packing")` in production. |
 | 2.2 | ✅ | `EnvironmentProbe` branches to `.none` for tests, UI test host, and Previews. `ModelStoreEnvironmentTests` cover each branch; `AppLaunchUITests.testLaunchUsesInMemoryContainer` covers the host-app side. |
 | 2.3 | ✅ | CloudKit construction wrapped in `do { try } catch { ... fall through to local-only }` with `os_log(.error)` `[ModelStore.fallback]` marker. Local fallback `fatalError`s only if it too throws. |
 | 2.4 | ✅ | Injected via `.modelContainer(ModelStore.shared)` in `ScrambleApp.body`. |

@@ -98,7 +98,7 @@ references:
   - ModelStore.shared is @MainActor static let; production tries CloudKit .private then silently falls back to local-only on throw, logging via os_log(.error) with a distinctive marker string.
   - Detection: XCTestConfigurationFilePath env var, -uitest 1 arg, XCODE_RUNNING_FOR_PREVIEWS env var.
   - Three branches return in-memory container (cloudKitDatabase:.none) per design.md.
-  - Production CloudKit container uses .private('iCloud.me.nore.ig.scramble') with SchemaV1 + AppMigrationPlan.
+  - Production CloudKit container uses .private('iCloud.me.nore.ig.apps.packing') with SchemaV1 + AppMigrationPlan.
   - Local fallback uses default location, .none database; if local fallback also throws → fatalError.
   - Blocked-by: 1n8gan9 (Tests: ModelStore EnvironmentProbe selector branches)
   - Stream: 1

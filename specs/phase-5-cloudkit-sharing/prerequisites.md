@@ -4,7 +4,7 @@ These tasks must be completed by the user before or during implementation.
 
 ## Before Starting
 
-- [ ] Verify the Xcode project has the iCloud capability enabled with the CloudKit service ticked and the container `iCloud.me.nore.ig.scramble` selected (already required since Phase 1; confirm it is still configured)
+- [ ] Verify the Xcode project has the iCloud capability enabled with the CloudKit service ticked and the container `iCloud.me.nore.ig.apps.packing` selected (already required since Phase 1; confirm it is still configured)
 - [ ] Verify the Xcode project has the Push Notifications capability enabled (required for silent CKSyncEngine push delivery)
 - [ ] Verify the Xcode project has the Background Modes capability enabled with the "Remote notifications" mode ticked
 - [ ] Confirm the Apple Developer Provisioning Profile for the app includes the `aps-environment` entitlement (development for debug builds, production for TestFlight/App Store)

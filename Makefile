@@ -3,7 +3,7 @@ SHELL = /bin/bash
 
 SCHEME = Scramble
 PROJECT = Scramble/Scramble.xcodeproj
-BUNDLE_ID = me.nore.ig.Scramble
+BUNDLE_ID = me.nore.ig.apps.packing
 CONFIG ?= Debug
 
 # Use make test with -only-testing for narrow selection. test-quick/test-ui

@@ -45,7 +45,7 @@ struct ModelStoreEnvironmentTests {
     let probe = EnvironmentProbe(environment: [:], arguments: [])
     let config = ModelStore.configuration(probe: probe)
     #expect(config.isStoredInMemoryOnly == false)
-    #expect(config.cloudKitContainerIdentifier == "iCloud.me.nore.ig.scramble")
+    #expect(config.cloudKitContainerIdentifier == "iCloud.me.nore.ig.apps.packing")
   }
 
   @Test("Probe branches: isTest")
@@ -166,7 +166,7 @@ struct ModelStoreEnvironmentTests {
     let probe = EnvironmentProbe(environment: [:], arguments: [])
     let config = ModelStore.globalsConfiguration(probe: probe)
     #expect(config.isStoredInMemoryOnly == false)
-    #expect(config.cloudKitContainerIdentifier == "iCloud.me.nore.ig.scramble")
+    #expect(config.cloudKitContainerIdentifier == "iCloud.me.nore.ig.apps.packing")
   }
 
   @Test("TripsLocal config: unit-test env → in-memory, no CloudKit")

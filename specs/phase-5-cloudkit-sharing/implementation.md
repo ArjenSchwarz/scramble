@@ -32,7 +32,7 @@ Phase 5 began with a plan to mount one `ModelContainer` per trip zone (Decision 
 
 `ModelStore.makeContainers(probe:)` (Scramble/Scramble/Persistence/ModelStore.swift:73) returns two `ModelContainer`s:
 
-- **`globals`** — `cloudKitDatabase: .private("iCloud.me.nore.ig.scramble")`. Holds `Person`, `MasterTaskItem`, `MasterPackingItem`, and `MigrationJournalEntry`. Continues to use SwiftData's CloudKit mirror — never participates in any share.
+- **`globals`** — `cloudKitDatabase: .private("iCloud.me.nore.ig.apps.packing")`. Holds `Person`, `MasterTaskItem`, `MasterPackingItem`, and `MigrationJournalEntry`. Continues to use SwiftData's CloudKit mirror — never participates in any share.
 - **`tripsLocal`** — `cloudKitDatabase: .none`, stored separately at `~/Library/Application Support/Scramble/TripsLocal.store`. Holds `Trip`, `TripTask`, `TripPackingItem`, `TripPersonSnapshot`, `TripZoneState`. Sync is driven by `TripSyncEngine`, not SwiftData.
 
 Both containers use `SchemaV3` (Scramble/Scramble/Models/Schema.swift:89). The deprecated V2 relationships (`Trip.participants → Person`, `TripPackingItem.person → Person`) are kept until V4 cleanup; new V3 fields (`participantSnapshots`, `tripZoneID`, `personSnapshot`, plus `ckRecordSystemFields` on the three trip-zone entities) are additive.
